@@ -1,0 +1,33 @@
+Here’s a prompt in English that you can use to generate a **feature comparison table** for your software pricing plans (Basic, Advanced, Premium) in Replit, with Advanced recommended and your specified prices. This prompt will help you get a visually appealing and structured table for your client presentation:
+
+**Prompt for Replit (or any AI/markdown generator):**
+
+---
+Create a feature comparison table for my software showing three pricing plans: Basic, Advanced, and Premium.
+
+- The table should include at least 6-8 key features (can be placeholders if specific features are not listed) and indicate which features are available in each plan.
+- Add the following pricing under each plan:
+    - Basic: ₹1,78,500
+    - Advanced: ₹3,16,500
+    - Premium: ₹3,88,500
+- Visually highlight or recommend the Advanced plan, making it stand out as the best value or most popular option.
+- Present the table in a professional, modern style suitable for client presentations.
+
+**Example feature comparison structure:**
+
+| Features                  | Basic        | Advanced (Recommended) | Premium      |
+|---------------------------|--------------|------------------------|--------------|
+| Core functionality        | ✔️           | ✔️                     | ✔️           |
+| User limit                | 10 users     | 50 users               | Unlimited    |
+| Email support             | ✔️           | ✔️                     | ✔️           |
+| Advanced analytics        | ❌           | ✔️                     | ✔️           |
+| Custom integrations       | ❌           | ✔️                     | ✔️           |
+| Priority support          | ❌           | ✔️                     | ✔️           |
+| SLA guarantee             | ❌           | ✔️                     | ✔️           |
+| Price (INR)               | ₹1,78,500    | **₹3,16,500**          | ₹3,88,500    |
+
+- Make the Advanced plan column visually stand out or add a badge/label like “Recommended”.
+
+**Copy and paste this prompt in Replit to get a ready-to-use table for your client.**
+
+If you want the prompt in Hindi or want to add more detailed features, let me know!
