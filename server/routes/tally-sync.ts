@@ -77,6 +77,114 @@ const tallyConfig = {
   dataTypes: ["ledgers", "vouchers", "stock", "payments"]
 };
 
+// Helper function to parse companies from Tally XML response
+function parseCompaniesFromXml(xmlData: string) {
+  const companies = [];
+  try {
+    // Simple regex-based parsing for XML (in production, use proper XML parser)
+    const companyMatches = xmlData.match(/<COMPANY[^>]*>([\s\S]*?)<\/COMPANY>/g);
+    
+    if (companyMatches) {
+      for (const companyMatch of companyMatches) {
+        const nameMatch = companyMatch.match(/<NAME[^>]*>([\s\S]*?)<\/NAME>/);
+        const guidMatch = companyMatch.match(/<GUID[^>]*>([\s\S]*?)<\/GUID>/);
+        const startDateMatch = companyMatch.match(/<STARTINGFROM[^>]*>([\s\S]*?)<\/STARTINGFROM>/);
+        const endDateMatch = companyMatch.match(/<ENDINGAT[^>]*>([\s\S]*?)<\/ENDINGAT>/);
+        
+        if (nameMatch) {
+          companies.push({
+            name: nameMatch[1].trim(),
+            guid: guidMatch ? guidMatch[1].trim() : `guid-${Date.now()}-${Math.random()}`,
+            startDate: startDateMatch ? startDateMatch[1].trim() : '01-Apr-2024',
+            endDate: endDateMatch ? endDateMatch[1].trim() : '31-Mar-2025'
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error parsing companies XML:', error);
+  }
+  return companies;
+}
+
+// Helper function to parse ledgers from Tally XML response
+function parseLedgersFromXml(xmlData: string) {
+  const ledgers = [];
+  try {
+    const ledgerMatches = xmlData.match(/<LEDGER[^>]*>([\s\S]*?)<\/LEDGER>/g);
+    
+    if (ledgerMatches) {
+      for (const ledgerMatch of ledgerMatches) {
+        const nameMatch = ledgerMatch.match(/<NAME[^>]*>([\s\S]*?)<\/NAME>/);
+        const guidMatch = ledgerMatch.match(/<GUID[^>]*>([\s\S]*?)<\/GUID>/);
+        const parentMatch = ledgerMatch.match(/<PARENT[^>]*>([\s\S]*?)<\/PARENT>/);
+        const openingBalanceMatch = ledgerMatch.match(/<OPENINGBALANCE[^>]*>([\s\S]*?)<\/OPENINGBALANCE>/);
+        
+        if (nameMatch) {
+          const name = nameMatch[1].trim();
+          const parent = parentMatch ? parentMatch[1].trim() : '';
+          
+          // Filter for party ledgers (typically under Sundry Debtors/Creditors)
+          if (parent.includes('Sundry Debtors') || parent.includes('Sundry Creditors') || 
+              parent.includes('Trade Receivables') || parent.includes('Trade Payables')) {
+            ledgers.push({
+              name: name,
+              guid: guidMatch ? guidMatch[1].trim() : `guid-${Date.now()}-${Math.random()}`,
+              parent: parent,
+              openingBalance: openingBalanceMatch ? parseFloat(openingBalanceMatch[1].replace(/[^\d.-]/g, '')) || 0 : 0,
+              type: parent.includes('Debtors') || parent.includes('Receivables') ? 'CLIENT' : 'SUPPLIER'
+            });
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error parsing ledgers XML:', error);
+  }
+  return ledgers;
+}
+
+// Helper function to parse vouchers from Tally XML response
+function parseVouchersFromXml(xmlData: string) {
+  const vouchers = [];
+  try {
+    const voucherMatches = xmlData.match(/<VOUCHER[^>]*>([\s\S]*?)<\/VOUCHER>/g);
+    
+    if (voucherMatches) {
+      for (const voucherMatch of voucherMatches) {
+        const voucherNumberMatch = voucherMatch.match(/<VOUCHERNUMBER[^>]*>([\s\S]*?)<\/VOUCHERNUMBER>/);
+        const voucherTypeMatch = voucherMatch.match(/<VOUCHERTYPE[^>]*>([\s\S]*?)<\/VOUCHERTYPE>/);
+        const dateMatch = voucherMatch.match(/<DATE[^>]*>([\s\S]*?)<\/DATE>/);
+        const amountMatch = voucherMatch.match(/<AMOUNT[^>]*>([\s\S]*?)<\/AMOUNT>/);
+        const partyNameMatch = voucherMatch.match(/<PARTYLEDGERNAME[^>]*>([\s\S]*?)<\/PARTYLEDGERNAME>/);
+        const narrativeMatch = voucherMatch.match(/<NARRATION[^>]*>([\s\S]*?)<\/NARRATION>/);
+        
+        if (voucherNumberMatch && voucherTypeMatch) {
+          const voucherType = voucherTypeMatch[1].trim();
+          const amount = amountMatch ? parseFloat(amountMatch[1].replace(/[^\d.-]/g, '')) || 0 : 0;
+          
+          // Filter for payment/receipt vouchers
+          if (voucherType.includes('Payment') || voucherType.includes('Receipt') || 
+              voucherType.includes('Sales') || voucherType.includes('Purchase')) {
+            vouchers.push({
+              voucherNumber: voucherNumberMatch[1].trim(),
+              voucherType: voucherType,
+              date: dateMatch ? dateMatch[1].trim() : '',
+              amount: Math.abs(amount),
+              partyName: partyNameMatch ? partyNameMatch[1].trim() : '',
+              narration: narrativeMatch ? narrativeMatch[1].trim() : '',
+              type: voucherType.includes('Receipt') || voucherType.includes('Sales') ? 'RECEIPT' : 'PAYMENT'
+            });
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error parsing vouchers XML:', error);
+  }
+  return vouchers;
+}
+
 export function createTallySyncRoutes(storage: IStorage) {
   // Health check endpoint
   router.get('/health', (req, res) => {
@@ -108,16 +216,48 @@ export function createTallySyncRoutes(storage: IStorage) {
   router.post('/test-connection', async (req, res) => {
     try {
       const { url } = req.body;
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const tallyUrl = url || 'http://localhost:9000';
       
-      const isReachable = url && url.includes("9000");
-      if (isReachable) {
-        res.json({ success: true, message: "Connection successful" });
+      // Send XML request to test Tally Gateway connection
+      const testXml = `<ENVELOPE>
+        <HEADER>
+          <TALLYREQUEST>Import Data</TALLYREQUEST>
+        </HEADER>
+        <BODY>
+          <IMPORTDATA>
+            <REQUESTDESC>
+              <REPORTNAME>List of Companies</REPORTNAME>
+            </REQUESTDESC>
+          </IMPORTDATA>
+        </BODY>
+      </ENVELOPE>`;
+
+      const response = await fetch(tallyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/xml',
+          'Accept': 'application/xml'
+        },
+        body: testXml,
+        signal: AbortSignal.timeout(5000)
+      });
+
+      if (response.ok) {
+        const xmlData = await response.text();
+        if (xmlData.includes('COMPANY') || xmlData.includes('TALLYMESSAGE')) {
+          res.json({ success: true, message: "Tally Gateway connection successful" });
+        } else {
+          res.status(400).json({ success: false, message: "Tally Gateway responded but no companies found" });
+        }
       } else {
-        res.status(400).json({ success: false, message: "Cannot reach Tally Gateway" });
+        res.status(400).json({ success: false, message: `Tally Gateway returned ${response.status}` });
       }
     } catch (error) {
-      res.status(500).json({ success: false, message: "Connection test failed" });
+      console.error('Tally connection test error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: `Cannot reach Tally Gateway: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
     }
   });
 
@@ -137,17 +277,182 @@ export function createTallySyncRoutes(storage: IStorage) {
     }
   });
 
-  // Get available companies
+  // Get available companies from Tally
   router.get('/companies', async (req, res) => {
     try {
-      const companies = [
-        { name: "ABC Private Limited", guid: "abc-123-guid", startDate: "01-Apr-2024", endDate: "31-Mar-2025" },
-        { name: "XYZ Industries", guid: "xyz-456-guid", startDate: "01-Apr-2024", endDate: "31-Mar-2025" },
-        { name: "Sample Company", guid: "sample-789-guid", startDate: "01-Apr-2024", endDate: "31-Mar-2025" }
-      ];
-      res.json(companies);
+      const tallyUrl = tallyConfig.tallyUrl || 'http://localhost:9000';
+      
+      // XML request to get list of companies from Tally
+      const companiesXml = `<ENVELOPE>
+        <HEADER>
+          <TALLYREQUEST>Import Data</TALLYREQUEST>
+        </HEADER>
+        <BODY>
+          <IMPORTDATA>
+            <REQUESTDESC>
+              <REPORTNAME>List of Companies</REPORTNAME>
+            </REQUESTDESC>
+          </IMPORTDATA>
+        </BODY>
+      </ENVELOPE>`;
+
+      const response = await fetch(tallyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/xml',
+          'Accept': 'application/xml'
+        },
+        body: companiesXml,
+        signal: AbortSignal.timeout(10000)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Tally Gateway returned ${response.status}`);
+      }
+
+      const xmlData = await response.text();
+      
+      // Parse XML response to extract company information
+      const companies = parseCompaniesFromXml(xmlData);
+      
+      if (companies.length === 0) {
+        // Fallback with informative message
+        res.json([]);
+      } else {
+        res.json(companies);
+      }
     } catch (error) {
-      res.status(500).json({ success: false, message: "Failed to fetch companies" });
+      console.error('Failed to fetch companies from Tally:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: `Failed to fetch companies from Tally: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
+    }
+  });
+
+  // Get ledgers from specific company
+  router.get('/ledgers/:company', async (req, res) => {
+    try {
+      const companyName = req.params.company;
+      const tallyUrl = tallyConfig.tallyUrl || 'http://localhost:9000';
+      
+      // XML request to get ledgers from specific Tally company
+      const ledgersXml = `<ENVELOPE>
+        <HEADER>
+          <TALLYREQUEST>Import Data</TALLYREQUEST>
+        </HEADER>
+        <BODY>
+          <IMPORTDATA>
+            <REQUESTDESC>
+              <REPORTNAME>List of Accounts</REPORTNAME>
+              <STATICVARIABLES>
+                <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
+              </STATICVARIABLES>
+            </REQUESTDESC>
+          </IMPORTDATA>
+        </BODY>
+      </ENVELOPE>`;
+
+      const companyUrl = `${tallyUrl}?Company=${encodeURIComponent(companyName)}`;
+      
+      const response = await fetch(companyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/xml',
+          'Accept': 'application/xml'
+        },
+        body: ledgersXml,
+        signal: AbortSignal.timeout(15000)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Tally Gateway returned ${response.status}`);
+      }
+
+      const xmlData = await response.text();
+      console.log('Tally XML Response:', xmlData.substring(0, 500)); // Log first 500 chars for debugging
+      
+      // Parse XML response to extract ledger information
+      const ledgers = parseLedgersFromXml(xmlData);
+      
+      res.json({
+        success: true,
+        company: companyName,
+        ledgers: ledgers,
+        total: ledgers.length
+      });
+    } catch (error) {
+      console.error('Failed to fetch ledgers from Tally:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: `Failed to fetch ledgers: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
+    }
+  });
+
+  // Get vouchers (payments/receipts) from specific company
+  router.get('/vouchers/:company', async (req, res) => {
+    try {
+      const companyName = req.params.company;
+      const tallyUrl = tallyConfig.tallyUrl || 'http://localhost:9000';
+      const fromDate = req.query.fromDate || '01-Apr-2024';
+      const toDate = req.query.toDate || '31-Mar-2025';
+      
+      // XML request to get vouchers from specific Tally company
+      const vouchersXml = `<ENVELOPE>
+        <HEADER>
+          <TALLYREQUEST>Import Data</TALLYREQUEST>
+        </HEADER>
+        <BODY>
+          <IMPORTDATA>
+            <REQUESTDESC>
+              <REPORTNAME>Daybook</REPORTNAME>
+              <STATICVARIABLES>
+                <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
+                <SVFROMDATE>${fromDate}</SVFROMDATE>
+                <SVTODATE>${toDate}</SVTODATE>
+              </STATICVARIABLES>
+            </REQUESTDESC>
+          </IMPORTDATA>
+        </BODY>
+      </ENVELOPE>`;
+
+      const companyUrl = `${tallyUrl}?Company=${encodeURIComponent(companyName)}`;
+      
+      const response = await fetch(companyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/xml',
+          'Accept': 'application/xml'
+        },
+        body: vouchersXml,
+        signal: AbortSignal.timeout(20000)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Tally Gateway returned ${response.status}`);
+      }
+
+      const xmlData = await response.text();
+      console.log('Tally Vouchers XML Response:', xmlData.substring(0, 500)); // Log first 500 chars for debugging
+      
+      // Parse XML response to extract voucher information
+      const vouchers = parseVouchersFromXml(xmlData);
+      
+      res.json({
+        success: true,
+        company: companyName,
+        vouchers: vouchers,
+        total: vouchers.length,
+        fromDate: fromDate,
+        toDate: toDate
+      });
+    } catch (error) {
+      console.error('Failed to fetch vouchers from Tally:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: `Failed to fetch vouchers: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
     }
   });
 
@@ -263,6 +568,141 @@ export function createTallySyncRoutes(storage: IStorage) {
       res.json({ success: true, message: "Manual sync started", dataTypes });
     } catch (error) {
       res.status(500).json({ success: false, message: "Failed to start manual sync" });
+    }
+  });
+
+  // Real-time data sync from Tally to database
+  router.post('/sync/real-data/:company', async (req, res) => {
+    try {
+      const companyName = req.params.company;
+      const { dataTypes = ['ledgers', 'vouchers'] } = req.body;
+      
+      const results = {
+        company: companyName,
+        processed: 0,
+        created: 0,
+        updated: 0,
+        errors: 0,
+        details: []
+      };
+
+      // Sync ledgers (clients) if requested
+      if (dataTypes.includes('ledgers')) {
+        try {
+          const ledgersResponse = await fetch(`http://localhost:5000/api/tally-sync/ledgers/${encodeURIComponent(companyName)}`);
+          if (ledgersResponse.ok) {
+            const ledgersData = await ledgersResponse.json();
+            
+            for (const ledger of ledgersData.ledgers) {
+              try {
+                // Check if client already exists
+                const existingClients = await storage.getClients();
+                const existingClient = existingClients.find(c => c.name === ledger.name);
+                
+                if (existingClient) {
+                  // Update existing client
+                  await storage.updateClient(existingClient.id, {
+                    name: ledger.name,
+                    category: ledger.type === 'CLIENT' ? 'ALFA' : 'BETA',
+                    phone: '',
+                    email: '',
+                    address: '',
+                    contactPerson: '',
+                    creditLimit: ledger.openingBalance?.toString() || null,
+                    tallyGuid: ledger.guid,
+                    lastSynced: new Date()
+                  });
+                  results.updated++;
+                } else {
+                  // Create new client
+                  await storage.createClient({
+                    name: ledger.name,
+                    category: ledger.type === 'CLIENT' ? 'ALFA' : 'BETA', 
+                    phone: '',
+                    email: '',
+                    address: '',
+                    contactPerson: '',
+                    creditLimit: ledger.openingBalance?.toString() || null,
+                    tallyGuid: ledger.guid,
+                    lastSynced: new Date()
+                  });
+                  results.created++;
+                }
+                results.processed++;
+              } catch (error) {
+                results.errors++;
+                results.details.push(`Error syncing ledger ${ledger.name}: ${error}`);
+              }
+            }
+          }
+        } catch (error) {
+          results.details.push(`Error fetching ledgers: ${error}`);
+        }
+      }
+
+      // Sync vouchers (payments) if requested  
+      if (dataTypes.includes('vouchers')) {
+        try {
+          const vouchersResponse = await fetch(`http://localhost:5000/api/tally-sync/vouchers/${encodeURIComponent(companyName)}`);
+          if (vouchersResponse.ok) {
+            const vouchersData = await vouchersResponse.json();
+            
+            for (const voucher of vouchersData.vouchers) {
+              try {
+                // Find matching client by party name
+                const clients = await storage.getClients();
+                const matchingClient = clients.find(c => c.name === voucher.partyName);
+                
+                if (matchingClient && voucher.amount > 0) {
+                  // Check if payment already exists
+                  const existingPayments = await storage.getPayments();
+                  const existingPayment = existingPayments.find(p => 
+                    p.voucherNumber === voucher.voucherNumber && p.clientId === matchingClient.id
+                  );
+                  
+                  if (!existingPayment) {
+                    // Create new payment
+                    await storage.createPayment({
+                      clientId: matchingClient.id,
+                      amount: voucher.amount.toString(),
+                      dueDate: new Date(voucher.date || Date.now()),
+                      status: voucher.type === 'RECEIPT' ? 'PAID' : 'PENDING',
+                      notes: voucher.narration || `${voucher.voucherType} - ${voucher.voucherNumber}`,
+                      voucherNumber: voucher.voucherNumber,
+                      voucherType: voucher.voucherType,
+                      tallyGuid: `${voucher.voucherNumber}-${companyName}`,
+                      lastSynced: new Date()
+                    });
+                    results.created++;
+                  }
+                  results.processed++;
+                }
+              } catch (error) {
+                results.errors++;
+                results.details.push(`Error syncing voucher ${voucher.voucherNumber}: ${error}`);
+              }
+            }
+          }
+        } catch (error) {
+          results.details.push(`Error fetching vouchers: ${error}`);
+        }
+      }
+
+      syncStatus.status = "success";
+      syncStatus.syncedRecords = results.processed;
+      syncStatus.lastSync = new Date().toISOString() as any;
+
+      res.json({
+        success: true,
+        message: `Synced ${results.processed} records from ${companyName}`,
+        results
+      });
+    } catch (error) {
+      console.error('Real data sync error:', error);
+      res.status(500).json({
+        success: false,
+        message: `Failed to sync real data: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
     }
   });
 
