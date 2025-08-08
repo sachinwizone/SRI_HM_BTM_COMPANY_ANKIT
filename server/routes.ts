@@ -7,7 +7,7 @@ import {
   insertCreditAgreementSchema, insertPurchaseOrderSchema
 } from "@shared/schema";
 import { z } from "zod";
-import { createTallySyncRoutes } from "./routes/tally-sync";
+import { createTallySyncRoutes } from "./routes/tally-sync-simple";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard API
