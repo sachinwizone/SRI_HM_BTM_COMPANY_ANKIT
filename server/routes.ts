@@ -7,6 +7,7 @@ import {
   insertCreditAgreementSchema, insertPurchaseOrderSchema
 } from "@shared/schema";
 import { z } from "zod";
+import { createTallySyncRoutes } from "./routes/tally-sync";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard API
@@ -475,6 +476,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to create sales rate" });
     }
   });
+
+  // Tally Sync API Routes
+  app.use('/api/tally-sync', createTallySyncRoutes(storage));
 
   const httpServer = createServer(app);
   return httpServer;

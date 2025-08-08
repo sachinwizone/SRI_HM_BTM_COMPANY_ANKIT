@@ -20,6 +20,7 @@ export interface IStorage {
   // Clients
   getClient(id: string): Promise<Client | undefined>;
   getAllClients(): Promise<Client[]>;
+  getClients(): Promise<Client[]>; // Alias for Tally sync compatibility
   getClientsByCategory(category: string): Promise<Client[]>;
   createClient(client: InsertClient): Promise<Client>;
   updateClient(id: string, client: Partial<InsertClient>): Promise<Client>;
@@ -27,6 +28,7 @@ export interface IStorage {
   // Orders
   getOrder(id: string): Promise<Order | undefined>;
   getAllOrders(): Promise<Order[]>;
+  getOrders(): Promise<Order[]>; // Alias for Tally sync compatibility
   getOrdersByClient(clientId: string): Promise<Order[]>;
   getOrdersBySalesPerson(salesPersonId: string): Promise<Order[]>;
   createOrder(order: InsertOrder): Promise<Order>;
@@ -48,6 +50,7 @@ export interface IStorage {
   // Payments
   getPayment(id: string): Promise<Payment | undefined>;
   getAllPayments(): Promise<Payment[]>;
+  getPayments(): Promise<Payment[]>; // Alias for Tally sync compatibility
   getPaymentsByClient(clientId: string): Promise<Payment[]>;
   getOverduePayments(): Promise<Payment[]>;
   getPaymentsDueSoon(days: number): Promise<Payment[]>;
@@ -129,6 +132,10 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(clients).orderBy(asc(clients.name));
   }
 
+  async getClients(): Promise<Client[]> {
+    return this.getAllClients();
+  }
+
   async getClientsByCategory(category: string): Promise<Client[]> {
     return await db.select().from(clients).where(eq(clients.category, category as any)).orderBy(asc(clients.name));
   }
@@ -151,6 +158,10 @@ export class DatabaseStorage implements IStorage {
 
   async getAllOrders(): Promise<Order[]> {
     return await db.select().from(orders).orderBy(desc(orders.createdAt));
+  }
+
+  async getOrders(): Promise<Order[]> {
+    return this.getAllOrders();
   }
 
   async getOrdersByClient(clientId: string): Promise<Order[]> {
@@ -225,6 +236,10 @@ export class DatabaseStorage implements IStorage {
 
   async getAllPayments(): Promise<Payment[]> {
     return await db.select().from(payments).orderBy(desc(payments.createdAt));
+  }
+
+  async getPayments(): Promise<Payment[]> {
+    return this.getAllPayments();
   }
 
   async getPaymentsByClient(clientId: string): Promise<Payment[]> {

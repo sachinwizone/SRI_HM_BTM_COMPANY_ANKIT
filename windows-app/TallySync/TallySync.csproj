@@ -6,7 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <ApplicationIcon>icon.ico</ApplicationIcon>
+    <!-- <ApplicationIcon>icon.ico</ApplicationIcon> -->
     <AssemblyTitle>Tally Sync Service</AssemblyTitle>
     <AssemblyDescription>Real-time data synchronization between Tally and BizFlow Pro</AssemblyDescription>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
@@ -18,9 +18,11 @@
     <PackageReference Include="System.Data.SqlClient" Version="4.8.5" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
-    <PackageReference Include="System.ServiceModel" Version="6.0.0" />
+    <!-- <PackageReference Include="System.ServiceModel" Version="6.0.0" /> -->
   </ItemGroup>
 
+  <!-- Settings files not needed for this implementation -->
+  <!--
   <ItemGroup>
     <Compile Update="Properties\Settings.Designer.cs">
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
@@ -35,5 +37,6 @@
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
   </ItemGroup>
+  -->
 
 </Project>

@@ -4,6 +4,10 @@
 
 This is a full-stack business management system built with React (frontend) and Express.js (backend). The application provides comprehensive tools for managing clients, orders, payments, tasks, and sales operations. It features a modern dashboard interface with real-time data visualization and workflow management capabilities for business operations.
 
+### Tally ERP Integration
+
+The system now includes complete Tally ERP integration capabilities through a dedicated Windows desktop application (TallySync). This integration allows for real-time and scheduled synchronization of accounting data between Tally ERP and the web application without requiring static IP addresses or complex network configurations.
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -35,15 +39,22 @@ Preferred communication style: Simple, everyday language.
 ### Data Models
 The system manages several core entities:
 - Users with role-based access (Admin, Sales Manager, Sales Executive, Operations)
-- Clients with category classification (ALFA, BETA, GAMMA, DELTA)
-- Orders with complete workflow status tracking
-- Payment management with status tracking and due date monitoring
+- Clients with category classification (ALFA, BETA, GAMMA, DELTA) + Tally sync fields
+- Orders with complete workflow status tracking + Tally sync fields
+- Payment management with status tracking and due date monitoring + Tally sync fields
 - Task management supporting both one-time and recurring tasks
 - E-way bills for shipment compliance
 - Credit agreements with terms and limits
 - Purchase orders linked to client orders
 - Sales rate tracking for performance metrics
 - Client tracking for shipment status updates
+
+### Tally Integration Architecture
+- **Windows Desktop App**: TallySync.exe for local Tally connectivity
+- **Tally Gateway**: Port 9000 for XML-based communication
+- **API Endpoints**: `/api/tally-sync/*` for data synchronization
+- **Sync Fields**: tallyGuid and lastSynced added to core entities
+- **Conflict Resolution**: GUID-based record matching and updates
 
 ### Authentication & Authorization
 - Role-based user management system
@@ -75,6 +86,13 @@ The system manages several core entities:
 - **TypeScript**: Static type checking and enhanced developer experience
 - **ESBuild**: Fast bundling for production builds
 - **PostCSS**: CSS processing with Tailwindcss and Autoprefixer
+
+### Windows Application Stack
+- **.NET 8.0**: Windows Forms application framework
+- **System Tray Integration**: Background service capabilities
+- **HTTP Client**: RESTful API communication
+- **XML Processing**: Tally ERP data parsing
+- **Configuration Management**: Local settings and credentials storage
 
 ### Form & Validation
 - **React Hook Form**: Performant forms with minimal re-renders
