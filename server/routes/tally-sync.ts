@@ -60,7 +60,7 @@ const TallyProductSchema = z.object({
 const connectedClients = new Map();
 const syncStatus = {
   isConnected: false,
-  lastSync: null,
+  lastSync: null as Date | null,
   totalRecords: 0,
   syncedRecords: 0,
   errors: 0,
@@ -459,6 +459,17 @@ export function createTallySyncRoutes(storage: IStorage) {
     }
   });
 
+  // Test web API connection for Windows app 
+  router.post('/test-web-connection', (req, res) => {
+    res.json({
+      success: true,
+      message: "✓ Connected",
+      timestamp: new Date().toISOString(),
+      status: "healthy",
+      version: "1.0.0"
+    });
+  });
+
   // Register Tally client
   router.post('/register', async (req, res) => {
     try {
@@ -599,7 +610,7 @@ export function createTallySyncRoutes(storage: IStorage) {
       setTimeout(() => {
         syncStatus.status = "success";
         syncStatus.syncedRecords = 100;
-        syncStatus.lastSync = new Date().toISOString() as any;
+        syncStatus.lastSync = new Date();
       }, 3000);
       
       res.json({ success: true, message: "Manual sync started", dataTypes });
@@ -668,12 +679,12 @@ export function createTallySyncRoutes(storage: IStorage) {
                 results.processed++;
               } catch (error) {
                 results.errors++;
-                results.details.push(`Error syncing ledger ${ledger.name}: ${error}`);
+                results.details.push(`Error syncing ledger ${ledger.name}: ${error instanceof Error ? error.message : String(error)}`);
               }
             }
           }
         } catch (error) {
-          results.details.push(`Error fetching ledgers: ${error}`);
+          results.details.push(`Error fetching ledgers: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
 
@@ -716,18 +727,18 @@ export function createTallySyncRoutes(storage: IStorage) {
                 }
               } catch (error) {
                 results.errors++;
-                results.details.push(`Error syncing voucher ${voucher.voucherNumber}: ${error}`);
+                results.details.push(`Error syncing voucher ${voucher.voucherNumber}: ${error instanceof Error ? error.message : String(error)}`);
               }
             }
           }
         } catch (error) {
-          results.details.push(`Error fetching vouchers: ${error}`);
+          results.details.push(`Error fetching vouchers: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
 
       syncStatus.status = "success";
       syncStatus.syncedRecords = results.processed;
-      syncStatus.lastSync = new Date().toISOString() as any;
+      syncStatus.lastSync = new Date();
 
       res.json({
         success: true,

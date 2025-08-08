@@ -62,6 +62,8 @@ The system manages several core entities:
 - **TDL Fixes**: Corrected XML format from "List of Companies" to "Company List"
 - **Network Solution**: Cloud server cannot access local Tally directly - Windows app required
 - **Authentication Flow**: Real connectivity checks replace fake status indicators
+- **Connection Fix**: Added `/test-web-connection` endpoint for Windows app connectivity testing
+- **Deployment Ready**: All TypeScript errors resolved, cloud APIs functional
 
 ### Authentication & Authorization
 - Role-based user management system
