@@ -518,9 +518,14 @@ export default function TallyIntegration() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Tally ERP</span>
-                    <Badge variant={syncStatus?.isConnected ? 'default' : 'secondary'}>
-                      {syncStatus?.isConnected ? 'Connected' : 'Disconnected'}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={syncStatus?.isConnected ? 'default' : 'destructive'}>
+                        {syncStatus?.isConnected ? '🟢 Real Connection' : '🔴 Not Connected'}
+                      </Badge>
+                      {!syncStatus?.isConnected && (
+                        <span className="text-xs text-muted-foreground">(Port 9000)</span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Web API</span>

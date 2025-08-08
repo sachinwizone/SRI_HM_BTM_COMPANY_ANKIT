@@ -539,10 +539,44 @@ export function createTallySyncRoutes(storage: IStorage) {
   });
 
   // Global sync control
-  router.post('/sync/start', (req, res) => {
-    syncStatus.status = "syncing";
-    syncStatus.isConnected = true;
-    res.json({ success: true, message: "Sync service started" });
+  router.post('/sync/start', async (req, res) => {
+    try {
+      // Test actual Tally Gateway connection before starting sync
+      const tallyUrl = tallyConfig.tallyUrl || 'http://localhost:9000';
+      const testXml = '<ENVELOPE><HEADER><TALLYREQUEST>Export Data</TALLYREQUEST></HEADER></ENVELOPE>';
+      
+      const response = await fetch(tallyUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/xml' },
+        body: testXml,
+        signal: AbortSignal.timeout(5000)
+      });
+
+      if (!response.ok) {
+        throw new Error('Tally Gateway not responding');
+      }
+
+      // If we reach here, Tally is actually connected
+      syncStatus.status = "syncing";
+      syncStatus.isConnected = true;
+      syncStatus.lastSync = new Date();
+      res.json({ 
+        success: true, 
+        message: "Sync started - Real Tally Gateway connection verified",
+        realConnection: true 
+      });
+
+    } catch (error) {
+      // Tally not reachable - be honest about it
+      syncStatus.status = "error";
+      syncStatus.isConnected = false;
+      res.status(503).json({ 
+        success: false, 
+        message: "Cannot connect to Tally Gateway. Please ensure Tally ERP is running with Gateway enabled on port 9000.",
+        error: "TALLY_GATEWAY_UNREACHABLE",
+        realConnection: false
+      });
+    }
   });
 
   router.post('/sync/stop', (req, res) => {
@@ -950,9 +984,39 @@ export function createTallySyncRoutes(storage: IStorage) {
     }
   });
 
-  // Get sync status and statistics (enhanced for cloud)
+  // Get sync status and statistics (enhanced for cloud with REAL Tally connectivity check)
   router.get('/sync/status', async (req, res) => {
     try {
+      // CRITICAL: Check real Tally connectivity first
+      let realTallyConnection = false;
+      let tallyError = '';
+      
+      try {
+        const tallyUrl = tallyConfig.tallyUrl || 'http://localhost:9000';
+        const testXml = '<ENVELOPE><HEADER><TALLYREQUEST>Export Data</TALLYREQUEST></HEADER></ENVELOPE>';
+        
+        const response = await fetch(tallyUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/xml' },
+          body: testXml,
+          signal: AbortSignal.timeout(3000)
+        });
+
+        realTallyConnection = response.ok;
+        if (!response.ok) {
+          tallyError = `HTTP ${response.status}`;
+        }
+      } catch (error) {
+        realTallyConnection = false;
+        tallyError = error instanceof Error ? error.message : 'Connection failed';
+      }
+
+      // Update global sync status based on real connectivity
+      syncStatus.isConnected = realTallyConnection;
+      if (!realTallyConnection && syncStatus.status === "syncing") {
+        syncStatus.status = "error";
+      }
+
       const clients = await storage.getClients();
       const payments = await storage.getPayments();
       const orders = await storage.getOrders();
@@ -968,13 +1032,20 @@ export function createTallySyncRoutes(storage: IStorage) {
       ].filter(Boolean).sort((a: any, b: any) => b.getTime() - a.getTime());
 
       res.json({
-        isConnected: syncStatus.isConnected,
+        isConnected: realTallyConnection,
         lastSync: lastSyncTimes[0] || syncStatus.lastSync,
-        totalRecords: syncStatus.totalRecords || (clients.length + payments.length + orders.length),
-        syncedRecords: syncStatus.syncedRecords || (tallySyncedClients.length + tallySyncedPayments.length + tallySyncedOrders.length),
-        errors: syncStatus.errors,
-        status: syncStatus.status,
+        totalRecords: realTallyConnection ? 
+          (syncStatus.totalRecords || (clients.length + payments.length + orders.length)) : 0,
+        syncedRecords: realTallyConnection ? 
+          (syncStatus.syncedRecords || (tallySyncedClients.length + tallySyncedPayments.length + tallySyncedOrders.length)) : 0,
+        errors: realTallyConnection ? syncStatus.errors : 1,
+        status: realTallyConnection ? syncStatus.status : "error",
         connectedClients: connectedClients.size,
+        realConnection: realTallyConnection,
+        tallyError: realTallyConnection ? null : tallyError,
+        message: realTallyConnection ? 
+          "🟢 Real Tally Gateway connection active" : 
+          "🔴 Tally Gateway not reachable - Please start Tally ERP with Gateway enabled on port 9000",
         tallySyncedRecords: {
           clients: tallySyncedClients.length,
           payments: tallySyncedPayments.length,
