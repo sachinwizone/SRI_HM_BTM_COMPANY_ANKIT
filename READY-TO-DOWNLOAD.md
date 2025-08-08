@@ -4,13 +4,22 @@
 
 ### Download Options
 
-#### Option 1: Complete Package (Recommended)
+#### Option 1: Complete Package (Recommended - UPDATED)
 ```
-📦 File: TallySync-Release.tar.gz
-📏 Size: 71 MB
-📍 Location: windows-app/TallySync-Release.tar.gz
+📦 File: TallySync-Release-Updated.tar.gz
+📏 Size: 67 MB
+📍 Location: windows-app/TallySync-Release-Updated.tar.gz
 ✅ Self-contained: सभी dependencies included
 🔧 Requirements: None
+⚡ Features: Real Tally company fetching enabled
+```
+
+#### Option 2: Previous Version
+```
+📦 File: TallySync-Release.tar.gz
+📏 Size: 72 MB
+📍 Location: windows-app/TallySync-Release.tar.gz
+ℹ️ Note: Contains demo companies, use updated version instead
 ```
 
 #### Option 2: Standalone Executable

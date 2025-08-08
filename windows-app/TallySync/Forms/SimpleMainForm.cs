@@ -652,12 +652,75 @@ public partial class SimpleMainForm : Form
         {
             lblTallyConnectionStatus.Text = "Testing...";
             lblTallyConnectionStatus.ForeColor = Color.Orange;
+            AddLogMessage("Testing Tally Gateway connection...");
 
-            await Task.Delay(1000);
+            string tallyGatewayUrl = txtTallyUrl.Text.TrimEnd('/');
+            string testXml = @"<ENVELOPE>
+                <HEADER>
+                    <TALLYREQUEST>Import Data</TALLYREQUEST>
+                </HEADER>
+                <BODY>
+                    <IMPORTDATA>
+                        <REQUESTDESC>
+                            <REPORTNAME>List of Companies</REPORTNAME>
+                            <STATICVARIABLES>
+                                <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
+                            </STATICVARIABLES>
+                        </REQUESTDESC>
+                    </IMPORTDATA>
+                </BODY>
+            </ENVELOPE>";
 
-            lblTallyConnectionStatus.Text = "✓ Connected";
-            lblTallyConnectionStatus.ForeColor = Color.Green;
-            AddLogMessage($"Tally Gateway connection successful: {txtTallyUrl.Text}");
+            using (var client = new HttpClient())
+            {
+                client.Timeout = TimeSpan.FromSeconds(10);
+                var content = new StringContent(testXml, System.Text.Encoding.UTF8, "application/xml");
+                
+                var response = await client.PostAsync(tallyGatewayUrl, content);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    string xmlResponse = await response.Content.ReadAsStringAsync();
+                    
+                    // Check if we got a valid XML response
+                    if (xmlResponse.Contains("<ENVELOPE") || xmlResponse.Contains("<?xml"))
+                    {
+                        lblTallyConnectionStatus.Text = "✓ Connected";
+                        lblTallyConnectionStatus.ForeColor = Color.Green;
+                        AddLogMessage($"Tally Gateway connection successful: {tallyGatewayUrl}");
+                        AddLogMessage("Tally Gateway is responding with valid XML data");
+                    }
+                    else
+                    {
+                        lblTallyConnectionStatus.Text = "✗ Invalid Response";
+                        lblTallyConnectionStatus.ForeColor = Color.Orange;
+                        AddLogMessage("Tally Gateway connected but returned unexpected response");
+                    }
+                }
+                else
+                {
+                    lblTallyConnectionStatus.Text = "✗ Failed";
+                    lblTallyConnectionStatus.ForeColor = Color.Red;
+                    AddLogMessage($"Tally Gateway returned status: {response.StatusCode}");
+                }
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            lblTallyConnectionStatus.Text = "✗ Connection Failed";
+            lblTallyConnectionStatus.ForeColor = Color.Red;
+            AddLogMessage($"Cannot reach Tally Gateway: {ex.Message}");
+            
+            MessageBox.Show(
+                "Cannot connect to Tally Gateway.\n\n" +
+                "Please ensure:\n" +
+                "1. Tally ERP is running\n" +
+                "2. Gateway is enabled (F12 → Advanced → Gateway)\n" +
+                "3. Port 9000 is configured and accessible\n" +
+                "4. URL is correct: http://localhost:9000",
+                "Tally Gateway Connection Failed",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
         }
         catch (Exception ex)
         {
@@ -671,30 +734,155 @@ public partial class SimpleMainForm : Form
     {
         try
         {
-            AddLogMessage("Refreshing companies from Tally...");
+            AddLogMessage("Refreshing companies from Tally Gateway...");
             
-            await Task.Delay(1500);
-            
-            availableCompanies = new List<TallyCompany>
-            {
-                new TallyCompany { Name = "ABC Private Limited", Guid = "abc-123-guid", StartDate = "01-Apr-2024", EndDate = "31-Mar-2025" },
-                new TallyCompany { Name = "XYZ Industries", Guid = "xyz-456-guid", StartDate = "01-Apr-2024", EndDate = "31-Mar-2025" },
-                new TallyCompany { Name = "Sample Company", Guid = "sample-789-guid", StartDate = "01-Apr-2024", EndDate = "31-Mar-2025" },
-                new TallyCompany { Name = "Demo Corporation", Guid = "demo-999-guid", StartDate = "01-Apr-2024", EndDate = "31-Mar-2025" }
-            };
+            // Use real Tally Gateway API
+            string tallyGatewayUrl = txtTallyUrl.Text.TrimEnd('/');
+            string companiesXml = @"<ENVELOPE>
+                <HEADER>
+                    <TALLYREQUEST>Import Data</TALLYREQUEST>
+                </HEADER>
+                <BODY>
+                    <IMPORTDATA>
+                        <REQUESTDESC>
+                            <REPORTNAME>List of Companies</REPORTNAME>
+                            <STATICVARIABLES>
+                                <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
+                            </STATICVARIABLES>
+                        </REQUESTDESC>
+                    </IMPORTDATA>
+                </BODY>
+            </ENVELOPE>";
 
+            using (var client = new HttpClient())
+            {
+                client.Timeout = TimeSpan.FromSeconds(15);
+                var content = new StringContent(companiesXml, System.Text.Encoding.UTF8, "application/xml");
+                
+                AddLogMessage($"Connecting to Tally Gateway: {tallyGatewayUrl}");
+                var response = await client.PostAsync(tallyGatewayUrl, content);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    string xmlResponse = await response.Content.ReadAsStringAsync();
+                    AddLogMessage("Received response from Tally Gateway");
+                    
+                    // Parse real XML response
+                    availableCompanies = ParseCompaniesFromXml(xmlResponse);
+                    
+                    if (availableCompanies.Count == 0)
+                    {
+                        AddLogMessage("No companies found in Tally. Please ensure companies are loaded and Tally Gateway is running.");
+                        // Show help message
+                        MessageBox.Show(
+                            "No companies were found in Tally.\n\n" +
+                            "Please check:\n" +
+                            "1. Tally ERP is running\n" +
+                            "2. At least one company is loaded\n" +
+                            "3. Gateway is enabled on port 9000\n" +
+                            "4. Go to Gateway → Configure → Port 9000", 
+                            "No Companies Found", 
+                            MessageBoxButtons.OK, 
+                            MessageBoxIcon.Information);
+                    }
+                }
+                else
+                {
+                    throw new Exception($"Tally Gateway returned status: {response.StatusCode}");
+                }
+            }
+
+            // Update UI
             lstAvailableCompanies.Items.Clear();
             foreach (var company in availableCompanies)
             {
                 lstAvailableCompanies.Items.Add($"{company.Name} ({company.StartDate} - {company.EndDate})");
             }
 
-            AddLogMessage($"Found {availableCompanies.Count} companies in Tally");
+            AddLogMessage($"Found {availableCompanies.Count} companies from Tally Gateway");
+        }
+        catch (HttpRequestException ex)
+        {
+            AddLogMessage($"Connection failed to Tally Gateway: {ex.Message}");
+            MessageBox.Show(
+                "Could not connect to Tally Gateway.\n\n" +
+                "Please check:\n" +
+                "1. Tally ERP is running\n" +
+                "2. Gateway is enabled (F12 → Advanced → Gateway)\n" +
+                "3. Port 9000 is configured\n" +
+                "4. Firewall is not blocking the connection",
+                "Tally Connection Failed",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
         }
         catch (Exception ex)
         {
             AddLogMessage($"Error refreshing companies: {ex.Message}");
+            MessageBox.Show($"Error fetching companies from Tally:\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+    }
+
+    private List<TallyCompany> ParseCompaniesFromXml(string xmlResponse)
+    {
+        var companies = new List<TallyCompany>();
+        try
+        {
+            AddLogMessage("Parsing company data from Tally XML response...");
+            
+            // Simple regex-based XML parsing (in production use proper XML parser)
+            var companyMatches = System.Text.RegularExpressions.Regex.Matches(
+                xmlResponse, 
+                @"<COMPANY[^>]*>([\s\S]*?)</COMPANY>", 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            );
+            
+            foreach (System.Text.RegularExpressions.Match companyMatch in companyMatches)
+            {
+                var nameMatch = System.Text.RegularExpressions.Regex.Match(
+                    companyMatch.Value, 
+                    @"<NAME[^>]*>([\s\S]*?)</NAME>", 
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase
+                );
+                
+                var guidMatch = System.Text.RegularExpressions.Regex.Match(
+                    companyMatch.Value, 
+                    @"<GUID[^>]*>([\s\S]*?)</GUID>", 
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase
+                );
+                
+                var startDateMatch = System.Text.RegularExpressions.Regex.Match(
+                    companyMatch.Value, 
+                    @"<STARTINGFROM[^>]*>([\s\S]*?)</STARTINGFROM>", 
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase
+                );
+                
+                var endDateMatch = System.Text.RegularExpressions.Regex.Match(
+                    companyMatch.Value, 
+                    @"<ENDINGAT[^>]*>([\s\S]*?)</ENDINGAT>", 
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase
+                );
+                
+                if (nameMatch.Success)
+                {
+                    var company = new TallyCompany
+                    {
+                        Name = nameMatch.Groups[1].Value.Trim(),
+                        Guid = guidMatch.Success ? guidMatch.Groups[1].Value.Trim() : Guid.NewGuid().ToString(),
+                        StartDate = startDateMatch.Success ? startDateMatch.Groups[1].Value.Trim() : "01-Apr-2024",
+                        EndDate = endDateMatch.Success ? endDateMatch.Groups[1].Value.Trim() : "31-Mar-2025"
+                    };
+                    
+                    companies.Add(company);
+                    AddLogMessage($"Found company: {company.Name}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AddLogMessage($"Error parsing XML response: {ex.Message}");
+        }
+        
+        return companies;
     }
 
     private void AddSelectedCompanies()

@@ -11,7 +11,6 @@
         "dependencies": {
           "Microsoft.Extensions.Hosting": "8.0.0",
           "Microsoft.Extensions.Logging": "8.0.0",
-          "Microsoft.NET.ILLink.Tasks": "8.0.5",
           "Newtonsoft.Json": "13.0.3",
           "System.Data.SqlClient": "4.8.5",
           "runtimepack.Microsoft.NETCore.App.Runtime.win-x64": "8.0.5",
@@ -1325,7 +1324,6 @@
           }
         }
       },
-      "Microsoft.NET.ILLink.Tasks/8.0.5": {},
       "Microsoft.NETCore.Platforms/3.1.0": {},
       "Microsoft.Win32.Registry/4.7.0": {
         "dependencies": {
@@ -1598,13 +1596,6 @@
       "sha512": "sha512-bXJEZrW9ny8vjMF1JV253WeLhpEVzFo1lyaZu1vQ4ZxWUlVvknZ/+ftFgVheLubb4eZPSwwxBeqS1JkCOjxd8g==",
       "path": "microsoft.extensions.primitives/8.0.0",
       "hashPath": "microsoft.extensions.primitives.8.0.0.nupkg.sha512"
-    },
-    "Microsoft.NET.ILLink.Tasks/8.0.5": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-4ISW1Ndgz86FkIbu5rVlMqhhtojdy5rUlxC/N+9kPh9qbYcvHiCvYbHKzAPVIx9OPYIjT9trXt7JI42Y5Ukq6A==",
-      "path": "microsoft.net.illink.tasks/8.0.5",
-      "hashPath": "microsoft.net.illink.tasks.8.0.5.nupkg.sha512"
     },
     "Microsoft.NETCore.Platforms/3.1.0": {
       "type": "package",
