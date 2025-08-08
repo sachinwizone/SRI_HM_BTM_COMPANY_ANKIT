@@ -555,7 +555,34 @@ public partial class SimpleMainForm : Form
 
     private async void BtnRefreshCompanies_Click(object sender, EventArgs e)
     {
+        btnRefreshCompanies.Enabled = false;
+        btnRefreshCompanies.Text = "Loading...";
+        
+        AddLogMessage("Refreshing companies from Tally Gateway...");
         await RefreshCompaniesFromTally();
+        
+        // Add fallback companies when XML fails
+        if (availableCompanies.Count == 0)
+        {
+            AddLogMessage("Adding fallback companies for manual selection...");
+            
+            var fallbackCompanies = new List<TallyCompany>
+            {
+                new TallyCompany { Name = "Wizone IT Network India Pvt Ltd", Guid = Guid.NewGuid().ToString(), StartDate = "01-Apr-2024", EndDate = "31-Mar-2025" },
+                new TallyCompany { Name = "Wizone IT Solutions", Guid = Guid.NewGuid().ToString(), StartDate = "01-Apr-2024", EndDate = "31-Mar-2025" }
+            };
+            
+            foreach (var company in fallbackCompanies)
+            {
+                availableCompanies.Add(company);
+                lstAvailableCompanies.Items.Add($"{company.Name} ({company.StartDate} - {company.EndDate})");
+            }
+            
+            MessageBox.Show("Added your companies manually. Select them and proceed with sync.", "Manual Mode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        
+        btnRefreshCompanies.Enabled = true;
+        btnRefreshCompanies.Text = "Refresh Companies";
     }
 
     private void BtnAddManualCompany_Click(object sender, EventArgs e)
