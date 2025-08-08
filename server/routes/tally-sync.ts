@@ -522,15 +522,29 @@ export function createTallySyncRoutes(storage: IStorage) {
     try {
       const { clientId } = req.body;
       
-      if (connectedClients.has(clientId)) {
-        const client = connectedClients.get(clientId);
-        client.lastHeartbeat = new Date();
-        connectedClients.set(clientId, client);
+      // Always update sync status when heartbeat received
+      syncStatus.isConnected = true;
+      syncStatus.lastSync = new Date();
+      syncStatus.status = "success";
+      
+      if (clientId) {
+        const client = connectedClients.get(clientId) || {
+          id: clientId,
+          lastHeartbeat: new Date(),
+          status: "connected"
+        };
         
-        res.json({ success: true, message: "Heartbeat received" });
-      } else {
-        res.status(404).json({ success: false, message: "Client not found" });
+        client.lastHeartbeat = new Date();
+        client.status = "connected";
+        connectedClients.set(clientId, client);
       }
+      
+      res.json({ 
+        success: true, 
+        message: "Heartbeat received",
+        timestamp: new Date().toISOString(),
+        syncStatus: syncStatus
+      });
     } catch (error) {
       res.status(500).json({ success: false, message: "Heartbeat failed" });
     }
@@ -1047,9 +1061,20 @@ export function createTallySyncRoutes(storage: IStorage) {
         tallyError = error instanceof Error ? error.message : 'Connection failed';
       }
 
-      // Update global sync status based on real connectivity
-      syncStatus.isConnected = realTallyConnection;
-      if (!realTallyConnection && syncStatus.status === "syncing") {
+      // Check Windows app connection (heartbeat within 60 seconds)
+      const activeClients = Array.from(connectedClients.values()).filter(client => {
+        const timeDiff = new Date().getTime() - client.lastHeartbeat.getTime();
+        return timeDiff < 60000;
+      });
+      
+      const isWindowsAppConnected = activeClients.length > 0;
+      
+      // Update sync status - prioritize Windows app connection over direct Tally
+      syncStatus.isConnected = isWindowsAppConnected || realTallyConnection;
+      
+      if (isWindowsAppConnected) {
+        syncStatus.status = "success"; // Windows app is the bridge, so this is success
+      } else if (!realTallyConnection && syncStatus.status === "syncing") {
         syncStatus.status = "error";
       }
 
@@ -1068,7 +1093,7 @@ export function createTallySyncRoutes(storage: IStorage) {
       ].filter(Boolean).sort((a: any, b: any) => b.getTime() - a.getTime());
 
       res.json({
-        isConnected: realTallyConnection,
+        isConnected: syncStatus.isConnected,
         lastSync: lastSyncTimes[0] || syncStatus.lastSync,
         totalRecords: realTallyConnection ? 
           (syncStatus.totalRecords || (clients.length + payments.length + orders.length)) : 0,
