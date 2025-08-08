@@ -69,7 +69,7 @@ public class TallyStockItem
     public DateTime LastModified { get; set; }
 }
 
-public class SyncResult
+public class TallySyncResult
 {
     public bool Success { get; set; }
     public string Message { get; set; } = "";

@@ -6,6 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <!-- <ApplicationIcon>icon.ico</ApplicationIcon> -->
     <AssemblyTitle>Tally Sync Service</AssemblyTitle>
     <AssemblyDescription>Real-time data synchronization between Tally and BizFlow Pro</AssemblyDescription>

@@ -1,178 +1,183 @@
-# TallySync - Tally ERP Integration for Business Management System
+# TallySync Pro - Professional Business Integration
 
 ## Overview
-
-TallySync is a Windows desktop application that provides real-time and scheduled data synchronization between Tally ERP accounting software and your Business Management System. This bridge application eliminates the need for static IP addresses or complex network configurations.
+TallySync Pro is a comprehensive Windows desktop application that provides seamless integration between Tally ERP software and cloud-based business management systems. It features a modern, professional interface with animated controls and real-time synchronization capabilities.
 
 ## Features
 
-- **Real-time Data Sync**: Live synchronization of ledgers, vouchers, and stock items
-- **Scheduled Sync**: Automated synchronization at configurable intervals
-- **System Tray Integration**: Runs quietly in the background
-- **Connection Monitoring**: Automatic retry and reconnection capabilities
-- **Comprehensive Logging**: Detailed logs for troubleshooting
-- **Configuration Management**: Easy setup and configuration management
+### Professional UI Design
+- **Tabbed Interface**: Connection, Companies, and Sync Status tabs for organized workflow
+- **Animated Buttons**: Modern hover effects and smooth transitions
+- **System Tray Integration**: Minimizes to system tray for background operation
+- **Real-time Status Updates**: Live connection status and sync progress monitoring
 
-## System Requirements
+### Core Capabilities
+- **Dynamic Web Port Configuration**: Configurable cloud API endpoint and port settings
+- **Multi-Company Management**: Support for multiple Tally companies with individual API keys
+- **Automated Sync Service**: Scheduled and manual synchronization options
+- **Real-time Logging**: Comprehensive activity logs with timestamps
+- **Connection Testing**: Built-in connectivity testing for both Tally and Web API
 
-- Windows 10 or later
-- .NET 8.0 Runtime
-- Tally ERP 9 with Gateway enabled (Port 9000)
-- Internet connection for web API access
+### Technical Features
+- **Heartbeat Monitoring**: Continuous connection health checks
+- **Error Handling**: Robust error management with detailed logging
+- **Configuration Persistence**: Settings saved locally and restored on startup
+- **Background Processing**: Non-blocking operations with progress indicators
 
 ## Installation & Setup
 
-### Step 1: Download and Install .NET 8.0 Runtime
+### Requirements
+- Windows 10/11 (64-bit)
+- .NET 8.0 Runtime (included in self-contained deployment)
+- Tally ERP software installed and running
+- Internet connection for cloud API access
 
-1. Go to [Microsoft .NET Download Page](https://dotnet.microsoft.com/download/dotnet/8.0)
-2. Download ".NET 8.0 Runtime" for Windows x64
-3. Run the installer and follow installation steps
+### Quick Start
+1. Download `TallySync.exe` from the release package
+2. Run the executable (no installation required)
+3. Configure your cloud API URL and port in the Connection tab
+4. Test connections to both Tally and Web API
+5. Add companies from Tally and register them with the API
+6. Start the sync service for automated data synchronization
 
-### Step 2: Prepare Tally ERP
+## Configuration Guide
 
-1. Open Tally ERP 9
-2. Go to **Gateway of Tally** → **Configure** → **Advanced Configuration**
-3. Enable **"Load on Startup"**
-4. Set Port to **9000** (default)
-5. Restart Tally ERP
+### Connection Setup
+1. **Web API Configuration**:
+   - Enter your cloud application URL (e.g., `https://your-app.replit.app`)
+   - Set the appropriate port (default: 443 for HTTPS)
+   - Click "Test Connection" to verify connectivity
 
-### Step 3: Build and Install TallySync
+2. **Tally Gateway Configuration**:
+   - Default URL: `http://localhost:9000`
+   - Ensure Tally is running with Gateway enabled
+   - Click "Test Tally" to verify connection
 
-1. Extract the TallySync application files
-2. Run `build-script.bat` as Administrator
-3. The compiled application will be in `bin\Release\net8.0-windows\` folder
+### Company Management
+1. **Available Companies**:
+   - Click "Refresh Companies" to load from Tally
+   - Select companies you want to sync
+   - Click "Add Selected →" to move to sync list
 
-### Step 4: Configure TallySync
+2. **Selected Companies**:
+   - Enable/disable individual companies for sync
+   - Click "Register with API" to obtain API keys
+   - Monitor sync status and last sync times
 
-1. Run `TallySync.exe`
-2. Click **"Configuration"** button
-3. Fill in the required details:
-   - **Tally Server URL**: `http://localhost:9000` (default)
-   - **Company Name**: Your Tally company name
-   - **Web API URL**: Your business management system URL
-   - **API Key**: Provided by your system administrator
-   - **Sync Mode**: Choose Real-time or Scheduled
-   - **Sync Interval**: For scheduled sync (in minutes)
+### Sync Operations
+1. **Automatic Sync**:
+   - Click "▶ Start Sync" to begin scheduled synchronization
+   - Default interval: 30 minutes (configurable)
+   - Runs in background with system tray notifications
 
-### Step 5: Test Connection
+2. **Manual Sync**:
+   - Click "🔄 Manual Sync" for immediate synchronization
+   - Progress bar shows completion status
+   - Detailed logs show sync results
 
-1. Click **"Test Connections"** to verify:
-   - Tally ERP connection
-   - Web API connection
-2. If successful, click **"Start Sync"**
+## Compilation Instructions
 
-## Usage
+### Development Environment
+```bash
+# Prerequisites
+- .NET 8.0 SDK
+- Windows targeting enabled
 
-### Starting the Application
+# Clone and navigate to project
+cd windows-app/TallySync
 
-1. Double-click `TallySync.exe`
-2. The application will start and appear in the system tray
-3. Right-click the system tray icon for options
+# Restore packages
+dotnet restore
 
-### Monitoring Sync Status
+# Build debug version
+dotnet build
 
-- **Green Icon**: All connections active, sync running
-- **Yellow Icon**: Warning or connection issues
-- **Red Icon**: Error or sync stopped
+# Build release version
+dotnet build -c Release
 
-### Manual Sync
+# Publish self-contained executable
+dotnet publish -c Release -r win-x64 --self-contained true
+```
 
-- Right-click system tray icon
-- Select **"Sync Now"** for immediate synchronization
+### Output Files
+- **Debug Build**: `bin/Debug/net8.0-windows/TallySync.exe`
+- **Release Build**: `bin/Release/net8.0-windows/win-x64/TallySync.exe`
+- **Published Package**: Complete deployment package with all dependencies
 
-### Viewing Logs
+## API Integration
 
-- Right-click system tray icon
-- Select **"View Logs"** to see detailed sync activity
+### Authentication
+- Uses API key-based authentication
+- Format: `api_key_${clientId}`
+- Automatic client registration with cloud API
 
-## Data Synchronization
-
-### What Gets Synced
-
-1. **Ledgers → Clients**: Customer/vendor information
-2. **Vouchers → Payments/Orders**: Transaction records
-3. **Stock Items → Products**: Inventory data (if applicable)
-
-### Sync Process
-
-1. **Connection Test**: Verifies Tally and Web API connectivity
-2. **Data Extraction**: Retrieves modified data from Tally
-3. **Data Transformation**: Converts Tally format to web format
-4. **Data Upload**: Sends transformed data to web API
-5. **Status Update**: Records sync completion time
-
-### Conflict Resolution
-
-- Existing records are updated based on Tally GUID
-- New records are created with fresh IDs
-- Sync timestamps track last modification
+### Endpoints
+- **Health Check**: `/api/tally-sync/health`
+- **Registration**: `/api/tally-sync/register`
+- **Heartbeat**: `/api/tally-sync/heartbeat`
+- **Data Sync**: Various endpoints for different data types
 
 ## Troubleshooting
 
 ### Common Issues
+1. **Connection Failures**:
+   - Verify internet connectivity
+   - Check firewall settings
+   - Ensure Tally Gateway is running on port 9000
 
-#### 1. "Cannot connect to Tally"
-- Ensure Tally ERP is running
-- Check Gateway is enabled on port 9000
-- Verify Tally company is opened
+2. **Registration Errors**:
+   - Verify Web API URL and port
+   - Check API endpoint availability
+   - Review error logs for specific issues
 
-#### 2. "Web API connection failed"
-- Check internet connection
-- Verify Web API URL is correct
-- Confirm API key is valid
+3. **Sync Problems**:
+   - Ensure companies are properly registered
+   - Check that API keys are valid
+   - Monitor sync logs for detailed error information
 
-#### 3. "Sync errors"
-- Check logs for detailed error messages
-- Verify data format compatibility
-- Contact system administrator
+### Log Analysis
+- All activities are logged with timestamps
+- Error messages include stack traces for debugging
+- Logs can be cleared manually or automatically rotated
 
-#### 4. "Application not starting"
-- Ensure .NET 8.0 Runtime is installed
-- Run as Administrator
-- Check Windows Event Viewer for errors
+## System Requirements
 
-### Log Files Location
+### Minimum Requirements
+- Windows 10 (Version 1809 or later)
+- 2 GB RAM
+- 500 MB disk space
+- .NET 8.0 Runtime
 
-Logs are stored in: `%AppData%\TallySync\Logs\`
-
-### Configuration Files
-
-Configuration is stored in: `%AppData%\TallySync\config.json`
-
-## API Endpoints
-
-The web application provides these Tally sync endpoints:
-
-- `POST /api/tally-sync/sync/clients` - Sync client data
-- `POST /api/tally-sync/sync/payments` - Sync payment data  
-- `POST /api/tally-sync/sync/orders` - Sync order data
-- `GET /api/tally-sync/sync/status` - Get sync status
-- `GET /api/tally-sync/health` - Health check
+### Recommended Requirements
+- Windows 11
+- 4 GB RAM
+- 1 GB disk space
+- High-speed internet connection
 
 ## Security Considerations
 
-- API keys are stored encrypted locally
-- All communication uses HTTPS when possible
-- Tally connection is local only (localhost)
-- No sensitive financial data is cached locally
+### Data Protection
+- API keys stored securely in local configuration
+- HTTPS communication with cloud services
+- No sensitive data cached locally beyond configuration
 
-## Support
+### Network Security
+- All API communication uses secure HTTPS
+- Local Tally communication over HTTP localhost only
+- Configurable timeout settings for connection management
 
-For technical support or issues:
+## Support & Maintenance
 
-1. Check the troubleshooting section
-2. Review log files for error details
-3. Contact your system administrator
-4. Provide detailed error messages and log excerpts
+### Version Information
+- **Version**: 1.0.0.0
+- **Target Framework**: .NET 8.0 Windows
+- **Architecture**: x64
+- **Deployment**: Self-contained
 
-## Version History
-
-- **v1.0.0**: Initial release with basic sync functionality
-- Real-time and scheduled sync modes
-- System tray integration
-- Configuration management
-- Comprehensive logging
+### Dependencies
+- Newtonsoft.Json: JSON serialization
+- Microsoft.Extensions.* : Configuration and dependency injection
+- System.Windows.Forms: Windows GUI framework
 
 ## License
-
-This software is proprietary and licensed for use with the Business Management System only.
+This software is proprietary and licensed for business use. See license agreement for terms and conditions.
