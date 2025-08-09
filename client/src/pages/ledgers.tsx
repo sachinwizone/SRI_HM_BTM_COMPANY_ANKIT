@@ -275,7 +275,7 @@ export default function LedgersPage() {
                       disabled={syncLedgers.isPending || !syncStatus?.isConnected}
                       className="gap-2"
                     >
-                      <Sync className="h-4 w-4" />
+                      <RotateCcw className="h-4 w-4" />
                       Sync Ledgers from Tally
                     </Button>
                   )}
