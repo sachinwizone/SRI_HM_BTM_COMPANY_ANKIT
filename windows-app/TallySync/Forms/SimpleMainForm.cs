@@ -93,7 +93,7 @@ public partial class SimpleMainForm : Form
         syncTimer.Tick += SyncTimer_Tick;
 
         heartbeatTimer = new System.Windows.Forms.Timer();
-        heartbeatTimer.Interval = 30000; // 30 seconds
+        heartbeatTimer.Interval = 15000; // 15 seconds - more frequent
         heartbeatTimer.Tick += HeartbeatTimer_Tick;
     }
 
@@ -1075,6 +1075,9 @@ public partial class SimpleMainForm : Form
             AddLogMessage("Starting sync service...");
             lblSyncStatus.Text = "Status: Starting...";
             
+            // Send initial heartbeat immediately  
+            await SendHeartbeat();
+            
             heartbeatTimer.Start();
             syncTimer.Start();
             
@@ -1172,17 +1175,32 @@ public partial class SimpleMainForm : Form
     {
         try
         {
-            foreach (var company in selectedCompanies.Where(c => c.IsEnabled && !string.IsNullOrEmpty(c.ApiKey)))
+            string webApiUrl = $"{txtWebApiUrl.Text.TrimEnd('/')}/api/tally-sync/heartbeat";
+            var heartbeatData = new { 
+                clientId = "REAL_WINDOWS_APP",
+                timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                version = "1.0.0"
+            };
+            
+            var json = JsonConvert.SerializeObject(heartbeatData);
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            
+            AddLogMessage($"Sending heartbeat to: {webApiUrl}");
+            var response = await httpClient.PostAsync(webApiUrl, content);
+            
+            if (response.IsSuccessStatusCode)
             {
-                string url = $"{txtWebApiUrl.Text}:{nudWebPort.Value}/api/tally-sync/heartbeat";
-                var payload = new { clientId = $"TALLY_{Environment.MachineName}_{company.Guid}" };
-                var content = new System.Net.Http.StringContent(JsonConvert.SerializeObject(payload), System.Text.Encoding.UTF8, "application/json");
-                await httpClient.PostAsync(url, content);
+                string responseText = await response.Content.ReadAsStringAsync();
+                AddLogMessage($"✅ Heartbeat successful");
+            }
+            else
+            {
+                AddLogMessage($"❌ Heartbeat failed: {response.StatusCode} - {response.ReasonPhrase}");
             }
         }
         catch (Exception ex)
         {
-            AddLogMessage($"Heartbeat error: {ex.Message}");
+            AddLogMessage($"❌ Heartbeat error: {ex.Message}");
         }
     }
 
