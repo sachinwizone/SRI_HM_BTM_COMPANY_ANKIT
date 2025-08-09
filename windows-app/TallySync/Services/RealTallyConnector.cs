@@ -8,13 +8,19 @@ namespace TallySync.Services;
 public class RealTallyConnector
 {
     private readonly HttpClient httpClient;
-    private readonly string tallyGatewayUrl;
+    private readonly List<string> tallyGatewayUrls;
 
-    public RealTallyConnector(string gatewayUrl = "http://localhost:9000")
+    public RealTallyConnector()
     {
         httpClient = new HttpClient();
         httpClient.Timeout = TimeSpan.FromSeconds(30);
-        tallyGatewayUrl = gatewayUrl;
+        
+        // Support both Tally ports based on your screenshot
+        tallyGatewayUrls = new List<string>
+        {
+            "http://localhost:9000",  // Primary ODBC Gateway
+            "http://localhost:9999"   // Secondary Gateway Web
+        };
     }
 
     // Real Company List XML Request - No Fake Data
@@ -80,19 +86,36 @@ public class RealTallyConnector
         }
     }
 
-    // Send Real XML Request to Tally Gateway (Port 9000)
+    // Send Real XML Request to Tally Gateway (Try Both Ports)
     private async Task<string> SendXmlToTallyGateway(string xmlRequest)
     {
         var content = new StringContent(xmlRequest, Encoding.UTF8, "application/xml");
+        Exception lastException = null;
         
-        using var response = await httpClient.PostAsync(tallyGatewayUrl, content);
-        
-        if (!response.IsSuccessStatusCode)
+        // Try both ports - 9000 (ODBC) and 9999 (Gateway Web)
+        foreach (var gatewayUrl in tallyGatewayUrls)
         {
-            throw new Exception($"Tally Gateway returned: {response.StatusCode}");
+            try
+            {
+                using var response = await httpClient.PostAsync(gatewayUrl, content);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseText = await response.Content.ReadAsStringAsync();
+                    if (!string.IsNullOrWhiteSpace(responseText))
+                    {
+                        return responseText;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+                continue; // Try next port
+            }
         }
         
-        return await response.Content.ReadAsStringAsync();
+        throw new Exception($"Failed to connect to Tally on both ports 9000 and 9999. Last error: {lastException?.Message}");
     }
 
     // Parse Real Company XML Response - No Hardcoded Data
@@ -178,13 +201,10 @@ public class RealTallyConnector
         return ledgers;
     }
 
-    // Test Real Tally Connection - No Mock Response
-    public async Task<bool> TestRealTallyConnectionAsync()
+    // Test Real Tally Connection on Both Ports
+    public async Task<(bool IsConnected, string ConnectedPort, string Status)> TestRealTallyConnectionAsync()
     {
-        try
-        {
-            // Real connectivity test - ping Tally Gateway
-            var testRequest = @"
+        var testRequest = @"
 <ENVELOPE>
   <HEADER>
     <TALLYREQUEST>Export Data</TALLYREQUEST>
@@ -198,13 +218,30 @@ public class RealTallyConnector
   </BODY>
 </ENVELOPE>";
 
-            var response = await SendXmlToTallyGateway(testRequest);
-            return !string.IsNullOrWhiteSpace(response) && response.Contains("ENVELOPE");
-        }
-        catch
+        foreach (var gatewayUrl in tallyGatewayUrls)
         {
-            return false;
+            try
+            {
+                var content = new StringContent(testRequest, Encoding.UTF8, "application/xml");
+                using var response = await httpClient.PostAsync(gatewayUrl, content);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseText = await response.Content.ReadAsStringAsync();
+                    if (!string.IsNullOrWhiteSpace(responseText) && responseText.Contains("ENVELOPE"))
+                    {
+                        var port = gatewayUrl.Contains("9999") ? "9999 (Gateway Web)" : "9000 (ODBC)";
+                        return (true, port, "Connected successfully");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                continue; // Try next port
+            }
         }
+        
+        return (false, "", "Failed to connect on both ports 9000 and 9999");
     }
 
     // Helper Methods for XML Parsing
