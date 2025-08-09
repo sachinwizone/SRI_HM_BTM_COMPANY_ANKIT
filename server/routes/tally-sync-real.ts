@@ -14,7 +14,7 @@ function startKeepAlive() {
     // Remove expired clients (no fake heartbeats)
     connectedClients.forEach((client, clientId) => {
       const timeDiff = now.getTime() - client.lastHeartbeat.getTime();
-      if (timeDiff > 300000) { // 5 minutes timeout - more forgiving - remove dead connections
+      if (timeDiff > 900000) { // 15 minutes timeout - very forgiving for real connections
         console.log(`Removing expired client: ${clientId}`);
         connectedClients.delete(clientId);
       }
@@ -74,8 +74,8 @@ export function createTallySyncRoutes(storage: any) {
       const timeDiff = now.getTime() - client.lastHeartbeat.getTime();
       console.log(`Real client ${clientId}: Last heartbeat ${Math.floor(timeDiff/1000)}s ago`);
       
-      // Extended 2-minute timeout for real connections
-      if (timeDiff < 120000 && client.isReal) {
+      // Extended 5-minute timeout for real connections  
+      if (timeDiff < 300000 && client.isReal) {
         isConnected = true;
         activeClients++;
       }
@@ -143,7 +143,7 @@ export function createTallySyncRoutes(storage: any) {
   router.post('/test-connection', (req, res) => {
     const hasRealClient = Array.from(connectedClients.values()).some(client => {
       const timeDiff = new Date().getTime() - client.lastHeartbeat.getTime();
-      return timeDiff < 120000 && client.isReal; // Extended timeout: 2 minutes for real connections
+      return timeDiff < 300000 && client.isReal; // Extended timeout: 5 minutes for real connections
     });
     
     if (hasRealClient) {
