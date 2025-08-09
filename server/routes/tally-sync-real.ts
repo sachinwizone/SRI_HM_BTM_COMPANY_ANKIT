@@ -291,6 +291,17 @@ export function createTallySyncRoutes(storage: any) {
     });
   });
 
+  // Add test-connection for frontend compatibility
+  router.post('/test-connection', (req, res) => {
+    console.log('✅ Frontend web connection test');
+    res.json({ 
+      success: true, 
+      message: "Web API connection working from frontend",
+      timestamp: new Date().toISOString(),
+      serverOnline: true
+    });
+  });
+
   // Clear all fake data - keep only real Tally records
   router.post('/clear-fake-data', async (req, res) => {
     try {
