@@ -184,13 +184,13 @@ export function createTallySyncRoutes(storage: any) {
         message: `Successfully registered ${companies.length} companies`,
         registeredCount: companies.length
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error registering companies:', error);
       // Return success to prevent Windows app errors
       res.json({
         success: true,
         message: "Registration processed with warnings",
-        error: error.message
+        error: error?.message || "Unknown error"
       });
     }
   });

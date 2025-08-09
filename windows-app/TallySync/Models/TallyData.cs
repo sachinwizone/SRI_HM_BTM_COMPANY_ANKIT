@@ -4,7 +4,7 @@ namespace TallySync.Models;
 
 public class TallyConfig
 {
-    public string TallyServerUrl { get; set; } = "http://localhost:9000";
+    public string TallyServerUrl { get; set; } = "http://localhost:9000"; // Fixed: Was localhost:5000
     public string CompanyName { get; set; } = "";
     public string WebApiUrl { get; set; } = "";
     public string ApiKey { get; set; } = "";
@@ -13,6 +13,8 @@ public class TallyConfig
     public DateTime LastSyncTime { get; set; } = DateTime.MinValue;
     public bool AutoStartWithWindows { get; set; } = true;
     public bool MinimizeToTray { get; set; } = true;
+    public bool EnableHeartbeat { get; set; } = true;
+    public int HeartbeatIntervalSeconds { get; set; } = 30;
 }
 
 public enum SyncMode

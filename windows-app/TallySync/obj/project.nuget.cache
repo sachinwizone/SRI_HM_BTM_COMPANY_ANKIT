@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "470BwBfvQgY=",
+  "dgSpecHash": "3KKs+rEiSW8=",
   "success": true,
   "projectFilePath": "/home/runner/workspace/windows-app/TallySync/TallySync.csproj",
   "expectedPackageFiles": [
@@ -46,11 +46,7 @@
     "/home/runner/.nuget/packages/system.security.principal.windows/4.7.0/system.security.principal.windows.4.7.0.nupkg.sha512",
     "/home/runner/.nuget/packages/system.text.encodings.web/8.0.0/system.text.encodings.web.8.0.0.nupkg.sha512",
     "/home/runner/.nuget/packages/system.text.json/8.0.0/system.text.json.8.0.0.nupkg.sha512",
-    "/home/runner/.nuget/packages/microsoft.netcore.app.runtime.win-x64/8.0.5/microsoft.netcore.app.runtime.win-x64.8.0.5.nupkg.sha512",
-    "/home/runner/.nuget/packages/microsoft.windowsdesktop.app.ref/8.0.5/microsoft.windowsdesktop.app.ref.8.0.5.nupkg.sha512",
-    "/home/runner/.nuget/packages/microsoft.windowsdesktop.app.runtime.win-x64/8.0.5/microsoft.windowsdesktop.app.runtime.win-x64.8.0.5.nupkg.sha512",
-    "/home/runner/.nuget/packages/microsoft.aspnetcore.app.runtime.win-x64/8.0.5/microsoft.aspnetcore.app.runtime.win-x64.8.0.5.nupkg.sha512",
-    "/home/runner/.nuget/packages/microsoft.netcore.app.host.win-x64/8.0.5/microsoft.netcore.app.host.win-x64.8.0.5.nupkg.sha512"
+    "/home/runner/.nuget/packages/microsoft.windowsdesktop.app.ref/8.0.5/microsoft.windowsdesktop.app.ref.8.0.5.nupkg.sha512"
   ],
   "logs": [
     {
@@ -60,8 +56,7 @@
       "message": "Package 'System.Data.SqlClient' 4.8.5 has a known high severity vulnerability, https://github.com/advisories/GHSA-98g6-xh36-x2p7",
       "libraryId": "System.Data.SqlClient",
       "targetGraphs": [
-        "net8.0-windows7.0",
-        "net8.0-windows7.0/win-x64"
+        "net8.0-windows7.0"
       ]
     }
   ]
