@@ -100,9 +100,9 @@ const features = [
   {
     name: "Data Storage",
     description: "Database storage capacity",
-    basic: "50 GB",
-    advanced: "100 GB",
-    premium: "200 GB"
+    basic: "5 GB",
+    advanced: "50 GB",
+    premium: "Unlimited"
   },
   {
     name: "API Access",
@@ -114,11 +114,18 @@ const features = [
   {
     name: "Custom Reports",
     description: "Generate custom business reports and analytics",
-    basic: "Custom reports",
+    basic: "Pre-built only",
     advanced: "Custom reports",
     premium: "Advanced BI"
   },
-   {
+  {
+    name: "Mobile App Access",
+    description: "Mobile application for field operations",
+    basic: false,
+    advanced: true,
+    premium: true
+  },
+  {
     name: "Multi-branch Support",
     description: "Manage multiple business locations",
     basic: false,
@@ -132,37 +139,64 @@ const features = [
     advanced: "Multiple formats",
     premium: "Advanced tools"
   },
-  
+  {
+    name: "Backup & Recovery",
+    description: "Data backup and disaster recovery",
+    basic: "Weekly",
+    advanced: "Daily",
+    premium: "Real-time"
+  },
   // Support Features
+  {
+    name: "Email Support",
+    description: "Email-based customer support",
+    basic: true,
+    advanced: true,
+    premium: true
+  },
   {
     name: "Phone Support",
     description: "Direct phone support access",
-    basic: "Business hours",
+    basic: false,
     advanced: "Business hours",
-    premium: "Business hours"
+    premium: "24/7"
   },
   {
     name: "Priority Support",
     description: "Faster response times and dedicated support",
-    basic: true,
+    basic: false,
     advanced: true,
     premium: true
   },
   {
     name: "Training & Onboarding",
     description: "System training and implementation support",
-    basic: "Full service",
-    advanced: "Full service",
+    basic: "Self-service",
+    advanced: "Guided setup",
     premium: "Full service"
   },
   {
     name: "SLA Guarantee",
     description: "Service level agreement with uptime guarantee",
-    basic: "99.5%",
+    basic: false,
     advanced: "99.5%",
     premium: "99.9%"
   },
-  ];
+  {
+    name: "Custom Integrations",
+    description: "Custom integration development services",
+    basic: false,
+    advanced: false,
+    premium: true
+  },
+  {
+    name: "White-label Solution",
+    description: "Branded solution with your company branding",
+    basic: false,
+    advanced: false,
+    premium: true
+  }
+];
 
 const plans = [
   {

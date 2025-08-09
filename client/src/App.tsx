@@ -16,8 +16,6 @@ import PurchaseOrders from "@/pages/purchase-orders";
 import TeamPerformance from "@/pages/team-performance";
 import SalesRates from "@/pages/sales-rates";
 import Pricing from "@/pages/pricing";
-import TallyIntegration from "@/pages/tally-integration";
-import Ledgers from "@/pages/ledgers";
 
 function Router() {
   return (
@@ -34,8 +32,6 @@ function Router() {
       <Route path="/team-performance" component={TeamPerformance} />
       <Route path="/sales-rates" component={SalesRates} />
       <Route path="/pricing" component={Pricing} />
-      <Route path="/tally-integration" component={TallyIntegration} />
-      <Route path="/ledgers" component={Ledgers} />
       <Route component={NotFound} />
     </Switch>
   );

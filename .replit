@@ -4,7 +4,6 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["dotnet-sdk_8"]
 
 [deployment]
 deploymentTarget = "autoscale"
@@ -38,6 +37,3 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
-
-[agent]
-integrations = ["javascript_websocket==1.0.0", "javascript_database==1.0.0", "javascript_log_in_with_replit==1.0.0"]

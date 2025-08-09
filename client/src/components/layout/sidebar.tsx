@@ -3,25 +3,10 @@ import { cn } from "@/lib/utils";
 import { 
   Home, CreditCard, Bell, Users, MapPin, BarChart3, 
   CheckSquare, ShoppingCart, File, Receipt, 
-  FileText, TrendingUp, DollarSign, Database,
-  type LucideIcon
+  FileText, TrendingUp, DollarSign
 } from "lucide-react";
 
-type NavigationItem = {
-  name: string;
-  href: string;
-  icon: LucideIcon;
-  badge?: string;
-};
-
-type NavigationSection = {
-  section: string;
-  items: NavigationItem[];
-};
-
-type Navigation = (NavigationItem | NavigationSection)[];
-
-const navigation: Navigation = [
+const navigation = [
   { name: "Dashboard", href: "/", icon: Home },
   {
     section: "PAYMENTS",
@@ -55,12 +40,6 @@ const navigation: Navigation = [
       { name: "Pricing Plans", href: "/pricing", icon: DollarSign },
     ],
   },
-  {
-    section: "INTEGRATION",
-    items: [
-      { name: "Tally ERP", href: "/tally-integration", icon: Database },
-    ],
-  },
 ];
 
 export default function Sidebar() {
@@ -86,14 +65,16 @@ export default function Sidebar() {
               const isActive = location === item.href;
               
               return (
-                <Link key={index} href={item.href} className={cn(
-                  "px-3 py-2 rounded-lg flex items-center space-x-3 text-sm font-medium transition-colors",
-                  isActive 
-                    ? "bg-primary text-white" 
-                    : "text-gray-700 hover:bg-gray-100"
-                )}>
-                  <Icon size={20} />
-                  <span>{item.name}</span>
+                <Link key={index} href={item.href}>
+                  <a className={cn(
+                    "px-3 py-2 rounded-lg flex items-center space-x-3 text-sm font-medium transition-colors",
+                    isActive 
+                      ? "bg-primary text-white" 
+                      : "text-gray-700 hover:bg-gray-100"
+                  )}>
+                    <Icon size={20} />
+                    <span>{item.name}</span>
+                  </a>
                 </Link>
               );
             } else {
@@ -107,19 +88,21 @@ export default function Sidebar() {
                     const isActive = location === subItem.href;
                     
                     return (
-                      <Link key={subIndex} href={subItem.href} className={cn(
-                        "px-3 py-2 rounded-lg flex items-center space-x-3 text-sm font-medium transition-colors",
-                        isActive 
-                          ? "bg-primary text-white" 
-                          : "text-gray-700 hover:bg-gray-100"
-                      )}>
-                        <Icon size={20} />
-                        <span>{subItem.name}</span>
-                        {'badge' in subItem && subItem.badge && (
-                          <span className="ml-auto bg-warning text-white text-xs px-2 py-1 rounded-full">
-                            {subItem.badge}
-                          </span>
-                        )}
+                      <Link key={subIndex} href={subItem.href}>
+                        <a className={cn(
+                          "px-3 py-2 rounded-lg flex items-center space-x-3 text-sm font-medium transition-colors",
+                          isActive 
+                            ? "bg-primary text-white" 
+                            : "text-gray-700 hover:bg-gray-100"
+                        )}>
+                          <Icon size={20} />
+                          <span>{subItem.name}</span>
+                          {subItem.badge && (
+                            <span className="ml-auto bg-warning text-white text-xs px-2 py-1 rounded-full">
+                              {subItem.badge}
+                            </span>
+                          )}
+                        </a>
                       </Link>
                     );
                   })}

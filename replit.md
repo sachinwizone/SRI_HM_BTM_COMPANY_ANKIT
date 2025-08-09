@@ -4,15 +4,9 @@
 
 This is a full-stack business management system built with React (frontend) and Express.js (backend). The application provides comprehensive tools for managing clients, orders, payments, tasks, and sales operations. It features a modern dashboard interface with real-time data visualization and workflow management capabilities for business operations.
 
-### Tally ERP Integration
-
-The system now includes complete Tally ERP integration capabilities through a dedicated Windows desktop application (TallySync). This integration allows for real-time and scheduled synchronization of accounting data between Tally ERP and the web application without requiring static IP addresses or complex network configurations.
-
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
-User expectation: Complete working solutions, not partial implementations.
-Communication preference: Direct, solution-focused responses with step-by-step instructions.
 
 ## System Architecture
 
@@ -41,38 +35,15 @@ Communication preference: Direct, solution-focused responses with step-by-step i
 ### Data Models
 The system manages several core entities:
 - Users with role-based access (Admin, Sales Manager, Sales Executive, Operations)
-- Clients with category classification (ALFA, BETA, GAMMA, DELTA) + Tally sync fields
-- Orders with complete workflow status tracking + Tally sync fields
-- Payment management with status tracking and due date monitoring + Tally sync fields
+- Clients with category classification (ALFA, BETA, GAMMA, DELTA)
+- Orders with complete workflow status tracking
+- Payment management with status tracking and due date monitoring
 - Task management supporting both one-time and recurring tasks
 - E-way bills for shipment compliance
 - Credit agreements with terms and limits
 - Purchase orders linked to client orders
 - Sales rate tracking for performance metrics
 - Client tracking for shipment status updates
-
-### Tally Integration Architecture
-- **Windows Desktop App**: TallySync.exe for local Tally connectivity (✅ COMPLETED)
-- **Professional UI**: Modern tabbed interface with animated buttons and system tray support
-- **Multi-Company Support**: Dynamic company management with individual API key registration
-- **Real-time Sync**: Automated and manual synchronization with progress monitoring
-- **Tally Gateway**: Port 9000 for XML-based communication
-- **API Endpoints**: `/api/tally-sync/*` for data synchronization
-- **Sync Fields**: tallyGuid and lastSynced added to core entities
-- **Conflict Resolution**: GUID-based record matching and updates
-- **Bridge Architecture**: Windows app acts as bridge between local Tally and cloud server
-- **TDL Fixes**: Corrected XML format from "List of Companies" to "Company List"
-- **Network Solution**: Cloud server cannot access local Tally directly - Windows app required
-- **Authentication Flow**: Real connectivity checks replace fake status indicators
-- **Connection Fix**: Added `/test-web-connection` endpoint for Windows app connectivity testing
-- **Deployment Ready**: All TypeScript errors resolved, cloud APIs functional
-- **PRODUCTION SUCCESS**: Real Tally data integration working (Aug 9, 2025)
-- **Authentic Data Only**: No dummy/fake data - only real business records from Tally ERP
-- **Companies Synced**: Successfully processing real companies (One Touch Solutions, Wizone IT, etc.)
-- **Connection Fixed**: Test connection API now returns proper status instead of errors (Aug 9, 2025)
-- **Web Planning Complete**: Full web data sync architecture documented and ready
-- **Real Data Sync Planning**: Comprehensive master plan created for Windows app deployment and Tally integration (Aug 9, 2025)
-- **Current Status**: Web interface ready, requires Windows app (TallySync.exe) for live Tally connection
 
 ### Authentication & Authorization
 - Role-based user management system
@@ -104,13 +75,6 @@ The system manages several core entities:
 - **TypeScript**: Static type checking and enhanced developer experience
 - **ESBuild**: Fast bundling for production builds
 - **PostCSS**: CSS processing with Tailwindcss and Autoprefixer
-
-### Windows Application Stack
-- **.NET 8.0**: Windows Forms application framework
-- **System Tray Integration**: Background service capabilities
-- **HTTP Client**: RESTful API communication
-- **XML Processing**: Tally ERP data parsing
-- **Configuration Management**: Local settings and credentials storage
 
 ### Form & Validation
 - **React Hook Form**: Performant forms with minimal re-renders

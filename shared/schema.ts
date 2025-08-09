@@ -34,9 +34,6 @@ export const clients = pgTable("clients", {
   gstNumber: text("gst_number"),
   creditLimit: decimal("credit_limit", { precision: 15, scale: 2 }),
   paymentTerms: integer("payment_terms").default(30), // days
-  contactPerson: text("contact_person"),
-  tallyGuid: text("tally_guid"),
-  lastSynced: timestamp("last_synced"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -59,16 +56,13 @@ export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   orderNumber: text("order_number").notNull().unique(),
   clientId: varchar("client_id").notNull().references(() => clients.id),
-  salesPersonId: varchar("sales_person_id").references(() => users.id),
+  salesPersonId: varchar("sales_person_id").notNull().references(() => users.id),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   status: orderStatusEnum("status").notNull().default('PENDING_AGREEMENT'),
   description: text("description"),
   creditAgreementRequired: boolean("credit_agreement_required").notNull().default(true),
   creditAgreementId: varchar("credit_agreement_id").references(() => creditAgreements.id),
   expectedDeliveryDate: timestamp("expected_delivery_date"),
-  orderDate: timestamp("order_date").default(sql`now()`),
-  tallyGuid: text("tally_guid"),
-  lastSynced: timestamp("last_synced"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").default(sql`now()`),
 });
@@ -98,10 +92,6 @@ export const payments = pgTable("payments", {
   remindersSent: integer("reminders_sent").default(0),
   lastReminderAt: timestamp("last_reminder_at"),
   notes: text("notes"),
-  voucherNumber: text("voucher_number"),
-  voucherType: text("voucher_type"),
-  tallyGuid: text("tally_guid"),
-  lastSynced: timestamp("last_synced"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

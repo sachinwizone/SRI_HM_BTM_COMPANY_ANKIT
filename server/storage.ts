@@ -20,7 +20,6 @@ export interface IStorage {
   // Clients
   getClient(id: string): Promise<Client | undefined>;
   getAllClients(): Promise<Client[]>;
-  getClients(): Promise<Client[]>; // Alias for Tally sync compatibility
   getClientsByCategory(category: string): Promise<Client[]>;
   createClient(client: InsertClient): Promise<Client>;
   updateClient(id: string, client: Partial<InsertClient>): Promise<Client>;
@@ -28,7 +27,6 @@ export interface IStorage {
   // Orders
   getOrder(id: string): Promise<Order | undefined>;
   getAllOrders(): Promise<Order[]>;
-  getOrders(): Promise<Order[]>; // Alias for Tally sync compatibility
   getOrdersByClient(clientId: string): Promise<Order[]>;
   getOrdersBySalesPerson(salesPersonId: string): Promise<Order[]>;
   createOrder(order: InsertOrder): Promise<Order>;
@@ -50,7 +48,6 @@ export interface IStorage {
   // Payments
   getPayment(id: string): Promise<Payment | undefined>;
   getAllPayments(): Promise<Payment[]>;
-  getPayments(): Promise<Payment[]>; // Alias for Tally sync compatibility
   getPaymentsByClient(clientId: string): Promise<Payment[]>;
   getOverduePayments(): Promise<Payment[]>;
   getPaymentsDueSoon(days: number): Promise<Payment[]>;
@@ -99,16 +96,6 @@ export interface IStorage {
       DELTA: number;
     };
   }>;
-
-  // Tally Integration specific methods
-  upsertClient(client: Partial<InsertClient>): Promise<Client>;
-  upsertPayment(payment: Partial<InsertPayment>): Promise<Payment>;
-  upsertOrder(order: Partial<InsertOrder>): Promise<Order>;
-  
-  // Real Tally Data Methods - No Fake Data
-  getTallyCompanies(): Promise<Client[]>;
-  clearAllFakeData(): Promise<void>;
-  syncRealTallyData(data: any): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -142,10 +129,6 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(clients).orderBy(asc(clients.name));
   }
 
-  async getClients(): Promise<Client[]> {
-    return this.getAllClients();
-  }
-
   async getClientsByCategory(category: string): Promise<Client[]> {
     return await db.select().from(clients).where(eq(clients.category, category as any)).orderBy(asc(clients.name));
   }
@@ -168,10 +151,6 @@ export class DatabaseStorage implements IStorage {
 
   async getAllOrders(): Promise<Order[]> {
     return await db.select().from(orders).orderBy(desc(orders.createdAt));
-  }
-
-  async getOrders(): Promise<Order[]> {
-    return this.getAllOrders();
   }
 
   async getOrdersByClient(clientId: string): Promise<Order[]> {
@@ -246,10 +225,6 @@ export class DatabaseStorage implements IStorage {
 
   async getAllPayments(): Promise<Payment[]> {
     return await db.select().from(payments).orderBy(desc(payments.createdAt));
-  }
-
-  async getPayments(): Promise<Payment[]> {
-    return this.getAllPayments();
   }
 
   async getPaymentsByClient(clientId: string): Promise<Payment[]> {
@@ -433,199 +408,6 @@ export class DatabaseStorage implements IStorage {
       inTransit: inTransitResult.count,
       clientCategories
     };
-  }
-
-  // Tally Integration Methods
-  async upsertClient(clientData: Partial<InsertClient>): Promise<Client> {
-    if (clientData.tallyGuid) {
-      // Check if client exists by Tally GUID
-      const existingClients = await this.getAllClients();
-      const existingClient = existingClients.find(c => c.tallyGuid === clientData.tallyGuid);
-      
-      if (existingClient) {
-        return await this.updateClient(existingClient.id, {
-          ...clientData,
-          lastSynced: new Date()
-        });
-      }
-    }
-    
-    // Create new client
-    return await this.createClient({
-      name: clientData.name || '',
-      category: clientData.category || 'BETA',
-      email: clientData.email || null,
-      phone: clientData.phone || null,
-      address: clientData.address || null,
-      contactPerson: clientData.contactPerson || null,
-      creditLimit: clientData.creditLimit || null,
-      tallyGuid: clientData.tallyGuid || null,
-      lastSynced: new Date()
-    });
-  }
-
-  async upsertPayment(paymentData: Partial<InsertPayment>): Promise<Payment> {
-    if (paymentData.tallyGuid) {
-      // Check if payment exists by Tally GUID
-      const existingPayments = await this.getAllPayments();
-      const existingPayment = existingPayments.find(p => p.tallyGuid === paymentData.tallyGuid);
-      
-      if (existingPayment) {
-        return await this.updatePayment(existingPayment.id, {
-          ...paymentData,
-          lastSynced: new Date()
-        });
-      }
-    }
-    
-    // Create new payment
-    return await this.createPayment({
-      clientId: paymentData.clientId || '',
-      amount: paymentData.amount?.toString() || '0',
-      dueDate: paymentData.dueDate || new Date(),
-      status: paymentData.status || 'PENDING',
-      notes: paymentData.notes || null,
-      voucherNumber: paymentData.voucherNumber || null,
-      voucherType: paymentData.voucherType || null,
-      tallyGuid: paymentData.tallyGuid || null,
-      lastSynced: new Date()
-    });
-  }
-
-  async upsertOrder(orderData: Partial<InsertOrder>): Promise<Order> {
-    if (orderData.tallyGuid) {
-      // Check if order exists by Tally GUID
-      const existingOrders = await this.getAllOrders();
-      const existingOrder = existingOrders.find(o => o.tallyGuid === orderData.tallyGuid);
-      
-      if (existingOrder) {
-        return await this.updateOrder(existingOrder.id, {
-          ...orderData,
-          lastSynced: new Date()
-        });
-      }
-    }
-    
-    // Create new order
-    return await this.createOrder({
-      orderNumber: orderData.orderNumber || `ORD-${Date.now()}`,
-      clientId: orderData.clientId || '',
-      salesPersonId: orderData.salesPersonId || orderData.clientId || '',
-      amount: orderData.amount?.toString() || '0',
-      status: orderData.status || 'PENDING_AGREEMENT',
-      orderDate: orderData.orderDate || new Date(),
-      description: orderData.description || null,
-      tallyGuid: orderData.tallyGuid || null,
-      lastSynced: new Date()
-    });
-  }
-
-  // Additional Tally Integration Methods
-  async getTallyCompanies(): Promise<any[]> {
-    // For now, return empty array since we don't have a companies table
-    // In real implementation, we'd have a separate companies table
-    return [];
-  }
-
-  async createOrUpdateTallyCompany(companyData: any): Promise<any> {
-    // For demo purposes, just return the data
-    console.log('Company data received:', companyData);
-    return companyData;
-  }
-
-  async createOrUpdateTallyClient(clientData: any): Promise<Client> {
-    if (clientData.tallyGuid) {
-      // Check if client exists by Tally GUID
-      const existingClients = await this.getAllClients();
-      const existingClient = existingClients.find(c => c.tallyGuid === clientData.tallyGuid);
-      
-      if (existingClient) {
-        return await this.updateClient(existingClient.id, {
-          ...clientData,
-          lastSynced: new Date()
-        });
-      }
-    }
-    
-    // Create new client from Tally data
-    return await this.createClient({
-      name: clientData.name || 'Unknown Client',
-      category: clientData.category || 'BETA',
-      email: clientData.email || null,
-      phone: clientData.phone || null,
-      address: clientData.address || null,
-      gstNumber: clientData.gstNumber || null,
-      creditLimit: clientData.creditLimit?.toString() || null,
-      contactPerson: clientData.contactPerson || null,
-      tallyGuid: clientData.tallyGuid || null,
-      lastSynced: new Date()
-    });
-  }
-
-  // Real Tally Data Methods - Implementation
-  async getTallyCompanies(): Promise<Client[]> {
-    // Return only clients that were synced from Tally (have tallyGuid)
-    const allClients = await this.getAllClients();
-    return allClients.filter(client => client.tallyGuid !== null);
-  }
-
-  async clearAllFakeData(): Promise<void> {
-    // Clear all records that don't have tallyGuid (fake data)
-    console.log('🧹 Clearing all fake data - keeping only real Tally records');
-    
-    // Clear clients without tallyGuid
-    await db.delete(clients).where(sql`${clients.tallyGuid} IS NULL`);
-    
-    // Clear orders without tallyGuid
-    await db.delete(orders).where(sql`${orders.tallyGuid} IS NULL`);
-    
-    // Clear payments without tallyGuid
-    await db.delete(payments).where(sql`${payments.tallyGuid} IS NULL`);
-    
-    console.log('✅ Fake data cleared - only authentic Tally records remain');
-  }
-
-  async syncRealTallyData(data: any): Promise<any> {
-    console.log('🔄 Processing real Tally data synchronization');
-    
-    const results = {
-      companies: 0,
-      clients: 0,
-      orders: 0,
-      payments: 0,
-      errors: []
-    };
-
-    try {
-      // Process companies from Tally
-      if (data.companies && Array.isArray(data.companies)) {
-        for (const company of data.companies) {
-          try {
-            await this.createOrUpdateTallyCompany(company);
-            results.companies++;
-          } catch (error: any) {
-            results.errors.push(`Company sync error: ${error.message}`);
-          }
-        }
-      }
-
-      // Process ledgers/clients from Tally
-      if (data.ledgers && Array.isArray(data.ledgers)) {
-        for (const ledger of data.ledgers) {
-          try {
-            await this.createOrUpdateTallyClient(ledger);
-            results.clients++;
-          } catch (error: any) {
-            results.errors.push(`Client sync error: ${error.message}`);
-          }
-        }
-      }
-
-      return results;
-    } catch (error: any) {
-      console.error('❌ Tally sync error:', error);
-      throw error;
-    }
   }
 }
 
