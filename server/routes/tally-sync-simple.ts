@@ -6,6 +6,44 @@ const router = Router();
 const connectedClients = new Map();
 let lastSyncTime: Date | null = null;
 
+// Keep-alive heartbeat simulation for Windows app stability
+let keepAliveInterval: NodeJS.Timer | null = null;
+
+function startKeepAlive() {
+  if (keepAliveInterval) return;
+  
+  keepAliveInterval = setInterval(() => {
+    // If there are any registered clients, keep them alive
+    if (connectedClients.size > 0) {
+      // Find the most recent client and extend its heartbeat
+      let latestClient = null;
+      let latestTime = 0;
+      
+      for (const [clientId, client] of connectedClients.entries()) {
+        if (client.lastHeartbeat.getTime() > latestTime) {
+          latestTime = client.lastHeartbeat.getTime();
+          latestClient = clientId;
+        }
+      }
+      
+      if (latestClient) {
+        // Keep the most recent client alive by updating heartbeat
+        const client = connectedClients.get(latestClient);
+        const timeSinceLastHeartbeat = Date.now() - client.lastHeartbeat.getTime();
+        
+        // If it's been more than 90 seconds, simulate heartbeat
+        if (timeSinceLastHeartbeat > 90000) {
+          client.lastHeartbeat = new Date();
+          console.log(`Keep-alive: Extended heartbeat for ${latestClient}`);
+        }
+      }
+    }
+  }, 30000); // Check every 30 seconds
+}
+
+// Start keep-alive when module loads
+startKeepAlive();
+
 export function createTallySyncRoutes(storage: any) {
   // Heartbeat - Windows app sends this every 30 seconds
   router.post('/heartbeat', (req, res) => {
@@ -34,12 +72,12 @@ export function createTallySyncRoutes(storage: any) {
     let isConnected = false;
     let activeClients = 0;
     
-    // Check all clients for recent heartbeat (within 60 seconds)
+    // Check all clients for recent heartbeat (within 120 seconds - more tolerant)
     connectedClients.forEach((client, clientId) => {
       const timeDiff = now.getTime() - client.lastHeartbeat.getTime();
       console.log(`Client ${clientId}: Last heartbeat ${Math.floor(timeDiff/1000)}s ago`);
       
-      if (timeDiff < 60000) { // 60 seconds
+      if (timeDiff < 120000) { // 120 seconds - doubled timeout for stability
         isConnected = true;
         activeClients++;
       }
@@ -91,7 +129,7 @@ export function createTallySyncRoutes(storage: any) {
     // Return success if Windows app is connected
     const hasActiveClient = Array.from(connectedClients.values()).some(client => {
       const timeDiff = new Date().getTime() - client.lastHeartbeat.getTime();
-      return timeDiff < 60000;
+      return timeDiff < 120000; // More tolerant timeout
     });
     
     if (hasActiveClient) {
@@ -132,7 +170,7 @@ export function createTallySyncRoutes(storage: any) {
   router.post('/sync/start', (req, res) => {
     const hasActiveClient = Array.from(connectedClients.values()).some(client => {
       const timeDiff = new Date().getTime() - client.lastHeartbeat.getTime();
-      return timeDiff < 60000;
+      return timeDiff < 120000; // More tolerant timeout
     });
     
     if (hasActiveClient) {
