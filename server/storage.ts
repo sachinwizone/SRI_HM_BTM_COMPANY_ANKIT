@@ -1,11 +1,15 @@
 import { 
   users, clients, orders, payments, tasks, ewayBills, clientTracking, 
   salesRates, creditAgreements, purchaseOrders,
+  tallyCompanies, tallyLedgers, tallyStockItems, tallyVouchers, tallySyncLogs,
   type User, type InsertUser, type Client, type InsertClient,
   type Order, type InsertOrder, type Payment, type InsertPayment,
   type Task, type InsertTask, type EwayBill, type InsertEwayBill,
   type ClientTracking, type InsertClientTracking, type SalesRate, type InsertSalesRate,
-  type CreditAgreement, type InsertCreditAgreement, type PurchaseOrder, type InsertPurchaseOrder
+  type CreditAgreement, type InsertCreditAgreement, type PurchaseOrder, type InsertPurchaseOrder,
+  type TallyCompany, type InsertTallyCompany, type TallyLedger, type InsertTallyLedger,
+  type TallyStockItem, type InsertTallyStockItem, type TallyVoucher, type InsertTallyVoucher,
+  type TallySyncLog, type InsertTallySyncLog
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, gte, lte, count } from "drizzle-orm";
@@ -82,6 +86,38 @@ export interface IStorage {
   getSalesRatesByClient(clientId: string): Promise<SalesRate[]>;
   getSalesRatesByDateRange(clientId: string, startDate: Date, endDate: Date): Promise<SalesRate[]>;
   createSalesRate(salesRate: InsertSalesRate): Promise<SalesRate>;
+
+  // Tally Companies
+  getTallyCompany(id: string): Promise<TallyCompany | undefined>;
+  getTallyCompanyByApiKey(apiKey: string): Promise<TallyCompany | undefined>;
+  getTallyCompanyByExternalId(externalId: string): Promise<TallyCompany | undefined>;
+  getAllTallyCompanies(): Promise<TallyCompany[]>;
+  createTallyCompany(company: InsertTallyCompany): Promise<TallyCompany>;
+  updateTallyCompany(id: string, company: Partial<InsertTallyCompany>): Promise<TallyCompany>;
+
+  // Tally Ledgers
+  getTallyLedger(id: string): Promise<TallyLedger | undefined>;
+  getTallyLedgersByCompany(companyId: string): Promise<TallyLedger[]>;
+  createTallyLedger(ledger: InsertTallyLedger): Promise<TallyLedger>;
+  upsertTallyLedger(ledger: InsertTallyLedger & { externalId: string }): Promise<TallyLedger>;
+
+  // Tally Stock Items
+  getTallyStockItem(id: string): Promise<TallyStockItem | undefined>;
+  getTallyStockItemsByCompany(companyId: string): Promise<TallyStockItem[]>;
+  createTallyStockItem(stockItem: InsertTallyStockItem): Promise<TallyStockItem>;
+  upsertTallyStockItem(stockItem: InsertTallyStockItem & { externalId: string }): Promise<TallyStockItem>;
+
+  // Tally Vouchers
+  getTallyVoucher(id: string): Promise<TallyVoucher | undefined>;
+  getTallyVouchersByCompany(companyId: string): Promise<TallyVoucher[]>;
+  getTallyVoucherByHash(hash: string): Promise<TallyVoucher | undefined>;
+  createTallyVoucher(voucher: InsertTallyVoucher): Promise<TallyVoucher>;
+  upsertTallyVoucher(voucher: InsertTallyVoucher): Promise<TallyVoucher>;
+
+  // Tally Sync Logs
+  createTallySyncLog(log: InsertTallySyncLog): Promise<TallySyncLog>;
+  getTallySyncLogsByCompany(companyId: string): Promise<TallySyncLog[]>;
+  getTallyLastSyncStatus(companyId?: string): Promise<any>;
 
   // Dashboard Stats
   getDashboardStats(): Promise<{
@@ -408,6 +444,170 @@ export class DatabaseStorage implements IStorage {
       inTransit: inTransitResult.count,
       clientCategories
     };
+  }
+
+  // Tally Companies
+  async getTallyCompany(id: string): Promise<TallyCompany | undefined> {
+    const [company] = await db.select().from(tallyCompanies).where(eq(tallyCompanies.id, id));
+    return company || undefined;
+  }
+
+  async getTallyCompanyByApiKey(apiKey: string): Promise<TallyCompany | undefined> {
+    const [company] = await db.select().from(tallyCompanies).where(eq(tallyCompanies.apiKey, apiKey));
+    return company || undefined;
+  }
+
+  async getTallyCompanyByExternalId(externalId: string): Promise<TallyCompany | undefined> {
+    const [company] = await db.select().from(tallyCompanies).where(eq(tallyCompanies.externalId, externalId));
+    return company || undefined;
+  }
+
+  async getAllTallyCompanies(): Promise<TallyCompany[]> {
+    return await db.select().from(tallyCompanies).orderBy(asc(tallyCompanies.name));
+  }
+
+  async createTallyCompany(insertCompany: InsertTallyCompany): Promise<TallyCompany> {
+    const [company] = await db.insert(tallyCompanies).values(insertCompany).returning();
+    return company;
+  }
+
+  async updateTallyCompany(id: string, updateCompany: Partial<InsertTallyCompany>): Promise<TallyCompany> {
+    const [company] = await db.update(tallyCompanies).set(updateCompany).where(eq(tallyCompanies.id, id)).returning();
+    return company;
+  }
+
+  // Tally Ledgers
+  async getTallyLedger(id: string): Promise<TallyLedger | undefined> {
+    const [ledger] = await db.select().from(tallyLedgers).where(eq(tallyLedgers.id, id));
+    return ledger || undefined;
+  }
+
+  async getTallyLedgersByCompany(companyId: string): Promise<TallyLedger[]> {
+    return await db.select().from(tallyLedgers).where(eq(tallyLedgers.companyId, companyId)).orderBy(asc(tallyLedgers.name));
+  }
+
+  async createTallyLedger(insertLedger: InsertTallyLedger): Promise<TallyLedger> {
+    const [ledger] = await db.insert(tallyLedgers).values(insertLedger).returning();
+    return ledger;
+  }
+
+  async upsertTallyLedger(ledgerData: InsertTallyLedger & { externalId: string }): Promise<TallyLedger> {
+    const existing = await db.select().from(tallyLedgers)
+      .where(and(
+        eq(tallyLedgers.companyId, ledgerData.companyId),
+        eq(tallyLedgers.externalId, ledgerData.externalId || '')
+      ));
+
+    if (existing.length > 0) {
+      const [updated] = await db.update(tallyLedgers)
+        .set({ ...ledgerData, modifiedAt: sql`now()` })
+        .where(eq(tallyLedgers.id, existing[0].id))
+        .returning();
+      return updated;
+    } else {
+      return this.createTallyLedger(ledgerData);
+    }
+  }
+
+  // Tally Stock Items
+  async getTallyStockItem(id: string): Promise<TallyStockItem | undefined> {
+    const [stockItem] = await db.select().from(tallyStockItems).where(eq(tallyStockItems.id, id));
+    return stockItem || undefined;
+  }
+
+  async getTallyStockItemsByCompany(companyId: string): Promise<TallyStockItem[]> {
+    return await db.select().from(tallyStockItems).where(eq(tallyStockItems.companyId, companyId)).orderBy(asc(tallyStockItems.name));
+  }
+
+  async createTallyStockItem(insertStockItem: InsertTallyStockItem): Promise<TallyStockItem> {
+    const [stockItem] = await db.insert(tallyStockItems).values(insertStockItem).returning();
+    return stockItem;
+  }
+
+  async upsertTallyStockItem(stockItemData: InsertTallyStockItem & { externalId: string }): Promise<TallyStockItem> {
+    const existing = await db.select().from(tallyStockItems)
+      .where(and(
+        eq(tallyStockItems.companyId, stockItemData.companyId),
+        eq(tallyStockItems.externalId, stockItemData.externalId || '')
+      ));
+
+    if (existing.length > 0) {
+      const [updated] = await db.update(tallyStockItems)
+        .set({ ...stockItemData, modifiedAt: sql`now()` })
+        .where(eq(tallyStockItems.id, existing[0].id))
+        .returning();
+      return updated;
+    } else {
+      return this.createTallyStockItem(stockItemData);
+    }
+  }
+
+  // Tally Vouchers
+  async getTallyVoucher(id: string): Promise<TallyVoucher | undefined> {
+    const [voucher] = await db.select().from(tallyVouchers).where(eq(tallyVouchers.id, id));
+    return voucher || undefined;
+  }
+
+  async getTallyVouchersByCompany(companyId: string): Promise<TallyVoucher[]> {
+    return await db.select().from(tallyVouchers).where(eq(tallyVouchers.companyId, companyId)).orderBy(desc(tallyVouchers.date));
+  }
+
+  async getTallyVoucherByHash(hash: string): Promise<TallyVoucher | undefined> {
+    const [voucher] = await db.select().from(tallyVouchers).where(eq(tallyVouchers.hash, hash));
+    return voucher || undefined;
+  }
+
+  async createTallyVoucher(insertVoucher: InsertTallyVoucher): Promise<TallyVoucher> {
+    const [voucher] = await db.insert(tallyVouchers).values(insertVoucher).returning();
+    return voucher;
+  }
+
+  async upsertTallyVoucher(voucherData: InsertTallyVoucher): Promise<TallyVoucher> {
+    const existing = await this.getTallyVoucherByHash(voucherData.hash);
+
+    if (existing) {
+      const [updated] = await db.update(tallyVouchers)
+        .set({ ...voucherData, modifiedAt: sql`now()` })
+        .where(eq(tallyVouchers.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      return this.createTallyVoucher(voucherData);
+    }
+  }
+
+  // Tally Sync Logs
+  async createTallySyncLog(insertLog: InsertTallySyncLog): Promise<TallySyncLog> {
+    const [log] = await db.insert(tallySyncLogs).values(insertLog).returning();
+    return log;
+  }
+
+  async getTallySyncLogsByCompany(companyId: string): Promise<TallySyncLog[]> {
+    return await db.select().from(tallySyncLogs)
+      .where(eq(tallySyncLogs.companyId, companyId))
+      .orderBy(desc(tallySyncLogs.receivedAt));
+  }
+
+  async getTallyLastSyncStatus(companyId?: string): Promise<any> {
+    let query = db.select({
+      companyId: tallySyncLogs.companyId,
+      entity: tallySyncLogs.entity,
+      lastSync: sql<Date>`MAX(${tallySyncLogs.receivedAt})`,
+      totalReceived: sql<number>`SUM(${tallySyncLogs.recordsReceived})`,
+      totalAccepted: sql<number>`SUM(${tallySyncLogs.recordsAccepted})`,
+      totalFailed: sql<number>`SUM(${tallySyncLogs.recordsFailed})`,
+      lastStatus: tallySyncLogs.syncStatus
+    }).from(tallySyncLogs);
+
+    if (companyId) {
+      query = query.where(eq(tallySyncLogs.companyId, companyId));
+    }
+
+    const results = await query
+      .groupBy(tallySyncLogs.companyId, tallySyncLogs.entity)
+      .orderBy(desc(sql`MAX(${tallySyncLogs.receivedAt})`));
+
+    return results;
   }
 }
 

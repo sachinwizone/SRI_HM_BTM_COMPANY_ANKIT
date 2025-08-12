@@ -156,6 +156,76 @@ export const salesRates = pgTable("sales_rates", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+// Tally Integration Tables
+
+// Tally Companies table
+export const tallyCompanies = pgTable("tally_companies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  gstin: text("gstin"),
+  externalId: text("external_id").notNull().unique(), // Tally company identifier
+  apiKey: text("api_key").notNull(), // Hashed API key for this company
+  isActive: boolean("is_active").notNull().default(true),
+  lastSync: timestamp("last_sync"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Tally Ledgers table
+export const tallyLedgers = pgTable("tally_ledgers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => tallyCompanies.id),
+  name: text("name").notNull(),
+  groupName: text("group_name"),
+  closingBalance: decimal("closing_balance", { precision: 15, scale: 2 }),
+  externalId: text("external_id"), // Tally ledger identifier
+  rawData: text("raw_data"), // JSON string of raw Tally data
+  modifiedAt: timestamp("modified_at").notNull().default(sql`now()`),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Tally Stock Items table
+export const tallyStockItems = pgTable("tally_stock_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => tallyCompanies.id),
+  name: text("name").notNull(),
+  unit: text("unit"),
+  openingBalance: decimal("opening_balance", { precision: 15, scale: 3 }),
+  closingBalance: decimal("closing_balance", { precision: 15, scale: 3 }),
+  externalId: text("external_id"), // Tally stock item identifier
+  rawData: text("raw_data"), // JSON string of raw Tally data
+  modifiedAt: timestamp("modified_at").notNull().default(sql`now()`),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Tally Vouchers table
+export const tallyVouchers = pgTable("tally_vouchers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => tallyCompanies.id),
+  voucherType: text("voucher_type").notNull(),
+  voucherNumber: text("voucher_number").notNull(),
+  date: timestamp("date").notNull(),
+  party: text("party"),
+  amount: decimal("amount", { precision: 15, scale: 2 }),
+  hash: text("hash").notNull().unique(), // Unique hash for deduplication
+  externalId: text("external_id"), // Tally voucher identifier
+  rawData: text("raw_data"), // JSON string of raw Tally data
+  modifiedAt: timestamp("modified_at").notNull().default(sql`now()`),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Tally Sync Logs table
+export const tallySyncLogs = pgTable("tally_sync_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").references(() => tallyCompanies.id),
+  entity: text("entity").notNull(), // Companies, Ledgers, StockItems, Vouchers
+  recordsReceived: integer("records_received").notNull().default(0),
+  recordsAccepted: integer("records_accepted").notNull().default(0),
+  recordsFailed: integer("records_failed").notNull().default(0),
+  errorMessages: text("error_messages"), // JSON array of error messages
+  syncStatus: text("sync_status").notNull().default('SUCCESS'), // SUCCESS, PARTIAL, FAILED
+  receivedAt: timestamp("received_at").notNull().default(sql`now()`),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   orders: many(orders),
@@ -319,6 +389,32 @@ export const insertSalesRateSchema = createInsertSchema(salesRates).omit({
   createdAt: true,
 });
 
+// Tally Insert Schemas
+export const insertTallyCompanySchema = createInsertSchema(tallyCompanies).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTallyLedgerSchema = createInsertSchema(tallyLedgers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTallyStockItemSchema = createInsertSchema(tallyStockItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTallyVoucherSchema = createInsertSchema(tallyVouchers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTallySyncLogSchema = createInsertSchema(tallySyncLogs).omit({
+  id: true,
+  receivedAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -349,3 +445,19 @@ export type ClientTracking = typeof clientTracking.$inferSelect;
 
 export type InsertSalesRate = z.infer<typeof insertSalesRateSchema>;
 export type SalesRate = typeof salesRates.$inferSelect;
+
+// Tally Types
+export type InsertTallyCompany = z.infer<typeof insertTallyCompanySchema>;
+export type TallyCompany = typeof tallyCompanies.$inferSelect;
+
+export type InsertTallyLedger = z.infer<typeof insertTallyLedgerSchema>;
+export type TallyLedger = typeof tallyLedgers.$inferSelect;
+
+export type InsertTallyStockItem = z.infer<typeof insertTallyStockItemSchema>;
+export type TallyStockItem = typeof tallyStockItems.$inferSelect;
+
+export type InsertTallyVoucher = z.infer<typeof insertTallyVoucherSchema>;
+export type TallyVoucher = typeof tallyVouchers.$inferSelect;
+
+export type InsertTallySyncLog = z.infer<typeof insertTallySyncLogSchema>;
+export type TallySyncLog = typeof tallySyncLogs.$inferSelect;

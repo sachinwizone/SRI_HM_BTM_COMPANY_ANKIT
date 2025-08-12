@@ -3,10 +3,24 @@ import { cn } from "@/lib/utils";
 import { 
   Home, CreditCard, Bell, Users, MapPin, BarChart3, 
   CheckSquare, ShoppingCart, File, Receipt, 
-  FileText, TrendingUp, DollarSign
+  FileText, TrendingUp, DollarSign, Database, LucideIcon
 } from "lucide-react";
 
-const navigation = [
+type NavigationItem = {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  badge?: string;
+};
+
+type NavigationSection = {
+  section: string;
+  items: NavigationItem[];
+};
+
+type NavigationEntry = NavigationItem | NavigationSection;
+
+const navigation: NavigationEntry[] = [
   { name: "Dashboard", href: "/", icon: Home },
   {
     section: "PAYMENTS",
@@ -40,6 +54,12 @@ const navigation = [
       { name: "Pricing Plans", href: "/pricing", icon: DollarSign },
     ],
   },
+  {
+    section: "INTEGRATIONS",
+    items: [
+      { name: "Tally Integration", href: "/tally-integration", icon: Database },
+    ],
+  },
 ];
 
 export default function Sidebar() {
@@ -66,15 +86,15 @@ export default function Sidebar() {
               
               return (
                 <Link key={index} href={item.href}>
-                  <a className={cn(
-                    "px-3 py-2 rounded-lg flex items-center space-x-3 text-sm font-medium transition-colors",
+                  <div className={cn(
+                    "px-3 py-2 rounded-lg flex items-center space-x-3 text-sm font-medium transition-colors cursor-pointer",
                     isActive 
                       ? "bg-primary text-white" 
                       : "text-gray-700 hover:bg-gray-100"
                   )}>
                     <Icon size={20} />
                     <span>{item.name}</span>
-                  </a>
+                  </div>
                 </Link>
               );
             } else {
@@ -89,8 +109,8 @@ export default function Sidebar() {
                     
                     return (
                       <Link key={subIndex} href={subItem.href}>
-                        <a className={cn(
-                          "px-3 py-2 rounded-lg flex items-center space-x-3 text-sm font-medium transition-colors",
+                        <div className={cn(
+                          "px-3 py-2 rounded-lg flex items-center space-x-3 text-sm font-medium transition-colors cursor-pointer",
                           isActive 
                             ? "bg-primary text-white" 
                             : "text-gray-700 hover:bg-gray-100"
@@ -102,7 +122,7 @@ export default function Sidebar() {
                               {subItem.badge}
                             </span>
                           )}
-                        </a>
+                        </div>
                       </Link>
                     );
                   })}
