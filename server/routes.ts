@@ -478,6 +478,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Import Tally XML Handler
+  const { TallyXMLHandler } = await import('./tally-xml-handler');
+  const tallyHandler = new TallyXMLHandler();
+
+  // Tally XML Integration Endpoint (Main endpoint for Tally software)
+  app.post("/api/tally/xml", async (req, res) => {
+    await tallyHandler.handleXMLRequest(req, res);
+  });
+
+  // Alternative endpoint for Tally integration (Tally uses this directly)
+  app.post("/tally", async (req, res) => {
+    await tallyHandler.handleXMLRequest(req, res);
+  });
+
+  // Health check for Tally connectivity
+  app.get("/tally", async (req, res) => {
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.send('<?xml version="1.0" encoding="UTF-8"?><ENVELOPE><STATUS>Ready</STATUS></ENVELOPE>');
+  });
+
   // Tally API Routes
   // Tally Companies
   app.get("/api/tally/companies", async (req, res) => {

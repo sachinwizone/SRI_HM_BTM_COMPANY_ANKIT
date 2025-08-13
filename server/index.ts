@@ -3,6 +3,13 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+// Import XML parser middleware
+import { xmlBodyParser } from './middleware/xml-parser';
+
+// Use XML parser before JSON parser for Tally routes
+app.use('/tally', xmlBodyParser);
+app.use('/api/tally/xml', xmlBodyParser);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
