@@ -11,9 +11,8 @@ namespace TallySync
     public partial class MainForm : Form
     {
         private readonly HttpClient httpClient;
-        // Update this URL to match your Replit deployment
-        private readonly string baseUrl = "https://YOUR_REPL_NAME.YOUR_USERNAME.repl.co/api/tally";
-        // For local testing, use: private readonly string baseUrl = "http://localhost:5000/api/tally";
+        // Use your actual Replit URL from the screenshot
+        private readonly string baseUrl = "https://95b1-00-1v0xfgt7ngd5p.pike.replit.dev/api/tally";
         
         public MainForm()
         {
