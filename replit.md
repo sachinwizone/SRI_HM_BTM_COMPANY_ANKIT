@@ -4,7 +4,7 @@
 
 This is a full-stack business management system built with React (frontend) and Express.js (backend). The application provides comprehensive tools for managing clients, orders, payments, tasks, and sales operations. It features a modern dashboard interface with real-time data visualization and workflow management capabilities for business operations.
 
-**Latest Addition (August 12, 2025)**: Complete Tally Integration System with Windows desktop application for seamless accounting data synchronization.
+**Latest Addition (August 13, 2025)**: Complete Tally Integration System with Windows desktop application for seamless accounting data synchronization. Desktop app successfully running on Windows - only requires backend URL configuration to connect to Replit deployment.
 
 ## User Preferences
 
