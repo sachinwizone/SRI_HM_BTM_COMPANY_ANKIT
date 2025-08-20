@@ -212,8 +212,7 @@ export const shippingAddresses = pgTable("shipping_addresses", {
   contactPersonName: text("contact_person_name"),
   contactPersonMobile: text("contact_person_mobile"),
   deliveryAddressName: text("delivery_address_name"), // Project Site Name
-  googleLatitude: decimal("google_latitude", { precision: 10, scale: 8 }),
-  googleLongitude: decimal("google_longitude", { precision: 11, scale: 8 }),
+  googleLocation: text("google_location"), // Combined location field or Google Maps link
   deliveryWindowFrom: text("delivery_window_from"), // Time format: "09:00"
   deliveryWindowTo: text("delivery_window_to"), // Time format: "17:00"
   unloadingFacility: unloadingFacilityEnum("unloading_facility"),

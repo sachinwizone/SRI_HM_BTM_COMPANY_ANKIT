@@ -284,6 +284,7 @@ export default function Clients() {
       contactPersonName: "",
       contactPersonMobile: "",
       deliveryAddressName: "",
+      googleLocation: "",
       deliveryWindowFrom: "",
       deliveryWindowTo: "",
       unloadingFacility: "MANUAL",
@@ -758,37 +759,14 @@ export default function Clients() {
 
                           <FormField
                             control={form.control}
-                            name={`shippingAddresses.${index}.googleLatitude`}
+                            name={`shippingAddresses.${index}.googleLocation`}
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Google Latitude</FormLabel>
+                                <FormLabel>Google Location / Maps Link</FormLabel>
                                 <FormControl>
                                   <Input 
-                                    type="number" 
-                                    step="any"
-                                    placeholder="Enter latitude" 
+                                    placeholder="Enter address or paste Google Maps link" 
                                     {...field}
-                                    onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={form.control}
-                            name={`shippingAddresses.${index}.googleLongitude`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Google Longitude</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    type="number" 
-                                    step="any"
-                                    placeholder="Enter longitude" 
-                                    {...field}
-                                    onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
                                   />
                                 </FormControl>
                                 <FormMessage />
