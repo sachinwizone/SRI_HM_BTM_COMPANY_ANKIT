@@ -54,11 +54,19 @@ export default function UserManagement() {
 
   const createUserMutation = useMutation({
     mutationFn: async (data: RegisterRequest) => {
-      return apiRequest("/api/users", {
+      const response = await fetch("/api/users", {
         method: "POST",
         body: JSON.stringify(data),
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
       });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create user");
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -80,11 +88,19 @@ export default function UserManagement() {
 
   const updateUserMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<User> }) => {
-      return apiRequest(`/api/users/${id}`, {
+      const response = await fetch(`/api/users/${id}`, {
         method: "PUT",
         body: JSON.stringify(data),
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
       });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update user");
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -105,9 +121,17 @@ export default function UserManagement() {
 
   const deleteUserMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest(`/api/users/${id}`, {
+      const response = await fetch(`/api/users/${id}`, {
         method: "DELETE",
+        credentials: "include",
       });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete user");
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       toast({

@@ -36,7 +36,7 @@ export function useAuth() {
     if (error) {
       // If auth fails, clear authentication state
       setIsAuthenticated(false);
-    } else if (authData && authData.user) {
+    } else if (authData && (authData as any).user) {
       // Auth successful
       setIsAuthenticated(true);
     }
@@ -61,9 +61,9 @@ export function useAuth() {
   };
 
   return {
-    user: authData?.user as User | undefined,
+    user: (authData as any)?.user as User | undefined,
     isLoading: isLoading || isAuthenticated === null,
-    isAuthenticated: isAuthenticated === true && !!authData?.user,
+    isAuthenticated: isAuthenticated === true && !!(authData as any)?.user,
     logout,
     login,
   };

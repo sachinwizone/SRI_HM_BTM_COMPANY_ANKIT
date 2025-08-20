@@ -106,7 +106,7 @@ export class AuthService {
   // Clean expired sessions
   static async cleanExpiredSessions(): Promise<void> {
     await db.delete(userSessions).where(
-      gt(new Date(), userSessions.expiresAt)
+      gt(userSessions.expiresAt, new Date())
     );
   }
 
