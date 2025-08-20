@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { 
   Home, CreditCard, Bell, Users, MapPin, BarChart3, 
   CheckSquare, ShoppingCart, File, Receipt, 
-  FileText, TrendingUp, DollarSign, Database, Settings, LucideIcon, Package
+  FileText, TrendingUp, DollarSign, Database, Settings, LucideIcon, Package, Clock
 } from "lucide-react";
 
 type NavigationItem = {
@@ -41,6 +41,7 @@ const navigation: NavigationEntry[] = [
     section: "OPERATIONS",
     items: [
       { name: "Task Management", href: "/task-management", icon: CheckSquare },
+      { name: "Follow-ups", href: "/follow-ups", icon: Clock },
       { name: "Order Workflow", href: "/order-workflow", icon: ShoppingCart },
       { name: "Credit Agreements", href: "/credit-agreements", icon: File },
       { name: "E-Way Bills", href: "/eway-bills", icon: Receipt },

@@ -251,7 +251,7 @@ export default function TaskManagement() {
     if (!followUpTask) return;
     const processedData = {
       taskId: followUpTask.id,
-      assignedUserId: followUpTask.assignedTo || users[0]?.id,
+      assignedUserId: followUpTask.assignedTo || (users as any[])[0]?.id,
       followUpDate: new Date(data.followUpDate).toISOString(),
       remarks: data.remarks,
       status: "PENDING",
@@ -715,7 +715,7 @@ Thanks!`;
                         <th className="px-6 py-3">Due Date</th>
                         <th className="px-6 py-3">Priority</th>
                         <th className="px-6 py-3">Status</th>
-                        <th className="px-6 py-3">Actions</th>
+                        <th className="px-6 py-3 w-32">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
@@ -837,28 +837,33 @@ Thanks!`;
                               </Select>
                             </td>
                             <td className="px-6 py-4">
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center justify-center space-x-1">
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => openEditDialog(task)}
+                                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                                  title="Edit Task"
                                 >
-                                  <Edit3 size={16} />
+                                  <Edit3 size={14} />
                                 </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => openTransferDialog(task)}
+                                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                                  title="Transfer Task"
                                 >
-                                  <UserCheck size={16} />
+                                  <UserCheck size={14} />
                                 </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => openFollowUpDialog(task)}
-                                  className="text-blue-600 hover:text-blue-800"
+                                  className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                  title="Create Follow-up"
                                 >
-                                  <Clock size={16} />
+                                  <Clock size={14} />
                                 </Button>
                                 <Button
                                   variant="ghost"
@@ -871,17 +876,19 @@ Thanks!`;
                                       toast({ title: "Error", description: "Assigned user not found", variant: "destructive" });
                                     }
                                   }}
-                                  className="text-green-600 hover:text-green-800"
+                                  className="h-8 w-8 p-0 text-green-600 hover:text-green-800 hover:bg-green-50"
+                                  title="WhatsApp Message"
                                 >
-                                  <MessageCircle size={16} />
+                                  <MessageCircle size={14} />
                                 </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleDeleteTask(task.id)}
-                                  className="text-red-600 hover:text-red-800"
+                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                                  title="Delete Task"
                                 >
-                                  <Trash2 size={16} />
+                                  <Trash2 size={14} />
                                 </Button>
                               </div>
                             </td>

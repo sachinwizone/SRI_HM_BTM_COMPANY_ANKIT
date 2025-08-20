@@ -439,6 +439,10 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(followUps.followUpDate));
   }
 
+  async getAllFollowUps(): Promise<FollowUp[]> {
+    return await db.select().from(followUps).orderBy(desc(followUps.createdAt));
+  }
+
   async createFollowUp(insertFollowUp: InsertFollowUp): Promise<FollowUp> {
     const followUpData = {
       ...insertFollowUp,

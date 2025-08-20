@@ -19,6 +19,7 @@ import Pricing from "@/pages/pricing";
 import Sales from "@/pages/sales";
 
 import UserManagement from "@/pages/user-management";
+import FollowUps from "@/pages/follow-ups";
 import AuthPage from "@/pages/auth";
 import { useAuth } from "@/hooks/useAuth";
 import Sidebar from "@/components/layout/sidebar";
@@ -49,6 +50,7 @@ function Router() {
             <Route path="/client-management" component={Clients} />
             <Route path="/client-tracking" component={ClientTracking} />
             <Route path="/task-management" component={TaskManagement} />
+            <Route path="/follow-ups" component={FollowUps} />
             <Route path="/order-workflow" component={OrderWorkflow} />
             <Route path="/credit-agreements" component={CreditAgreements} />
             <Route path="/eway-bills" component={EwayBills} />

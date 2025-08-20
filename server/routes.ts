@@ -615,7 +615,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         followUps = await storage.getFollowUpsByUser(userId as string);
       } else {
         // Return all follow-ups for admin view
-        followUps = await storage.getFollowUpsByUser(""); // Will return empty array
+        followUps = await storage.getAllFollowUps();
       }
       
       res.json(followUps);
