@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import CreditPayments from "@/pages/credit-payments";
-import Clients from "@/pages/clients-new";
+import Clients from "@/pages/clients";
 import ClientTracking from "@/pages/client-tracking";
 import TaskManagement from "@/pages/task-management";
 import OrderWorkflow from "@/pages/order-workflow";
