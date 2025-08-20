@@ -42,10 +42,10 @@ const extendedClientSchema = insertClientSchema.extend({
 type ExtendedClient = z.infer<typeof extendedClientSchema>;
 
 const categoryColors = {
-  ALFA: "bg-green-100 text-green-800 border-green-200",
-  BETA: "bg-yellow-100 text-yellow-800 border-yellow-200", 
-  GAMMA: "bg-orange-100 text-orange-800 border-orange-200",
-  DELTA: "bg-red-100 text-red-800 border-red-200",
+  ALFA: "bg-green-500 text-white border-green-600",
+  BETA: "bg-yellow-500 text-white border-yellow-600", 
+  GAMMA: "bg-orange-500 text-white border-orange-600",
+  DELTA: "bg-red-500 text-white border-red-600",
 };
 
 const categoryLabels = {
@@ -1189,8 +1189,8 @@ export default function Clients() {
         <Card 
           className={`cursor-pointer transition-all duration-200 hover:shadow-lg transform hover:scale-105 ${
             selectedCategory === 'ALFA' 
-              ? "bg-gradient-to-r from-green-200 to-green-300 text-green-800 border border-green-200 ring-2 ring-green-400" 
-              : "bg-gradient-to-r from-green-200 to-green-300 text-green-800 border border-green-200 opacity-70"
+              ? "bg-gradient-to-r from-green-500 to-green-600 text-white border border-green-500 ring-2 ring-green-400" 
+              : "bg-gradient-to-r from-green-400 to-green-500 text-white border border-green-400 opacity-80"
           }`}
           onClick={() => handleCategoryFilter('ALFA')}
         >
@@ -1199,7 +1199,7 @@ export default function Clients() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{clientStats.ALFA}</div>
-            <p className="text-green-600 text-sm">Priority clients</p>
+            <p className="text-green-100 text-sm">Priority clients</p>
           </CardContent>
         </Card>
 
@@ -1207,8 +1207,8 @@ export default function Clients() {
         <Card 
           className={`cursor-pointer transition-all duration-200 hover:shadow-lg transform hover:scale-105 ${
             selectedCategory === 'BETA' 
-              ? "bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 border border-yellow-200 ring-2 ring-yellow-400" 
-              : "bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 border border-yellow-200 opacity-70"
+              ? "bg-gradient-to-r from-yellow-500 to-yellow-600 text-white border border-yellow-500 ring-2 ring-yellow-400" 
+              : "bg-gradient-to-r from-yellow-400 to-yellow-500 text-white border border-yellow-400 opacity-80"
           }`}
           onClick={() => handleCategoryFilter('BETA')}
         >
@@ -1217,7 +1217,7 @@ export default function Clients() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{clientStats.BETA}</div>
-            <p className="text-yellow-600 text-sm">Regular clients</p>
+            <p className="text-yellow-100 text-sm">Regular clients</p>
           </CardContent>
         </Card>
 
@@ -1225,8 +1225,8 @@ export default function Clients() {
         <Card 
           className={`cursor-pointer transition-all duration-200 hover:shadow-lg transform hover:scale-105 ${
             selectedCategory === 'GAMMA' 
-              ? "bg-gradient-to-r from-orange-200 to-orange-300 text-orange-800 border border-orange-200 ring-2 ring-orange-400" 
-              : "bg-gradient-to-r from-orange-200 to-orange-300 text-orange-800 border border-orange-200 opacity-70"
+              ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white border border-orange-500 ring-2 ring-orange-400" 
+              : "bg-gradient-to-r from-orange-400 to-orange-500 text-white border border-orange-400 opacity-80"
           }`}
           onClick={() => handleCategoryFilter('GAMMA')}
         >
@@ -1235,7 +1235,7 @@ export default function Clients() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{clientStats.GAMMA}</div>
-            <p className="text-orange-600 text-sm">Standard clients</p>
+            <p className="text-orange-100 text-sm">Standard clients</p>
           </CardContent>
         </Card>
 
@@ -1243,8 +1243,8 @@ export default function Clients() {
         <Card 
           className={`cursor-pointer transition-all duration-200 hover:shadow-lg transform hover:scale-105 ${
             selectedCategory === 'DELTA' 
-              ? "bg-gradient-to-r from-red-200 to-red-300 text-red-800 border border-red-200 ring-2 ring-red-400" 
-              : "bg-gradient-to-r from-red-200 to-red-300 text-red-800 border border-red-200 opacity-70"
+              ? "bg-gradient-to-r from-red-500 to-red-600 text-white border border-red-500 ring-2 ring-red-400" 
+              : "bg-gradient-to-r from-red-400 to-red-500 text-white border border-red-400 opacity-80"
           }`}
           onClick={() => handleCategoryFilter('DELTA')}
         >
@@ -1253,7 +1253,7 @@ export default function Clients() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{clientStats.DELTA}</div>
-            <p className="text-red-600 text-sm">New clients</p>
+            <p className="text-red-100 text-sm">New clients</p>
           </CardContent>
         </Card>
       </div>
