@@ -162,6 +162,26 @@ export default function Sales() {
     },
   });
 
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ salesId, newStatus }: { salesId: string; newStatus: string }) => {
+      return await apiRequest("PUT", `/api/sales/${salesId}`, { deliveryStatus: newStatus });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+      toast({
+        title: "Success",
+        description: "Status updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Event Handlers
   const handleOpenForm = (sales?: Sales) => {
     if (sales) {
@@ -186,6 +206,10 @@ export default function Sales() {
     if (window.confirm("Are you sure you want to delete this sales record?")) {
       deleteMutation.mutate(salesId);
     }
+  };
+
+  const handleStatusChange = (salesId: string, newStatus: string) => {
+    updateStatusMutation.mutate({ salesId, newStatus });
   };
 
   // Filtering
@@ -415,7 +439,7 @@ export default function Sales() {
                             {client?.name || 'Unknown Client'}
                           </div>
                           <div className="text-xs text-gray-500">
-                            Sales: {salesperson?.name || 'Unknown'}
+                            Sales: {salesperson ? `${salesperson.firstName} ${salesperson.lastName}`.trim() || salesperson.username : 'Unknown'}
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -436,9 +460,31 @@ export default function Sales() {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <Badge className={statusColors[sales.deliveryStatus]}>
-                            {sales.deliveryStatus}
-                          </Badge>
+                          <Select
+                            value={sales.deliveryStatus}
+                            onValueChange={(newStatus) => handleStatusChange(sales.id, newStatus)}
+                            disabled={updateStatusMutation.isPending}
+                          >
+                            <SelectTrigger className="w-28 h-7 text-xs border-0 p-0 bg-transparent">
+                              <Badge className={statusColors[sales.deliveryStatus]}>
+                                {sales.deliveryStatus}
+                              </Badge>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="RECEIVING">
+                                <Badge className={statusColors.RECEIVING}>RECEIVING</Badge>
+                              </SelectItem>
+                              <SelectItem value="OK">
+                                <Badge className={statusColors.OK}>OK</Badge>
+                              </SelectItem>
+                              <SelectItem value="APPROVED">
+                                <Badge className={statusColors.APPROVED}>APPROVED</Badge>
+                              </SelectItem>
+                              <SelectItem value="DELIVERED">
+                                <Badge className={statusColors.DELIVERED}>DELIVERED</Badge>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center space-x-2">
@@ -617,7 +663,7 @@ export default function Sales() {
                               <SelectContent>
                                 {users.filter(user => ['SALES_MANAGER', 'SALES_EXECUTIVE'].includes(user.role)).map((user) => (
                                   <SelectItem key={user.id} value={user.id}>
-                                    {user.name}
+                                    {`${user.firstName} ${user.lastName}`.trim() || user.username}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
