@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { AuthService, requireAuth, requireAdmin, requireManager } from "./auth";
+import { loginSchema, registerSchema } from "@shared/schema";
 import { 
   insertUserSchema, insertClientSchema, insertOrderSchema, insertPaymentSchema,
   insertTaskSchema, insertEwayBillSchema, insertClientTrackingSchema, insertSalesRateSchema,
@@ -11,6 +13,161 @@ import {
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Authentication Routes (Public)
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = loginSchema.parse(req.body);
+      
+      const result = await AuthService.loginUser(username, password);
+      if (!result) {
+        return res.status(401).json({ error: "Invalid username or password" });
+      }
+
+      const { user, sessionToken } = result;
+      
+      // Set session cookie
+      res.cookie('sessionToken', sessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        sameSite: 'lax'
+      });
+
+      // Remove password from response
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({ user: userWithoutPassword, sessionToken });
+    } catch (error: any) {
+      console.error("Login error:", error);
+      res.status(400).json({ error: error.message || "Login failed" });
+    }
+  });
+
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const userData = registerSchema.parse(req.body);
+      const { confirmPassword, ...userDataWithoutConfirm } = userData;
+      
+      const user = await AuthService.createUser(userDataWithoutConfirm);
+      
+      // Remove password from response
+      const { password: _, ...userWithoutPassword } = user;
+      res.status(201).json({ user: userWithoutPassword });
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      if (error.code === '23505') { // Unique constraint violation
+        return res.status(400).json({ error: "Username or email already exists" });
+      }
+      res.status(400).json({ error: error.message || "Registration failed" });
+    }
+  });
+
+  app.post("/api/auth/logout", requireAuth, async (req, res) => {
+    try {
+      const sessionToken = req.headers.authorization?.replace('Bearer ', '') ||
+                          req.cookies?.sessionToken;
+      
+      if (sessionToken) {
+        await AuthService.logoutUser(sessionToken);
+      }
+      
+      res.clearCookie('sessionToken');
+      res.json({ message: "Logged out successfully" });
+    } catch (error: any) {
+      console.error("Logout error:", error);
+      res.status(500).json({ error: "Logout failed" });
+    }
+  });
+
+  app.get("/api/auth/me", requireAuth, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({ user: userWithoutPassword });
+    } catch (error: any) {
+      console.error("Get user error:", error);
+      res.status(500).json({ error: "Failed to get user info" });
+    }
+  });
+
+  // User Management Routes (Protected)
+  app.get("/api/users", requireAuth, async (req, res) => {
+    try {
+      const currentUser = (req as any).user;
+      
+      // Only admins and managers can see all users
+      if (!['ADMIN', 'SALES_MANAGER'].includes(currentUser.role)) {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+
+      const allUsers = await AuthService.getAllUsers();
+      // Remove passwords from response
+      const usersWithoutPasswords = allUsers.map(({ password, ...user }) => user);
+      res.json(usersWithoutPasswords);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.post("/api/users", requireAdmin, async (req, res) => {
+    try {
+      const userData = registerSchema.parse(req.body);
+      const { confirmPassword, ...userDataWithoutConfirm } = userData;
+      
+      const user = await AuthService.createUser(userDataWithoutConfirm);
+      
+      // Remove password from response
+      const { password: _, ...userWithoutPassword } = user;
+      res.status(201).json(userWithoutPassword);
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      if (error.code === '23505') {
+        return res.status(400).json({ error: "Username or email already exists" });
+      }
+      res.status(400).json({ error: error.message || "Failed to create user" });
+    }
+  });
+
+  app.put("/api/users/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const currentUser = (req as any).user;
+      
+      // Users can only update their own profile unless they're admin
+      if (currentUser.id !== id && currentUser.role !== 'ADMIN') {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+
+      const updates = req.body;
+      // Don't allow role changes unless admin
+      if (updates.role && currentUser.role !== 'ADMIN') {
+        delete updates.role;
+      }
+
+      const updatedUser = await AuthService.updateUser(id, updates);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error: any) {
+      console.error("Error updating user:", error);
+      res.status(400).json({ error: error.message || "Failed to update user" });
+    }
+  });
+
+  app.delete("/api/users/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await AuthService.deactivateUser(id);
+      res.json({ message: "User deactivated successfully" });
+    } catch (error: any) {
+      console.error("Error deactivating user:", error);
+      res.status(500).json({ error: "Failed to deactivate user" });
+    }
+  });
+
   // Dashboard API
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
@@ -21,38 +178,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Users API
-  app.get("/api/users", async (req, res) => {
+  // Legacy Users API (keeping for compatibility)
+  app.get("/api/users/:id", requireAuth, async (req, res) => {
     try {
-      const users = await storage.getAllUsers();
-      res.json(users);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch users" });
-    }
-  });
+      const { id } = req.params;
+      const currentUser = (req as any).user;
+      
+      // Users can only view their own profile unless they're admin/manager
+      if (currentUser.id !== id && !['ADMIN', 'SALES_MANAGER'].includes(currentUser.role)) {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
 
-  app.get("/api/users/:id", async (req, res) => {
-    try {
-      const user = await storage.getUser(req.params.id);
+      const user = await AuthService.getUserById(id);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      res.json(user);
+      
+      const { password: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
-
-  app.post("/api/users", async (req, res) => {
-    try {
-      const userData = insertUserSchema.parse(req.body);
-      const user = await storage.createUser(userData);
-      res.status(201).json(user);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid user data", errors: error.errors });
-      }
-      res.status(500).json({ message: "Failed to create user" });
     }
   });
 

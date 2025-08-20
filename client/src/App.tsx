@@ -17,8 +17,24 @@ import TeamPerformance from "@/pages/team-performance";
 import SalesRates from "@/pages/sales-rates";
 import Pricing from "@/pages/pricing";
 import TallyIntegration from "@/pages/tally-integration";
+import AuthPage from "@/pages/auth";
+import { useAuth } from "@/hooks/useAuth";
 
 function Router() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-lg font-medium text-gray-900 dark:text-white">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <AuthPage />;
+  }
+
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
@@ -34,6 +50,7 @@ function Router() {
       <Route path="/sales-rates" component={SalesRates} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/tally-integration" component={TallyIntegration} />
+      <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
   );
