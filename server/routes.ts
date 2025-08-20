@@ -231,7 +231,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/clients", async (req, res) => {
     try {
-      const clientData = insertClientSchema.parse(req.body);
+      // Clean up empty strings and convert to appropriate types
+      const cleanedData = { ...req.body };
+      
+      // Convert ALL empty strings to null for any field
+      Object.keys(cleanedData).forEach(key => {
+        if (cleanedData[key] === '' || (Array.isArray(cleanedData[key]) && cleanedData[key].length === 0)) {
+          cleanedData[key] = null;
+        }
+      });
+      
+
+      const clientData = insertClientSchema.parse(cleanedData);
       const client = await storage.createClient(clientData);
       res.status(201).json(client);
     } catch (error: any) {

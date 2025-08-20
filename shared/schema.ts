@@ -381,6 +381,22 @@ export const insertClientSchema = createInsertSchema(clients).omit({
     }
     return val;
   }),
+  creditLimit: z.union([z.string(), z.number(), z.null()]).optional().nullable().transform(val => {
+    if (!val || val === "") return null;
+    if (typeof val === "string") {
+      const num = parseFloat(val);
+      return isNaN(num) ? null : num.toString();
+    }
+    return val;
+  }),
+  interestPercent: z.union([z.string(), z.number(), z.null()]).optional().nullable().transform(val => {
+    if (!val || val === "") return null;
+    if (typeof val === "string") {
+      const num = parseFloat(val);
+      return isNaN(num) ? null : num.toString();
+    }
+    return val;
+  }),
 });
 
 export const insertShippingAddressSchema = createInsertSchema(shippingAddresses).omit({
