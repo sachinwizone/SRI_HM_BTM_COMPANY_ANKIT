@@ -68,6 +68,7 @@ export const clients = pgTable("clients", {
   paymentTerms: integer("payment_terms").default(30), // days
   creditLimit: decimal("credit_limit", { precision: 15, scale: 2 }),
   bankInterestApplicable: bankInterestEnum("bank_interest_applicable"),
+  interestPercent: decimal("interest_percent", { precision: 5, scale: 2 }),
   poRequired: boolean("po_required").default(false),
   invoicingEmails: text("invoicing_emails").array(), // JSON array of emails
   

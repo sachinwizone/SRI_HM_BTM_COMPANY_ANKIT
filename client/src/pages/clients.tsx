@@ -186,6 +186,7 @@ export default function Clients() {
       creditLimit: client.creditLimit || "",
       companyType: client.companyType || "PVT_LTD",
       bankInterestApplicable: client.bankInterestApplicable || "FROM_DUE_DATE",
+      interestPercent: client.interestPercent || "",
       poRequired: client.poRequired || false,
     });
     setIsFormOpen(true);
@@ -867,123 +868,193 @@ export default function Clients() {
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg">
-                      <CreditCard className="h-5 w-5 text-orange-600" />
+                      <CreditCard className="h-5 w-5 text-green-600" />
                       Commercial & Finance
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="paymentTerms"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Payment Terms (Days)</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                placeholder="Enter payment terms" 
-                                {...field}
-                                onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : 30)}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                  <CardContent>
+                    <div className="space-y-6">
+                      {/* Payment & Credit Terms */}
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
+                          <CreditCard className="h-4 w-4 text-blue-600" />
+                          Payment & Credit Terms
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="paymentTerms"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Payment Terms (Days) *</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="number" 
+                                    placeholder="Enter payment terms"
+                                    className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                                    {...field}
+                                    onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : 30)}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
 
-                      <FormField
-                        control={form.control}
-                        name="creditLimit"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Credit Limit (₹)</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                step="0.01"
-                                placeholder="Enter credit limit" 
-                                {...field}
-                                onChange={(e) => field.onChange(e.target.value ? e.target.value : null)}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                          <FormField
+                            control={form.control}
+                            name="creditLimit"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Credit Limit (₹)</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="number" 
+                                    step="0.01"
+                                    placeholder="Enter credit limit"
+                                    className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                                    {...field}
+                                    onChange={(e) => field.onChange(e.target.value ? e.target.value : null)}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
 
-                      <FormField
-                        control={form.control}
-                        name="bankInterestApplicable"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Bank Interest Applicable</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value || "FROM_DUE_DATE"}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select option" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="FROM_DAY_1">From Day 1</SelectItem>
-                                <SelectItem value="FROM_DUE_DATE">From Due Date</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      {/* Interest Configuration */}
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-purple-600" />
+                          Interest Configuration
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="bankInterestApplicable"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Interest Applicable From</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value || "FROM_DUE_DATE"}>
+                                  <FormControl>
+                                    <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                                      <SelectValue placeholder="Select option" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="FROM_DAY_1">From Day 1</SelectItem>
+                                    <SelectItem value="FROM_DUE_DATE">From Due Date</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
 
-                      <FormField
-                        control={form.control}
-                        name="poRequired"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-start space-x-2 space-y-0 mt-2">
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value || false}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormLabel className="text-sm font-normal">
-                              PO Required
-                            </FormLabel>
-                          </FormItem>
-                        )}
-                      />
+                          <FormField
+                            control={form.control}
+                            name="interestPercent"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Interest Rate (%)</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max="100"
+                                    placeholder="Enter interest percentage"
+                                    className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Order Requirements */}
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-orange-600" />
+                          Order Requirements
+                        </h4>
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <FormField
+                            control={form.control}
+                            name="poRequired"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value || false}
+                                    onCheckedChange={field.onChange}
+                                    className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                                  />
+                                </FormControl>
+                                <div className="space-y-1 leading-none">
+                                  <FormLabel className="text-sm font-medium">
+                                    Purchase Order Required
+                                  </FormLabel>
+                                  <p className="text-xs text-gray-500">
+                                    Require PO before processing orders from this client
+                                  </p>
+                                </div>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
                     </div>
 
-                    <div>
-                      <FormLabel>Invoicing Email(s)</FormLabel>
-                      <div className="flex gap-2 mt-2">
-                        <Input
-                          type="email"
-                          placeholder="Enter email address"
-                          value={emailInput}
-                          onChange={(e) => setEmailInput(e.target.value)}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              addInvoicingEmail();
-                            }
-                          }}
-                        />
-                        <Button type="button" variant="outline" onClick={addInvoicingEmail}>
-                          Add
-                        </Button>
-                      </div>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {form.watch("invoicingEmails")?.map((email, index) => (
-                          <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                            {email}
-                            <X 
-                              className="h-3 w-3 cursor-pointer" 
-                              onClick={() => removeInvoicingEmail(index)}
+                      {/* Invoicing Configuration */}
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
+                          <User className="h-4 w-4 text-green-600" />
+                          Invoicing Configuration
+                        </h4>
+                        <div className="space-y-3">
+                          <FormLabel>Invoicing Email(s)</FormLabel>
+                          <div className="flex gap-2">
+                            <Input
+                              type="email"
+                              placeholder="Enter email address"
+                              className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                              value={emailInput}
+                              onChange={(e) => setEmailInput(e.target.value)}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  addInvoicingEmail();
+                                }
+                              }}
                             />
-                          </Badge>
-                        ))}
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              onClick={addInvoicingEmail}
+                              className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                            >
+                              Add
+                            </Button>
+                          </div>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {form.watch("invoicingEmails")?.map((email, index) => (
+                              <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                                {email}
+                                <X 
+                                  className="h-3 w-3 cursor-pointer hover:text-red-600" 
+                                  onClick={() => removeInvoicingEmail(index)}
+                                />
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                    </div>
                   </CardContent>
                 </Card>
 
