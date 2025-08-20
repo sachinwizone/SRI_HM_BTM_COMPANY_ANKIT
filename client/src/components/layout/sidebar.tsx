@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { 
   Home, CreditCard, Bell, Users, MapPin, BarChart3, 
   CheckSquare, ShoppingCart, File, Receipt, 
-  FileText, TrendingUp, DollarSign, Database, LucideIcon
+  FileText, TrendingUp, DollarSign, Database, Settings, LucideIcon
 } from "lucide-react";
 
 type NavigationItem = {
@@ -58,6 +58,12 @@ const navigation: NavigationEntry[] = [
     section: "INTEGRATIONS",
     items: [
       { name: "Tally Integration", href: "/tally-integration", icon: Database },
+    ],
+  },
+  {
+    section: "SYSTEM",
+    items: [
+      { name: "User Management", href: "/user-management", icon: Settings },
     ],
   },
 ];

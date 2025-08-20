@@ -405,7 +405,7 @@ export default function UserManagement() {
                         {formatDate(user.lastLogin)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge variant={user.isActive ? "success" : "secondary"}>
+                        <Badge variant={user.isActive ? "default" : "secondary"}>
                           {user.isActive ? "Active" : "Inactive"}
                         </Badge>
                       </td>
