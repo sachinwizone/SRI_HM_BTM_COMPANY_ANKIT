@@ -104,9 +104,10 @@ export default function Clients() {
       if (dateFrom) params.append('dateFrom', dateFrom);
       if (dateTo) params.append('dateTo', dateTo);
       
-      const response = await fetch(`/api/clients?${params.toString()}`);
+      const url = `/api/clients${params.toString() ? '?' + params.toString() : ''}`;
+      const response = await fetch(url, { credentials: "include" });
       if (!response.ok) throw new Error('Failed to fetch clients');
-      return response.json();
+      return await response.json();
     },
   });
 
@@ -128,7 +129,7 @@ export default function Clients() {
       panNumber: "",
       msmeNumber: "",
       incorporationCertNumber: "",
-      incorporationDate: "",
+      incorporationDate: null,
       companyType: "PVT_LTD",
       contactPersonName: "",
       mobileNumber: "",
@@ -188,7 +189,7 @@ export default function Clients() {
     setEditingClient(client);
     form.reset({
       ...client,
-      incorporationDate: client.incorporationDate ? new Date(client.incorporationDate).toISOString().split('T')[0] : "",
+      incorporationDate: client.incorporationDate ? new Date(client.incorporationDate) : null,
       communicationPreferences: (client.communicationPreferences || []) as any,
       invoicingEmails: client.invoicingEmails || [],
       shippingAddresses: [], // Will load separately
@@ -236,7 +237,7 @@ export default function Clients() {
   const exportToExcel = () => {
     import('xlsx').then((XLSX) => {
       import('file-saver').then((FileSaver) => {
-        const exportData = clients.map((client: Client) => ({
+        const exportData = (clients as Client[]).map((client: Client) => ({
           'Client Name': client.name,
           'Category': client.category,
           'Company Type': client.companyType,
@@ -372,7 +373,8 @@ export default function Clients() {
       contactPersonName: "",
       contactPersonMobile: "",
       deliveryAddressName: "",
-      googleLocation: "",
+      googleLatitude: undefined,
+      googleLongitude: undefined,
       deliveryWindowFrom: "",
       deliveryWindowTo: "",
       unloadingFacility: "MANUAL",
