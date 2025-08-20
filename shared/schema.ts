@@ -4,7 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums
-export const clientCategoryEnum = pgEnum('client_category', ['ALPHA', 'BETA', 'GAMMA', 'DELTA']);
+export const clientCategoryEnum = pgEnum('client_category', ['ALFA', 'BETA', 'GAMMA', 'DELTA']);
 export const companyTypeEnum = pgEnum('company_type', ['PVT_LTD', 'PARTNERSHIP', 'PROPRIETOR', 'GOVT', 'OTHERS']);
 export const communicationPreferenceEnum = pgEnum('communication_preference', ['EMAIL', 'WHATSAPP', 'PHONE', 'SMS']);
 export const unloadingFacilityEnum = pgEnum('unloading_facility', ['PUMP', 'CRANE', 'MANUAL', 'OTHERS']);
@@ -40,47 +40,22 @@ export const userSessions = pgTable("user_sessions", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
-// Clients table
+// Clients table - Match existing database structure
 export const clients = pgTable("clients", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  // Company & Compliance
   name: text("name").notNull(),
   category: clientCategoryEnum("category").notNull(),
-  billingAddressLine: text("billing_address_line"),
-  billingCity: text("billing_city"),
-  billingPincode: text("billing_pincode"),
-  billingState: text("billing_state"),
-  billingCountry: text("billing_country").default('India'),
-  gstNumber: text("gst_number"),
-  panNumber: text("pan_number"),
-  msmeNumber: text("msme_number"),
-  incorporationCertNumber: text("incorporation_cert_number"),
-  incorporationDate: timestamp("incorporation_date"),
-  companyType: companyTypeEnum("company_type"),
-  
-  // Primary Contact Details
-  contactPersonName: text("contact_person_name"),
-  mobileNumber: text("mobile_number"),
   email: text("email"),
-  communicationPreferences: text("communication_preferences").array(), // JSON array of preferences
-  
-  // Commercial & Finance
-  paymentTerms: integer("payment_terms").default(30), // days
-  creditLimit: decimal("credit_limit", { precision: 15, scale: 2 }),
-  bankInterestApplicable: bankInterestEnum("bank_interest_applicable"),
-  interestPercent: decimal("interest_percent", { precision: 5, scale: 2 }),
-  poRequired: boolean("po_required").default(false),
-  invoicingEmails: text("invoicing_emails").array(), // JSON array of emails
-  
-  // Documents Upload Status
-  gstCertificateUploaded: boolean("gst_certificate_uploaded").default(false),
-  panCopyUploaded: boolean("pan_copy_uploaded").default(false),
-  cancelledChequeUploaded: boolean("cancelled_cheque_uploaded").default(false),
-  agreementUploaded: boolean("agreement_uploaded").default(false),
-  poRateContractUploaded: boolean("po_rate_contract_uploaded").default(false),
-  
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+  phone: text("phone"),
+  address: text("address"),
+  gst_number: text("gst_number"),
+  credit_limit: decimal("credit_limit", { precision: 15, scale: 2 }),
+  payment_terms: integer("payment_terms").default(30),
+  contact_person: text("contact_person"),
+  tally_guid: text("tally_guid"),
+  last_synced: timestamp("last_synced"),
+  interest_percent: decimal("interest_percent", { precision: 5, scale: 2 }),
+  created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 
 // Credit Agreements table
@@ -368,10 +343,7 @@ export const registerSchema = insertUserSchema.extend({
 
 export const insertClientSchema = createInsertSchema(clients).omit({
   id: true,
-  createdAt: true,
-  updatedAt: true,
-}).extend({
-  incorporationDate: z.string().optional().nullable(),
+  created_at: true,
 });
 
 export const insertShippingAddressSchema = createInsertSchema(shippingAddresses).omit({

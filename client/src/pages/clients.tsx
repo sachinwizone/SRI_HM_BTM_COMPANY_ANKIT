@@ -332,15 +332,18 @@ export default function Clients() {
             </div>
 
             <Form {...form}>
-              <form onSubmit={form.handleSubmit((data) => clientMutation.mutate(data))} className="space-y-6">
+              <form onSubmit={form.handleSubmit((data) => clientMutation.mutate(data))} className="space-y-8">
                 
-                {/* Company & Compliance Section */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Building className="h-5 w-5 text-blue-600" />
-                      Company & Compliance
+                {/* Company Information Section */}
+                <Card className="border-l-4 border-l-blue-300 shadow-sm bg-gradient-to-r from-blue-50 to-white">
+                  <CardHeader className="pb-4 bg-gradient-to-r from-blue-100/50 to-blue-50/30 rounded-t-lg">
+                    <CardTitle className="flex items-center gap-3 text-xl text-blue-800">
+                      <div className="p-2 bg-blue-200 rounded-lg">
+                        <Building className="h-6 w-6 text-blue-700" />
+                      </div>
+                      Company Information
                     </CardTitle>
+                    <p className="text-sm text-blue-600 mt-1">Basic company details and registration information</p>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

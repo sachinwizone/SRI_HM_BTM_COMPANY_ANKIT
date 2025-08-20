@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import CreditPayments from "@/pages/credit-payments";
-import ClientsNew from "@/pages/clients-new";
+import Clients from "@/pages/clients-new";
 import ClientTracking from "@/pages/client-tracking";
 import TaskManagement from "@/pages/task-management";
 import OrderWorkflow from "@/pages/order-workflow";
@@ -46,7 +46,7 @@ function Router() {
           <Switch>
             <Route path="/" component={Dashboard} />
             <Route path="/credit-payments" component={CreditPayments} />
-            <Route path="/client-management" component={ClientsNew} />
+            <Route path="/client-management" component={Clients} />
             <Route path="/client-tracking" component={ClientTracking} />
             <Route path="/task-management" component={TaskManagement} />
             <Route path="/order-workflow" component={OrderWorkflow} />

@@ -1,154 +1,148 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Edit, MapPin, FileText, Building, User, CreditCard, X, Upload, File, Check, Mail, Phone, Star } from "lucide-react";
+import { z } from "zod";
+
+// UI Components
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+
+// Hooks and Utils
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit, Trash2, Building2, User, MapPin, FileText, CreditCard, Upload, File, X, Check, Home } from "lucide-react";
-import { clients, insertClientSchema, type Client, type InsertClient } from "@shared/schema";
-import { createInsertSchema } from "drizzle-zod";
+// Simple client schema matching database structure
+const clientSchema = z.object({
+  name: z.string().min(1, "Company name is required"),
+  category: z.enum(["ALFA", "BETA", "GAMMA", "DELTA"]),
+  email: z.string().email().optional().or(z.literal("")),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  gst_number: z.string().optional(),
+  credit_limit: z.string().optional(),
+  payment_terms: z.number().optional(),
+  contact_person: z.string().optional(),
+  interest_percent: z.string().optional(),
+});
 
-const clientFormSchema = createInsertSchema(clients);
+type ClientFormData = z.infer<typeof clientSchema>;
+type Client = {
+  id: string;
+  name: string;
+  category: "ALFA" | "BETA" | "GAMMA" | "DELTA";
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  gst_number?: string | null;
+  credit_limit?: string | null;
+  payment_terms?: number | null;
+  contact_person?: string | null;
+  interest_percent?: string | null;
+  created_at: Date;
+};
 
-interface FileUploadState {
-  gstCertificate?: File;
-  panCopy?: File;
-  cancelledCheque?: File;
-  agreement?: File;
-  poRateContract?: File;
-}
+const communicationOptions = [
+  { value: 'EMAIL', label: '📧 Email', color: 'bg-blue-100 text-blue-800' },
+  { value: 'WHATSAPP', label: '💬 WhatsApp', color: 'bg-green-100 text-green-800' },
+  { value: 'PHONE', label: '📞 Phone', color: 'bg-purple-100 text-purple-800' },
+  { value: 'SMS', label: '📱 SMS', color: 'bg-orange-100 text-orange-800' },
+];
+
+const unloadingFacilityOptions = [
+  { value: 'PUMP', label: '🔧 Pump' },
+  { value: 'CRANE', label: '🏗️ Crane' },
+  { value: 'MANUAL', label: '👷 Manual' },
+  { value: 'OTHERS', label: '📋 Others' },
+];
 
 export default function ClientsNew() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [uploadedFiles, setUploadedFiles] = useState<FileUploadState>({});
   const [emailInput, setEmailInput] = useState("");
+  const [uploadedFiles, setUploadedFiles] = useState<{
+    gstCertificate?: File;
+    panCopy?: File;
+    cancelledCheque?: File;
+    agreement?: File;
+    poRateContract?: File;
+  }>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Form setup
-  const form = useForm<InsertClient>({
-    resolver: zodResolver(clientFormSchema),
-    defaultValues: {
-      companyName: "",
-      companyType: "PVT_LTD",
-      category: "ALFA",
-      billingAddressLine: "",
-      billingCity: "",
-      billingPincode: "",
-      billingState: "",
-      billingCountry: "India",
-      gstNumber: "",
-      panNumber: "",
-      msmeNumber: "",
-      incorporationCertNumber: "",
-      incorporationDate: "",
-      contactPersonName: "",
-      mobileNumber: "",
-      email: "",
-      paymentTerms: 30,
-      creditLimit: "",
-      bankInterestApplicable: "FROM_DUE_DATE",
-      interestPercent: "",
-      poRequired: false,
-      invoicingEmails: [],
-      shippingAddresses: [],
-    },
-  });
-
-  // Fetch clients
-  const { data: clientsData = [], isLoading } = useQuery({
+  const { data: clients = [], isLoading } = useQuery<Client[]>({
     queryKey: ["/api/clients"],
   });
 
-  // Add/Update client mutation
+  const form = useForm<ClientFormData>({
+    resolver: zodResolver(clientSchema),
+    defaultValues: {
+      name: "",
+      category: "BETA",
+      email: "",
+      phone: "",
+      address: "",
+      gst_number: "",
+      credit_limit: "",
+      payment_terms: 30,
+      contact_person: "",
+      interest_percent: "",
+    },
+  });
+
+
+
   const clientMutation = useMutation({
-    mutationFn: async (data: InsertClient) => {
+    mutationFn: async (data: ClientFormData) => {
       const url = editingClient ? `/api/clients/${editingClient.id}` : "/api/clients";
-      const method = editingClient ? "PATCH" : "POST";
-      return await apiRequest(url, { method, body: data });
+      const method = editingClient ? "PUT" : "POST";
+      const response = await apiRequest(method, url, data);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
-      toast({ 
-        title: "Success!", 
-        description: `Client ${editingClient ? "updated" : "created"} successfully.`,
-        variant: "default"
-      });
       setIsFormOpen(false);
+      setEditingClient(null);
       form.reset();
       setUploadedFiles({});
+      toast({
+        title: "Success",
+        description: editingClient ? "Client updated successfully" : "Client created successfully",
+      });
     },
-    onError: (error: Error) => {
+    onError: (error) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to save client",
         variant: "destructive",
       });
     },
   });
-
-  // Delete client mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return await apiRequest(`/api/clients/${id}`, { method: "DELETE" });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
-      toast({ 
-        title: "Success!", 
-        description: "Client deleted successfully.",
-        variant: "default"
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const onSubmit = (data: InsertClient) => {
-    clientMutation.mutate(data);
-  };
 
   const handleEdit = (client: Client) => {
     setEditingClient(client);
     form.reset({
-      companyName: client.companyName || "",
-      companyType: client.companyType || "PVT_LTD",
-      category: client.category || "ALFA",
-      billingAddressLine: client.billingAddressLine || "",
-      billingCity: client.billingCity || "",
-      billingPincode: client.billingPincode || "",
-      billingState: client.billingState || "",
-      billingCountry: client.billingCountry || "India",
-      gstNumber: client.gstNumber || "",
-      panNumber: client.panNumber || "",
-      msmeNumber: client.msmeNumber || "",
-      incorporationCertNumber: client.incorporationCertNumber || "",
-      incorporationDate: client.incorporationDate || "",
-      contactPersonName: client.contactPersonName || "",
-      mobileNumber: client.mobileNumber || "",
+      name: client.name,
+      category: client.category,
       email: client.email || "",
-      paymentTerms: client.paymentTerms || 30,
-      creditLimit: client.creditLimit || "",
-      bankInterestApplicable: client.bankInterestApplicable || "FROM_DUE_DATE",
-      interestPercent: client.interestPercent || "",
-      poRequired: client.poRequired || false,
-      invoicingEmails: client.invoicingEmails || [],
-      shippingAddresses: client.shippingAddresses || [],
+      phone: client.phone || "",
+      address: client.address || "",
+      gst_number: client.gst_number || "",
+      credit_limit: client.credit_limit || "",
+      payment_terms: client.payment_terms || 30,
+      contact_person: client.contact_person || "",
+      interest_percent: client.interest_percent || "",
     });
     setIsFormOpen(true);
   };
@@ -165,41 +159,8 @@ export default function ClientsNew() {
       ...prev,
       [documentType]: file || undefined
     }));
-  };
-
-  const addInvoicingEmail = () => {
-    if (emailInput.trim() && emailInput.includes("@")) {
-      const currentEmails = form.getValues("invoicingEmails") || [];
-      if (!currentEmails.includes(emailInput.trim())) {
-        form.setValue("invoicingEmails", [...currentEmails, emailInput.trim()]);
-        setEmailInput("");
-      }
-    }
-  };
-
-  const removeInvoicingEmail = (index: number) => {
-    const currentEmails = form.getValues("invoicingEmails") || [];
-    form.setValue("invoicingEmails", currentEmails.filter((_, i) => i !== index));
-  };
-
-  const addShippingAddress = () => {
-    const currentAddresses = form.getValues("shippingAddresses") || [];
-    form.setValue("shippingAddresses", [
-      ...currentAddresses,
-      {
-        addressLine: "",
-        city: "",
-        pincode: "",
-        state: "",
-        country: "India",
-        unloadingFacility: "NONE"
-      }
-    ]);
-  };
-
-  const removeShippingAddress = (index: number) => {
-    const currentAddresses = form.getValues("shippingAddresses") || [];
-    form.setValue("shippingAddresses", currentAddresses.filter((_, i) => i !== index));
+    
+    form.setValue(`${documentType}Uploaded` as any, !!file);
   };
 
   const renderFileUpload = (
@@ -215,14 +176,14 @@ export default function ClientsNew() {
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-gray-700">{label}</span>
           {isUploaded && (
-            <div className="flex items-center gap-1 text-emerald-600">
+            <div className="flex items-center gap-2 text-emerald-600">
               <Check className="h-4 w-4" />
-              <span className="text-xs">Uploaded</span>
+              <span className="text-xs font-medium">Uploaded</span>
             </div>
           )}
         </div>
         
-        <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors bg-white/70">
+        <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 hover:border-blue-300 transition-all duration-200 bg-gradient-to-br from-gray-50 to-white">
           <input
             type="file"
             accept={acceptedTypes}
@@ -237,32 +198,38 @@ export default function ClientsNew() {
           {!isUploaded ? (
             <label
               htmlFor={`upload-${documentType}`}
-              className="cursor-pointer flex flex-col items-center gap-2 text-gray-500 hover:text-gray-700"
+              className="cursor-pointer flex flex-col items-center gap-3 text-gray-500 hover:text-gray-700 transition-colors"
             >
-              <Upload className="h-8 w-8" />
-              <span className="text-sm">Click to upload {label}</span>
-              <span className="text-xs text-gray-400">PDF, JPG, PNG, DOC (max 10MB)</span>
+              <div className="p-3 bg-blue-100 rounded-full">
+                <Upload className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="text-center">
+                <span className="text-sm font-medium">Click to upload {label}</span>
+                <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG, DOC (max 10MB)</p>
+              </div>
             </label>
           ) : (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <File className="h-5 w-5 text-emerald-600" />
-                <span className="text-sm text-gray-700">{file.name}</span>
+            <div className="flex items-center justify-between bg-white p-3 rounded-lg border">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <File className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-700">{file.name}</span>
+                  <p className="text-xs text-gray-500">
+                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">
-                  {(file.size / 1024 / 1024).toFixed(2)} MB
-                </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleFileUpload(documentType, null)}
-                  className="h-6 w-6 p-0"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleFileUpload(documentType, null)}
+                className="text-red-600 border-red-200 hover:bg-red-50"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           )}
         </div>
@@ -270,333 +237,123 @@ export default function ClientsNew() {
     );
   };
 
-  const unloadingFacilityOptions = [
-    { value: "NONE", label: "None" },
-    { value: "CRANE", label: "Crane" },
-    { value: "FORKLIFT", label: "Forklift" },
-    { value: "MANUAL", label: "Manual" },
-    { value: "CONVEYOR", label: "Conveyor" },
-  ];
+
 
   if (isLoading) {
-    return <div className="flex justify-center items-center h-64">Loading...</div>;
+    return <div className="flex items-center justify-center h-64">Loading clients...</div>;
   }
 
   return (
-    <div className="space-y-6 p-6 bg-gradient-to-br from-slate-50 to-gray-100 min-h-screen">
-      <div className="flex justify-between items-center">
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Client Management</h1>
-          <p className="text-gray-600 mt-2">Manage your client information and relationships</p>
+          <p className="text-gray-600 mt-1">Manage your clients and their information</p>
         </div>
-        <Button 
-          onClick={handleAddNew}
-          className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add New Client
-        </Button>
-      </div>
-
-      {/* Clients List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {clientsData.map((client: Client) => (
-          <Card key={client.id} className="bg-white shadow-lg hover:shadow-xl transition-shadow border-0 rounded-xl">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-xl">
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
-                    <Building2 className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{client.companyName}</h3>
-                    <p className="text-sm text-gray-600">{client.contactPersonName}</p>
-                  </div>
-                </div>
-                <Badge 
-                  variant={client.category === 'ALFA' ? 'default' : 'secondary'}
-                  className="text-xs"
-                >
-                  {client.category}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <div className="space-y-2 text-sm text-gray-600">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  <span>{client.email || 'No email'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  <span>{client.billingCity || 'No city'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4" />
-                  <span>₹{client.creditLimit || 'No limit'}</span>
-                </div>
-              </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline" size="sm" onClick={() => handleEdit(client)}>
-                  <Edit className="h-4 w-4 mr-1" />
-                  Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => deleteMutation.mutate(client.id)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {clientsData.length === 0 && (
-        <Card className="bg-white shadow-lg rounded-xl">
-          <CardContent className="text-center py-12">
-            <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Clients Yet</h3>
-            <p className="text-gray-600 mb-4">Get started by adding your first client</p>
-            <Button onClick={handleAddNew} className="bg-gradient-to-r from-blue-500 to-purple-600">
+        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={handleAddNew} className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg">
               <Plus className="h-4 w-4 mr-2" />
-              Add Your First Client
+              Add Client
             </Button>
-          </CardContent>
-        </Card>
-      )}
+          </DialogTrigger>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto" aria-describedby="client-form-description">
+            <DialogHeader className="bg-gradient-to-r from-blue-50 to-purple-50 -m-6 p-6 mb-6 rounded-t-lg">
+              <DialogTitle className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Building className="h-6 w-6 text-blue-600" />
+                </div>
+                {editingClient ? "Edit Client" : "Add New Client"}
+              </DialogTitle>
+              <p className="text-gray-600 mt-1">Complete client information form with all necessary details</p>
+            </DialogHeader>
+            <div id="client-form-description" className="sr-only">
+              Form to create or edit client information including company details, contacts, and documents
+            </div>
 
-      {/* Client Form Modal */}
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-blue-50 to-indigo-50">
-          <DialogHeader className="bg-white rounded-lg p-4 mb-4 shadow-sm border border-blue-100">
-            <DialogTitle className="text-2xl font-semibold text-gray-800 flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
-                <Building2 className="h-5 w-5 text-white" />
-              </div>
-              {editingClient ? "Edit Client" : "Add New Client"}
-            </DialogTitle>
-          </DialogHeader>
-          
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              
-              {/* 1. Company Details */}
-              <Card className="bg-gradient-to-r from-rose-50 to-pink-50 border-rose-200 shadow-sm">
-                <CardHeader className="pb-4 bg-white/80 rounded-t-lg border-b border-rose-100">
-                  <CardTitle className="flex items-center gap-3 text-lg text-gray-800">
-                    <div className="w-8 h-8 bg-gradient-to-r from-rose-400 to-pink-400 rounded-lg flex items-center justify-center">
-                      <Building2 className="h-4 w-4 text-white" />
-                    </div>
-                    Company Details
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6 pt-6 bg-white/50">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="companyName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-gray-700 font-medium">Company Name *</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Enter company name" 
-                              className="bg-white border-rose-200 focus:border-rose-400 focus:ring-rose-400/20"
-                              {...field}
-                              value={field.value || ""} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="companyType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-gray-700 font-medium">Company Type *</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value || "PVT_LTD"}>
-                            <FormControl>
-                              <SelectTrigger className="bg-white border-rose-200 focus:border-rose-400 focus:ring-rose-400/20">
-                                <SelectValue placeholder="Select type" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="PVT_LTD">Private Limited</SelectItem>
-                              <SelectItem value="PUBLIC_LTD">Public Limited</SelectItem>
-                              <SelectItem value="LLP">Limited Liability Partnership</SelectItem>
-                              <SelectItem value="PARTNERSHIP">Partnership</SelectItem>
-                              <SelectItem value="SOLE_PROPRIETORSHIP">Sole Proprietorship</SelectItem>
-                              <SelectItem value="TRUST">Trust</SelectItem>
-                              <SelectItem value="SOCIETY">Society</SelectItem>
-                              <SelectItem value="NGO">NGO</SelectItem>
-                              <SelectItem value="HUF">Hindu Undivided Family</SelectItem>
-                              <SelectItem value="OTHERS">Others</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="incorporationDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-gray-700 font-medium">Incorporation Date</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="date"
-                              className="bg-white border-rose-200 focus:border-rose-400 focus:ring-rose-400/20"
-                              {...field} 
-                              value={field.value || ""} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="category"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-gray-700 font-medium">Category *</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value || "ALFA"}>
-                            <FormControl>
-                              <SelectTrigger className="bg-white border-rose-200 focus:border-rose-400 focus:ring-rose-400/20">
-                                <SelectValue placeholder="Select category" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="ALFA">Alfa</SelectItem>
-                              <SelectItem value="BETA">Beta</SelectItem>
-                              <SelectItem value="GAMMA">Gamma</SelectItem>
-                              <SelectItem value="DELTA">Delta</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* 2. Address Information */}
-              <Card className="bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200 shadow-sm">
-                <CardHeader className="pb-4 bg-white/80 rounded-t-lg border-b border-blue-100">
-                  <CardTitle className="flex items-center gap-3 text-lg text-gray-800">
-                    <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-lg flex items-center justify-center">
-                      <MapPin className="h-4 w-4 text-white" />
-                    </div>
-                    Address Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6 pt-6 bg-white/50">
-                  <div>
-                    <h4 className="font-medium text-gray-800 mb-4 flex items-center gap-2">
-                      <Home className="h-4 w-4 text-blue-600" />
-                      Billing Address
-                    </h4>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit((data) => clientMutation.mutate(data))} className="space-y-8">
+                
+                {/* Company Information Section */}
+                <Card className="border-l-4 border-l-blue-400 shadow-lg bg-gradient-to-br from-blue-50/50 via-white to-blue-50/30">
+                  <CardHeader className="pb-4 bg-gradient-to-r from-blue-100/70 to-blue-50/50 rounded-t-lg">
+                    <CardTitle className="flex items-center gap-3 text-xl text-blue-900">
+                      <div className="p-3 bg-blue-200 rounded-xl shadow-sm">
+                        <Building className="h-6 w-6 text-blue-700" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold">Company Information</h3>
+                        <p className="text-sm text-blue-600 font-normal">Basic company details and registration information</p>
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6 p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <FormField
                         control={form.control}
-                        name="billingAddressLine"
+                        name="name"
                         render={({ field }) => (
-                          <FormItem className="md:col-span-2">
-                            <FormLabel className="text-gray-700 font-medium">Address Line</FormLabel>
+                          <FormItem>
+                            <FormLabel className="text-gray-700 font-semibold flex items-center gap-2">
+                              <Building className="h-4 w-4 text-blue-600" />
+                              Company Name *
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="Enter company name" 
+                                className="border-blue-200 focus:border-blue-400 focus:ring-blue-300 bg-white/90 shadow-sm" 
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="category"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-gray-700 font-semibold flex items-center gap-2">
+                              <Star className="h-4 w-4 text-yellow-600" />
+                              Client Category *
+                            </FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger className="border-blue-200 focus:border-blue-400 focus:ring-blue-300 bg-white/90 shadow-sm">
+                                  <SelectValue placeholder="Select category" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="ALFA">🌟 Alfa - Premium</SelectItem>
+                                <SelectItem value="BETA">💼 Beta - Standard</SelectItem>
+                                <SelectItem value="GAMMA">📈 Gamma - Growing</SelectItem>
+                                <SelectItem value="DELTA">🔹 Delta - Basic</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="space-y-4 bg-gradient-to-r from-gray-50/50 to-blue-50/30 p-4 rounded-xl">
+                      <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                        <MapPin className="h-5 w-5 text-green-600" />
+                        Address Information
+                      </h4>
+                      <FormField
+                        control={form.control}
+                        name="address"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-gray-700 font-medium">Complete Address</FormLabel>
                             <FormControl>
                               <Textarea 
-                                placeholder="Enter billing address"
-                                className="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
-                                {...field}
-                                value={field.value || ""} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="billingCity"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-gray-700 font-medium">City</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="Enter city"
-                                className="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
-                                {...field}
-                                value={field.value || ""} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="billingPincode"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-gray-700 font-medium">Pincode</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="Enter pincode"
-                                className="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
-                                {...field}
-                                value={field.value || ""} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="billingState"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-gray-700 font-medium">State</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="Enter state"
-                                className="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
-                                {...field}
-                                value={field.value || ""} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="billingCountry"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-gray-700 font-medium">Country</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="Enter country"
-                                className="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
-                                {...field}
-                                value={field.value || ""} 
+                                placeholder="Enter complete address" 
+                                className="border-green-200 focus:border-green-400 focus:ring-green-300 bg-white/90 min-h-[80px]"
+                                {...field} 
                               />
                             </FormControl>
                             <FormMessage />
@@ -604,363 +361,152 @@ export default function ClientsNew() {
                         )}
                       />
                     </div>
-                  </div>
+                  </CardContent>
+                </Card>
 
-                  {/* Shipping Addresses */}
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-medium text-gray-800 flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-blue-600" />
-                        Shipping Addresses
-                      </h4>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={addShippingAddress}
-                        className="border-blue-300 text-blue-600 hover:bg-blue-50"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Address
-                      </Button>
-                    </div>
-
-                    {form.watch("shippingAddresses")?.map((_, index) => (
-                      <div key={index} className="bg-blue-50/50 p-4 rounded-lg mb-4">
-                        <div className="flex justify-between items-center mb-3">
-                          <h5 className="font-medium text-gray-700">Address {index + 1}</h5>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeShippingAddress(index)}
-                            className="text-red-600 hover:bg-red-50"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name={`shippingAddresses.${index}.addressLine`}
-                            render={({ field }) => (
-                              <FormItem className="md:col-span-2">
-                                <FormLabel>Address Line</FormLabel>
-                                <FormControl>
-                                  <Textarea 
-                                    placeholder="Enter shipping address"
-                                    className="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
-                                    {...field} 
-                                    value={field.value || ""}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={form.control}
-                            name={`shippingAddresses.${index}.city`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>City</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    placeholder="Enter city"
-                                    className="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
-                                    {...field} 
-                                    value={field.value || ""}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={form.control}
-                            name={`shippingAddresses.${index}.pincode`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Pincode</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    placeholder="Enter pincode"
-                                    className="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
-                                    {...field} 
-                                    value={field.value || ""}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={form.control}
-                            name={`shippingAddresses.${index}.state`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>State</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    placeholder="Enter state"
-                                    className="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
-                                    {...field} 
-                                    value={field.value || ""}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={form.control}
-                            name={`shippingAddresses.${index}.country`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Country</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    placeholder="Enter country"
-                                    className="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
-                                    {...field} 
-                                    value={field.value || "India"}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={form.control}
-                            name={`shippingAddresses.${index}.unloadingFacility`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Unloading Facility</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value || "NONE"}>
-                                  <FormControl>
-                                    <SelectTrigger className="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-400/20">
-                                      <SelectValue placeholder="Select facility" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    {unloadingFacilityOptions.map((option) => (
-                                      <SelectItem key={option.value} value={option.value}>
-                                        {option.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
+                {/* GST & Registration Section */}
+                <Card className="border-l-4 border-l-purple-400 shadow-lg bg-gradient-to-br from-purple-50/50 via-white to-purple-50/30">
+                  <CardHeader className="pb-4 bg-gradient-to-r from-purple-100/70 to-purple-50/50 rounded-t-lg">
+                    <CardTitle className="flex items-center gap-3 text-xl text-purple-900">
+                      <div className="p-3 bg-purple-200 rounded-xl shadow-sm">
+                        <FileText className="h-6 w-6 text-purple-700" />
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* 3. Legal & Compliance */}
-              <Card className="bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200 shadow-sm">
-                <CardHeader className="pb-4 bg-white/80 rounded-t-lg border-b border-emerald-100">
-                  <CardTitle className="flex items-center gap-3 text-lg text-gray-800">
-                    <div className="w-8 h-8 bg-gradient-to-r from-emerald-400 to-teal-400 rounded-lg flex items-center justify-center">
-                      <FileText className="h-4 w-4 text-white" />
-                    </div>
-                    Legal & Compliance
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6 pt-6 bg-white/50">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="font-bold">GST & Registration</h3>
+                        <p className="text-sm text-purple-600 font-normal">Tax registration details</p>
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6 p-6">
                     <FormField
                       control={form.control}
-                      name="gstNumber"
+                      name="gst_number"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-gray-700 font-medium">GST Number</FormLabel>
+                          <FormLabel className="text-gray-700 font-semibold">GST Number</FormLabel>
                           <FormControl>
                             <Input 
-                              placeholder="Enter GST number"
-                              className="bg-white border-emerald-200 focus:border-emerald-400 focus:ring-emerald-400/20"
-                              {...field}
-                              value={field.value || ""} 
+                              placeholder="Enter GST number" 
+                              className="border-purple-200 focus:border-purple-400 focus:ring-purple-300 bg-white/90"
+                              {...field} 
                             />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+                  </CardContent>
+                </Card>
 
-                    <FormField
-                      control={form.control}
-                      name="panNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-gray-700 font-medium">PAN Number</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Enter PAN number"
-                              className="bg-white border-emerald-200 focus:border-emerald-400 focus:ring-emerald-400/20"
-                              {...field}
-                              value={field.value || ""} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="msmeNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-gray-700 font-medium">MSME / Udyam Number</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Enter MSME number"
-                              className="bg-white border-emerald-200 focus:border-emerald-400 focus:ring-emerald-400/20"
-                              {...field}
-                              value={field.value || ""} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="incorporationCertNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-gray-700 font-medium">Incorporation Certificate Number</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Enter certificate number"
-                              className="bg-white border-emerald-200 focus:border-emerald-400 focus:ring-emerald-400/20"
-                              {...field}
-                              value={field.value || ""} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* 4. Contact Information */}
-              <Card className="bg-gradient-to-r from-purple-50 to-violet-50 border-purple-200 shadow-sm">
-                <CardHeader className="pb-4 bg-white/80 rounded-t-lg border-b border-purple-100">
-                  <CardTitle className="flex items-center gap-3 text-lg text-gray-800">
-                    <div className="w-8 h-8 bg-gradient-to-r from-purple-400 to-violet-400 rounded-lg flex items-center justify-center">
-                      <User className="h-4 w-4 text-white" />
-                    </div>
-                    Contact Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6 pt-6 bg-white/50">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="contactPersonName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-gray-700 font-medium">Contact Person Name</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Enter contact person name"
-                              className="bg-white border-purple-200 focus:border-purple-400 focus:ring-purple-400/20"
-                              {...field}
-                              value={field.value || ""} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="mobileNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-gray-700 font-medium">Mobile Number</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Enter mobile number"
-                              className="bg-white border-purple-200 focus:border-purple-400 focus:ring-purple-400/20"
-                              {...field}
-                              value={field.value || ""} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-gray-700 font-medium">Email Address</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="email" 
-                              placeholder="Enter email address"
-                              className="bg-white border-purple-200 focus:border-purple-400 focus:ring-purple-400/20"
-                              {...field}
-                              value={field.value || ""} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* 5. Commercial & Finance */}
-              <Card className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 shadow-sm">
-                <CardHeader className="pb-4 bg-white/80 rounded-t-lg border-b border-amber-100">
-                  <CardTitle className="flex items-center gap-3 text-lg text-gray-800">
-                    <div className="w-8 h-8 bg-gradient-to-r from-amber-400 to-orange-400 rounded-lg flex items-center justify-center">
-                      <CreditCard className="h-4 w-4 text-white" />
-                    </div>
-                    Commercial & Finance
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6 pt-6 bg-white/50">
-                  <div>
-                    <h4 className="font-medium text-gray-800 mb-4 flex items-center gap-2">
-                      <CreditCard className="h-4 w-4 text-amber-600" />
-                      Payment & Credit Terms
-                    </h4>
+                {/* Contact Information Section */}
+                <Card className="border-l-4 border-l-emerald-400 shadow-lg bg-gradient-to-br from-emerald-50/50 via-white to-emerald-50/30">
+                  <CardHeader className="pb-4 bg-gradient-to-r from-emerald-100/70 to-emerald-50/50 rounded-t-lg">
+                    <CardTitle className="flex items-center gap-3 text-xl text-emerald-900">
+                      <div className="p-3 bg-emerald-200 rounded-xl shadow-sm">
+                        <User className="h-6 w-6 text-emerald-700" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold">Contact Information</h3>
+                        <p className="text-sm text-emerald-600 font-normal">Primary contact details</p>
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6 p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <FormField
                         control={form.control}
-                        name="paymentTerms"
+                        name="contact_person"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-gray-700 font-medium">Payment Terms (Days) *</FormLabel>
+                            <FormLabel className="text-gray-700 font-semibold flex items-center gap-2">
+                              <User className="h-4 w-4 text-emerald-600" />
+                              Contact Person Name
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="Enter contact person name" 
+                                className="border-emerald-200 focus:border-emerald-400 focus:ring-emerald-300 bg-white/90"
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-gray-700 font-semibold flex items-center gap-2">
+                              <Phone className="h-4 w-4 text-emerald-600" />
+                              Phone Number
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="Enter phone number" 
+                                className="border-emerald-200 focus:border-emerald-400 focus:ring-emerald-300 bg-white/90"
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem className="md:col-span-2">
+                            <FormLabel className="text-gray-700 font-semibold flex items-center gap-2">
+                              <Mail className="h-4 w-4 text-emerald-600" />
+                              Email Address
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="email" 
+                                placeholder="Enter email address" 
+                                className="border-emerald-200 focus:border-emerald-400 focus:ring-emerald-300 bg-white/90"
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Financial Terms Section */}
+                <Card className="border-l-4 border-l-orange-400 shadow-lg bg-gradient-to-br from-orange-50/50 via-white to-orange-50/30">
+                  <CardHeader className="pb-4 bg-gradient-to-r from-orange-100/70 to-orange-50/50 rounded-t-lg">
+                    <CardTitle className="flex items-center gap-3 text-xl text-orange-900">
+                      <div className="p-3 bg-orange-200 rounded-xl shadow-sm">
+                        <CreditCard className="h-6 w-6 text-orange-700" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold">Financial Terms</h3>
+                        <p className="text-sm text-orange-600 font-normal">Payment terms and credit configuration</p>
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6 p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <FormField
+                        control={form.control}
+                        name="payment_terms"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-gray-700 font-semibold">Payment Terms (Days)</FormLabel>
                             <FormControl>
                               <Input 
                                 type="number" 
                                 placeholder="Enter payment terms"
-                                className="bg-white border-amber-200 focus:border-amber-400 focus:ring-amber-400/20"
+                                className="border-orange-200 focus:border-orange-400 focus:ring-orange-300 bg-white/90"
                                 {...field}
-                                value={field.value || ""}
                                 onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : 30)}
                               />
                             </FormControl>
@@ -971,71 +517,33 @@ export default function ClientsNew() {
 
                       <FormField
                         control={form.control}
-                        name="creditLimit"
+                        name="credit_limit"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-gray-700 font-medium">Credit Limit (₹)</FormLabel>
+                            <FormLabel className="text-gray-700 font-semibold">Credit Limit (₹)</FormLabel>
                             <FormControl>
                               <Input 
-                                type="number" 
-                                step="0.01"
                                 placeholder="Enter credit limit"
-                                className="bg-white border-amber-200 focus:border-amber-400 focus:ring-amber-400/20"
+                                className="border-orange-200 focus:border-orange-400 focus:ring-orange-300 bg-white/90"
                                 {...field}
-                                value={field.value || ""}
                               />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-medium text-gray-800 mb-4 flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-amber-600" />
-                      Interest Configuration
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <FormField
-                        control={form.control}
-                        name="bankInterestApplicable"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-gray-700 font-medium">Interest Applicable From</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value || "FROM_DUE_DATE"}>
-                              <FormControl>
-                                <SelectTrigger className="bg-white border-amber-200 focus:border-amber-400 focus:ring-amber-400/20">
-                                  <SelectValue placeholder="Select option" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="FROM_DAY_1">From Day 1</SelectItem>
-                                <SelectItem value="FROM_DUE_DATE">From Due Date</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
 
                       <FormField
                         control={form.control}
-                        name="interestPercent"
+                        name="interest_percent"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-gray-700 font-medium">Interest Rate (%)</FormLabel>
+                            <FormLabel className="text-gray-700 font-semibold">Interest Rate (%)</FormLabel>
                             <FormControl>
                               <Input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                max="100"
                                 placeholder="Enter interest percentage"
-                                className="bg-white border-amber-200 focus:border-amber-400 focus:ring-amber-400/20"
+                                className="border-orange-200 focus:border-orange-400 focus:ring-orange-300 bg-white/90"
                                 {...field}
-                                value={field.value || ""}
                               />
                             </FormControl>
                             <FormMessage />
@@ -1043,128 +551,100 @@ export default function ClientsNew() {
                         )}
                       />
                     </div>
-                  </div>
+                  </CardContent>
+                </Card>
 
-                  <div>
-                    <h4 className="font-medium text-gray-800 mb-4 flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-amber-600" />
-                      Order Requirements
-                    </h4>
-                    <div className="bg-amber-50/50 p-4 rounded-lg">
-                      <FormField
-                        control={form.control}
-                        name="poRequired"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value || false}
-                                onCheckedChange={field.onChange}
-                                className="data-[state=checked]:bg-amber-600 data-[state=checked]:border-amber-600"
-                              />
-                            </FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel className="text-sm font-medium">
-                                Purchase Order Required
-                              </FormLabel>
-                              <p className="text-xs text-gray-500">
-                                Require PO before processing orders from this client
-                              </p>
-                            </div>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
 
-                  <div>
-                    <h4 className="font-medium text-gray-800 mb-4 flex items-center gap-2">
-                      <User className="h-4 w-4 text-amber-600" />
-                      Invoicing Configuration
-                    </h4>
-                    <div className="space-y-3">
-                      <FormLabel className="text-gray-700 font-medium">Invoicing Email(s)</FormLabel>
-                      <div className="flex gap-2">
-                        <Input
-                          type="email"
-                          placeholder="Enter email address"
-                          className="bg-white border-amber-200 focus:border-amber-400 focus:ring-amber-400/20"
-                          value={emailInput}
-                          onChange={(e) => setEmailInput(e.target.value)}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              addInvoicingEmail();
-                            }
-                          }}
-                        />
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          onClick={addInvoicingEmail}
-                          className="border-amber-300 text-amber-600 hover:bg-amber-50"
-                        >
-                          Add
-                        </Button>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {form.watch("invoicingEmails")?.map((email, index) => (
-                          <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                            {email}
-                            <X 
-                              className="h-3 w-3 cursor-pointer hover:text-red-600" 
-                              onClick={() => removeInvoicingEmail(index)}
-                            />
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
 
-              {/* 6. Documents Upload */}
-              <Card className="bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200 shadow-sm">
-                <CardHeader className="pb-4 bg-white/80 rounded-t-lg border-b border-indigo-100">
-                  <CardTitle className="flex items-center gap-3 text-lg text-gray-800">
-                    <div className="w-8 h-8 bg-gradient-to-r from-indigo-400 to-blue-400 rounded-lg flex items-center justify-center">
-                      <FileText className="h-4 w-4 text-white" />
-                    </div>
-                    Documents Upload (Checklist)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6 pt-6 bg-white/50">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {renderFileUpload("gstCertificate", "GST Certificate")}
-                    {renderFileUpload("panCopy", "PAN Copy")}
-                    {renderFileUpload("cancelledCheque", "Cancelled Cheque")}
-                    {renderFileUpload("agreement", "Agreement")}
-                    {renderFileUpload("poRateContract", "PO / Rate Contract")}
-                  </div>
-                </CardContent>
-              </Card>
+                <div className="flex justify-end gap-4 pt-6 border-t bg-gradient-to-r from-gray-50 to-blue-50 -mx-6 px-6 pb-6 rounded-b-lg">
+                  <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} className="px-8">
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={clientMutation.isPending}
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 px-8 shadow-lg"
+                  >
+                    {clientMutation.isPending ? "Saving..." : (editingClient ? "Update Client" : "Create Client")}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
 
-              <div className="flex justify-end gap-4 pt-6">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setIsFormOpen(false)}
-                  className="px-6"
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={clientMutation.isPending}
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6"
-                >
-                  {clientMutation.isPending ? "Saving..." : (editingClient ? "Update Client" : "Create Client")}
-                </Button>
+      {/* Client Grid */}
+      <div className="grid gap-6">
+        {!clients || clients.length === 0 ? (
+          <Card className="shadow-lg">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <div className="p-4 bg-blue-100 rounded-full mb-4">
+                <Building className="h-12 w-12 text-blue-600" />
               </div>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No clients found</h3>
+              <p className="text-gray-600 mb-6">Get started by adding your first client</p>
+              <Button onClick={handleAddNew} className="bg-gradient-to-r from-blue-600 to-blue-700">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Client
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4">
+            {(clients as Client[]).map((client: Client) => (
+              <Card key={client.id} className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-300">
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-xl font-bold text-gray-900">{client.name}</h3>
+                        <Badge 
+                          variant="secondary" 
+                          className={`
+                            ${client.category === 'ALFA' ? 'bg-purple-100 text-purple-800' : ''}
+                            ${client.category === 'BETA' ? 'bg-blue-100 text-blue-800' : ''}
+                            ${client.category === 'GAMMA' ? 'bg-green-100 text-green-800' : ''}
+                            ${client.category === 'DELTA' ? 'bg-orange-100 text-orange-800' : ''}
+                          `}
+                        >
+                          {client.category}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-blue-600" />
+                          <span className="text-gray-600">{client.email || 'No email'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-green-600" />
+                          <span className="text-gray-600">{client.phone || 'No phone'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="h-4 w-4 text-purple-600" />
+                          <span className="text-gray-600">
+                            {client.payment_terms ? `${client.payment_terms} days` : 'No terms set'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleEdit(client)}
+                        className="border-blue-200 text-blue-600 hover:bg-blue-50"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
