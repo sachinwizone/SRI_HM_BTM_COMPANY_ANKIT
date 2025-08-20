@@ -57,8 +57,10 @@ export default function TaskManagement() {
       setIsDialogOpen(false);
       form.reset();
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to create task", variant: "destructive" });
+    onError: (error: any) => {
+      console.error("Task creation error:", error);
+      const errorMsg = error?.message || "Failed to create task";
+      toast({ title: "Error", description: errorMsg, variant: "destructive" });
     }
   });
 
@@ -75,15 +77,25 @@ export default function TaskManagement() {
     }
   });
 
+  // Create a custom form schema that handles string inputs for date and number fields
+  const formSchema = z.object({
+    title: z.string().min(1, "Title is required"),
+    description: z.string().optional(),
+    type: z.enum(["ONE_TIME", "RECURRING"]),
+    assignedTo: z.string().optional(),
+    clientId: z.string().optional(),
+    orderId: z.string().optional(),
+    isCompleted: z.boolean().default(false),
+    dueDate: z.string().optional(),
+    recurringInterval: z.string().optional()
+  });
+
   const form = useForm({
-    resolver: zodResolver(insertTaskSchema.extend({
-      dueDate: z.string().optional(),
-      recurringInterval: z.string().optional()
-    })),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       title: "",
       description: "",
-      type: "ONE_TIME",
+      type: "ONE_TIME" as const,
       assignedTo: "",
       clientId: "",
       orderId: "",
@@ -93,16 +105,22 @@ export default function TaskManagement() {
     }
   });
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (data: z.infer<typeof formSchema>) => {
+    console.log("Form data:", data); // Debug log
+    
     const processedData = {
-      ...data,
-      dueDate: data.dueDate && data.dueDate.trim() ? new Date(data.dueDate).toISOString() : null,
-      recurringInterval: data.type === 'RECURRING' && data.recurringInterval && data.recurringInterval.trim() ? parseInt(data.recurringInterval) : null,
+      title: data.title,
+      description: data.description || null,
+      type: data.type,
+      assignedTo: data.assignedTo && data.assignedTo.trim() ? data.assignedTo : null,
       clientId: data.clientId && data.clientId.trim() ? data.clientId : null,
       orderId: data.orderId && data.orderId.trim() ? data.orderId : null,
-      assignedTo: data.assignedTo && data.assignedTo.trim() ? data.assignedTo : null
+      isCompleted: data.isCompleted,
+      dueDate: data.dueDate && data.dueDate.trim() ? new Date(data.dueDate).toISOString() : null,
+      recurringInterval: data.type === 'RECURRING' && data.recurringInterval && data.recurringInterval.trim() ? parseInt(data.recurringInterval) : null
     };
     
+    console.log("Processed data:", processedData); // Debug log
     createTaskMutation.mutate(processedData);
   };
 
