@@ -12,17 +12,21 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { insertTaskSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Plus, Filter, CheckSquare, RotateCcw, Calendar, User } from "lucide-react";
+import { Search, Plus, Filter, CheckSquare, RotateCcw, Calendar, User, Edit3, Trash2, UserCheck } from "lucide-react";
 import { useState } from "react";
 
 export default function TaskManagement() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
   const [selectedType, setSelectedType] = useState("all");
+  const [editingTask, setEditingTask] = useState<any>(null);
+  const [transferringTask, setTransferringTask] = useState<any>(null);
 
+  // Fetch data
   const { data: allTasks = [], isLoading } = useQuery({
     queryKey: ['/api/tasks'],
   });
@@ -47,6 +51,62 @@ export default function TaskManagement() {
     queryKey: ['/api/orders'],
   });
 
+  // Form schemas
+  const formSchema = z.object({
+    title: z.string().min(1, "Title is required"),
+    description: z.string().optional(),
+    type: z.enum(["ONE_TIME", "RECURRING"]),
+    assignedTo: z.string().optional(),
+    clientId: z.string().optional(),
+    orderId: z.string().optional(),
+    isCompleted: z.boolean().default(false),
+    dueDate: z.string().optional(),
+    recurringInterval: z.string().optional()
+  });
+
+  const transferSchema = z.object({
+    assignedTo: z.string().min(1, "Please select a user")
+  });
+
+  // Forms
+  const form = useForm({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      type: "ONE_TIME" as const,
+      assignedTo: "",
+      clientId: "",
+      orderId: "",
+      isCompleted: false,
+      dueDate: "",
+      recurringInterval: ""
+    }
+  });
+
+  const editForm = useForm({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      type: "ONE_TIME" as const,
+      assignedTo: "",
+      clientId: "",
+      orderId: "",
+      isCompleted: false,
+      dueDate: "",
+      recurringInterval: ""
+    }
+  });
+
+  const transferForm = useForm({
+    resolver: zodResolver(transferSchema),
+    defaultValues: {
+      assignedTo: ""
+    }
+  });
+
+  // Mutations
   const createTaskMutation = useMutation({
     mutationFn: async (data: any) => {
       return await apiRequest('POST', '/api/tasks', data);
@@ -71,44 +131,52 @@ export default function TaskManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       toast({ title: "Success", description: "Task updated successfully" });
+      setIsEditDialogOpen(false);
+      setEditingTask(null);
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to update task", variant: "destructive" });
+    onError: (error: any) => {
+      console.error("Task update error:", error);
+      const errorMsg = error?.message || "Failed to update task";
+      toast({ title: "Error", description: errorMsg, variant: "destructive" });
     }
   });
 
-  // Create a custom form schema that handles string inputs for date and number fields
-  const formSchema = z.object({
-    title: z.string().min(1, "Title is required"),
-    description: z.string().optional(),
-    type: z.enum(["ONE_TIME", "RECURRING"]),
-    assignedTo: z.string().optional(),
-    clientId: z.string().optional(),
-    orderId: z.string().optional(),
-    isCompleted: z.boolean().default(false),
-    dueDate: z.string().optional(),
-    recurringInterval: z.string().optional()
-  });
-
-  const form = useForm({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      type: "ONE_TIME" as const,
-      assignedTo: "",
-      clientId: "",
-      orderId: "",
-      isCompleted: false,
-      dueDate: "",
-      recurringInterval: ""
+  const transferTaskMutation = useMutation({
+    mutationFn: async ({ id, assignedTo }: { id: string; assignedTo: string }) => {
+      return await apiRequest('PUT', `/api/tasks/${id}`, { assignedTo });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      toast({ title: "Success", description: "Task transferred successfully" });
+      setIsTransferDialogOpen(false);
+      setTransferringTask(null);
+      transferForm.reset();
+    },
+    onError: (error: any) => {
+      console.error("Task transfer error:", error);
+      const errorMsg = error?.message || "Failed to transfer task";
+      toast({ title: "Error", description: errorMsg, variant: "destructive" });
     }
   });
 
-  const onSubmit = (data: z.infer<typeof formSchema>) => {
-    console.log("Form data:", data); // Debug log
-    
-    const processedData = {
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest('DELETE', `/api/tasks/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      toast({ title: "Success", description: "Task deleted successfully" });
+    },
+    onError: (error: any) => {
+      console.error("Task deletion error:", error);
+      const errorMsg = error?.message || "Failed to delete task";
+      toast({ title: "Error", description: errorMsg, variant: "destructive" });
+    }
+  });
+
+  // Helper functions
+  const processFormData = (data: z.infer<typeof formSchema>) => {
+    return {
       title: data.title,
       description: data.description || null,
       type: data.type,
@@ -119,9 +187,22 @@ export default function TaskManagement() {
       dueDate: data.dueDate && data.dueDate.trim() ? new Date(data.dueDate).toISOString() : null,
       recurringInterval: data.type === 'RECURRING' && data.recurringInterval && data.recurringInterval.trim() ? parseInt(data.recurringInterval) : null
     };
-    
-    console.log("Processed data:", processedData); // Debug log
+  };
+
+  const onSubmit = (data: z.infer<typeof formSchema>) => {
+    const processedData = processFormData(data);
     createTaskMutation.mutate(processedData);
+  };
+
+  const onEditSubmit = (data: z.infer<typeof formSchema>) => {
+    if (!editingTask) return;
+    const processedData = processFormData(data);
+    updateTaskMutation.mutate({ id: editingTask.id, data: processedData });
+  };
+
+  const onTransferSubmit = (data: z.infer<typeof transferSchema>) => {
+    if (!transferringTask) return;
+    transferTaskMutation.mutate({ id: transferringTask.id, assignedTo: data.assignedTo });
   };
 
   const toggleTaskCompletion = (taskId: string, isCompleted: boolean) => {
@@ -134,37 +215,70 @@ export default function TaskManagement() {
     });
   };
 
+  const openEditDialog = (task: any) => {
+    setEditingTask(task);
+    editForm.reset({
+      title: task.title,
+      description: task.description || "",
+      type: task.type,
+      assignedTo: task.assignedTo || "",
+      clientId: task.clientId || "",
+      orderId: task.orderId || "",
+      isCompleted: task.isCompleted,
+      dueDate: task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : "",
+      recurringInterval: task.recurringInterval ? task.recurringInterval.toString() : ""
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const openTransferDialog = (task: any) => {
+    setTransferringTask(task);
+    transferForm.reset({ assignedTo: "" });
+    setIsTransferDialogOpen(true);
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    if (confirm("Are you sure you want to delete this task?")) {
+      deleteTaskMutation.mutate(taskId);
+    }
+  };
+
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'ONE_TIME':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
       case 'RECURRING':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
     }
   };
 
   const getPriorityColor = (dueDate: string) => {
-    if (!dueDate) return 'bg-gray-100 text-gray-800';
+    if (!dueDate) return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
     
     const due = new Date(dueDate);
     const now = new Date();
     const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     
-    if (diffDays < 0) return 'bg-red-100 text-red-800';
-    if (diffDays <= 3) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-green-100 text-green-800';
+    if (diffDays < 0) return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+    if (diffDays <= 3) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+    return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+  };
+
+  const getAssignedUserName = (userId: string) => {
+    const user = users.find((u: any) => u.id === userId);
+    return user ? `${user.firstName} ${user.lastName}` : 'Unassigned';
   };
 
   const filteredTasks = selectedType === "all" 
     ? allTasks 
-    : allTasks?.filter((task: any) => task.type === selectedType);
+    : allTasks.filter((task: any) => task.type === selectedType);
 
-  const oneTimeCount = oneTimeTasks?.filter((task: any) => !task.isCompleted).length || 0;
-  const recurringCount = recurringTasks?.filter((task: any) => !task.isCompleted).length || 0;
-  const completedCount = allTasks?.filter((task: any) => task.isCompleted).length || 0;
-  const overdueCount = allTasks?.filter((task: any) => 
+  const oneTimeCount = allTasks.filter((task: any) => task.type === 'ONE_TIME' && !task.isCompleted).length || 0;
+  const recurringCount = allTasks.filter((task: any) => task.type === 'RECURRING' && !task.isCompleted).length || 0;
+  const completedCount = allTasks.filter((task: any) => task.isCompleted).length || 0;
+  const overdueCount = allTasks.filter((task: any) => 
     !task.isCompleted && task.dueDate && new Date(task.dueDate) < new Date()
   ).length || 0;
 
@@ -173,73 +287,72 @@ export default function TaskManagement() {
       title: "One-time Tasks",
       value: oneTimeCount,
       icon: CheckSquare,
-      color: "text-blue-600 bg-blue-100"
+      color: "text-blue-600 bg-blue-100 dark:bg-blue-900 dark:text-blue-300"
     },
     {
       title: "Recurring Tasks",
       value: recurringCount,
       icon: RotateCcw,
-      color: "text-green-600 bg-green-100"
+      color: "text-green-600 bg-green-100 dark:bg-green-900 dark:text-green-300"
     },
     {
       title: "Completed",
       value: completedCount,
       icon: CheckSquare,
-      color: "text-success bg-success/10"
+      color: "text-purple-600 bg-purple-100 dark:bg-purple-900 dark:text-purple-300"
     },
     {
       title: "Overdue",
       value: overdueCount,
       icon: Calendar,
-      color: "text-error bg-error/10"
+      color: "text-red-600 bg-red-100 dark:bg-red-900 dark:text-red-300"
     }
   ];
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       <Sidebar />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar 
-          title="Task Management" 
-          subtitle="Organize and track one-time and recurring tasks"
-        />
+        <TopBar />
         
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50">
-          <div className="p-6">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {stats.map((stat, index) => {
-                const Icon = stat.icon;
-                return (
-                  <Card key={index} className="p-6">
-                    <div className="flex items-center">
-                      <div className={`p-2 ${stat.color} rounded-lg`}>
-                        <Icon size={24} />
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                        <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })}
+        <div className="flex-1 overflow-auto p-6">
+          <div className="max-w-7xl mx-auto space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Task Management</h1>
+                <p className="text-gray-600 dark:text-gray-400">Manage and track your team's tasks</p>
+              </div>
             </div>
 
-            {/* Filters and Actions */}
-            <Card className="mb-6">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {stats.map((stat, index) => (
+                <Card key={index}>
+                  <CardContent className="p-6">
+                    <div className="flex items-center">
+                      <div className={`p-2 rounded-lg ${stat.color}`}>
+                        <stat.icon size={20} />
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.title}</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Controls */}
+            <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">Task List</h3>
-                  <div className="flex items-center space-x-3">
+                <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
+                  <div className="flex items-center space-x-4">
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-                      <Input 
-                        type="text" 
-                        placeholder="Search tasks..." 
-                        className="w-64 pl-10"
-                      />
+                      <Search size={16} className="absolute left-3 top-3 text-gray-400" />
+                      <Input placeholder="Search tasks..." className="pl-10 w-64" />
                     </div>
                     <Select value={selectedType} onValueChange={setSelectedType}>
                       <SelectTrigger className="w-40">
@@ -255,191 +368,191 @@ export default function TaskManagement() {
                       <Filter size={16} className="mr-2" />
                       Filter
                     </Button>
-                    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button size="sm">
-                          <Plus size={16} className="mr-2" />
-                          Add Task
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                          <DialogTitle>Create New Task</DialogTitle>
-                          <DialogDescription>
-                            Fill in the details below to create a new task for your team.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <Form {...form}>
-                          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                            <FormField
-                              control={form.control}
-                              name="title"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Task Title</FormLabel>
-                                  <FormControl>
-                                    <Input placeholder="Enter task title" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={form.control}
-                              name="description"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Description</FormLabel>
-                                  <FormControl>
-                                    <Textarea placeholder="Enter task description" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <div className="grid grid-cols-2 gap-4">
-                              <FormField
-                                control={form.control}
-                                name="type"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Task Type</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                      <FormControl>
-                                        <SelectTrigger>
-                                          <SelectValue placeholder="Select type" />
-                                        </SelectTrigger>
-                                      </FormControl>
-                                      <SelectContent>
-                                        <SelectItem value="ONE_TIME">One-time Task</SelectItem>
-                                        <SelectItem value="RECURRING">Recurring Task</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name="assignedTo"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Assign To</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                      <FormControl>
-                                        <SelectTrigger>
-                                          <SelectValue placeholder="Select user" />
-                                        </SelectTrigger>
-                                      </FormControl>
-                                      <SelectContent>
-                                        {users?.map((user: any) => (
-                                          <SelectItem key={user.id} value={user.id}>
-                                            {user.firstName} {user.lastName}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <FormField
-                                control={form.control}
-                                name="dueDate"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Due Date</FormLabel>
-                                    <FormControl>
-                                      <Input type="datetime-local" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name="recurringInterval"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Recurring Interval (Days)</FormLabel>
-                                    <FormControl>
-                                      <Input 
-                                        type="number" 
-                                        placeholder="e.g., 7 for weekly" 
-                                        {...field} 
-                                        disabled={form.watch("type") !== "RECURRING"}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <FormField
-                                control={form.control}
-                                name="clientId"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Related Client (Optional)</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                      <FormControl>
-                                        <SelectTrigger>
-                                          <SelectValue placeholder="Select client" />
-                                        </SelectTrigger>
-                                      </FormControl>
-                                      <SelectContent>
-                                        {clients?.map((client: any) => (
-                                          <SelectItem key={client.id} value={client.id}>
-                                            {client.name}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name="orderId"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Related Order (Optional)</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                      <FormControl>
-                                        <SelectTrigger>
-                                          <SelectValue placeholder="Select order" />
-                                        </SelectTrigger>
-                                      </FormControl>
-                                      <SelectContent>
-                                        {orders?.map((order: any) => (
-                                          <SelectItem key={order.id} value={order.id}>
-                                            {order.orderNumber}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-                            <div className="flex justify-end space-x-2">
-                              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                                Cancel
-                              </Button>
-                              <Button type="submit" disabled={createTaskMutation.isPending}>
-                                {createTaskMutation.isPending ? "Creating..." : "Create Task"}
-                              </Button>
-                            </div>
-                          </form>
-                        </Form>
-                      </DialogContent>
-                    </Dialog>
                   </div>
+                  <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus size={16} className="mr-2" />
+                        Add Task
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Create New Task</DialogTitle>
+                        <DialogDescription>
+                          Fill in the details below to create a new task for your team.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                          <FormField
+                            control={form.control}
+                            name="title"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Task Title</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Enter task title" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="description"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Description</FormLabel>
+                                <FormControl>
+                                  <Textarea placeholder="Enter task description" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="type"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Task Type</FormLabel>
+                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select type" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      <SelectItem value="ONE_TIME">One-time Task</SelectItem>
+                                      <SelectItem value="RECURRING">Recurring Task</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="assignedTo"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Assign To</FormLabel>
+                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select user" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {users.map((user: any) => (
+                                        <SelectItem key={user.id} value={user.id}>
+                                          {user.firstName} {user.lastName}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="dueDate"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Due Date</FormLabel>
+                                  <FormControl>
+                                    <Input type="datetime-local" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="recurringInterval"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Recurring Interval (Days)</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      type="number" 
+                                      placeholder="e.g., 7 for weekly" 
+                                      {...field} 
+                                      disabled={form.watch("type") !== "RECURRING"}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="clientId"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Related Client (Optional)</FormLabel>
+                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select client" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {clients.map((client: any) => (
+                                        <SelectItem key={client.id} value={client.id}>
+                                          {client.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="orderId"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Related Order (Optional)</FormLabel>
+                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select order" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {orders.map((order: any) => (
+                                        <SelectItem key={order.id} value={order.id}>
+                                          {order.orderNumber}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                          <div className="flex justify-end space-x-2">
+                            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                              Cancel
+                            </Button>
+                            <Button type="submit" disabled={createTaskMutation.isPending}>
+                              {createTaskMutation.isPending ? "Creating..." : "Create Task"}
+                            </Button>
+                          </div>
+                        </form>
+                      </Form>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </CardHeader>
             </Card>
@@ -449,8 +562,8 @@ export default function TaskManagement() {
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <thead className="bg-gray-50 dark:bg-gray-800">
+                      <tr className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         <th className="px-6 py-3">
                           <input type="checkbox" className="rounded border-gray-300" />
                         </th>
@@ -463,7 +576,7 @@ export default function TaskManagement() {
                         <th className="px-6 py-3">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                       {isLoading ? (
                         [...Array(5)].map((_, i) => (
                           <tr key={i}>
@@ -479,14 +592,14 @@ export default function TaskManagement() {
                         ))
                       ) : !filteredTasks || filteredTasks.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                          <td colSpan={8} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                             <CheckSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                             <p>No tasks found</p>
                           </td>
                         </tr>
                       ) : (
                         filteredTasks.map((task: any, index: number) => (
-                          <tr key={index} className="hover:bg-gray-50">
+                          <tr key={task.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                             <td className="px-6 py-4">
                               <input 
                                 type="checkbox" 
@@ -497,10 +610,10 @@ export default function TaskManagement() {
                             </td>
                             <td className="px-6 py-4">
                               <div>
-                                <p className={`font-medium ${task.isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                                <p className={`font-medium ${task.isCompleted ? 'text-gray-500 line-through' : 'text-gray-900 dark:text-white'}`}>
                                   {task.title}
                                 </p>
-                                <p className="text-sm text-gray-500">{task.description}</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{task.description}</p>
                               </div>
                             </td>
                             <td className="px-6 py-4">
@@ -511,13 +624,13 @@ export default function TaskManagement() {
                             <td className="px-6 py-4">
                               <div className="flex items-center space-x-2">
                                 <User size={16} className="text-gray-400" />
-                                <span className="text-gray-900">
-                                  {task.assignedTo ? 'Assigned' : 'Unassigned'}
+                                <span className="text-gray-900 dark:text-white">
+                                  {getAssignedUserName(task.assignedTo)}
                                 </span>
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <div className="text-gray-900">
+                              <div className="text-gray-900 dark:text-white">
                                 {task.dueDate 
                                   ? new Date(task.dueDate).toLocaleDateString()
                                   : 'No due date'
@@ -525,29 +638,41 @@ export default function TaskManagement() {
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              {task.dueDate && (
-                                <Badge className={getPriorityColor(task.dueDate)}>
-                                  {(() => {
-                                    const diffDays = Math.ceil((new Date(task.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                                    if (diffDays < 0) return 'Overdue';
-                                    if (diffDays <= 3) return 'Urgent';
-                                    return 'Normal';
-                                  })()}
-                                </Badge>
-                              )}
+                              <Badge className={getPriorityColor(task.dueDate)}>
+                                {!task.dueDate ? 'Normal' : 
+                                  Math.ceil((new Date(task.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) < 0 ? 'Overdue' :
+                                  Math.ceil((new Date(task.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) <= 3 ? 'Urgent' : 'Normal'
+                                }
+                              </Badge>
                             </td>
                             <td className="px-6 py-4">
-                              <Badge className={task.isCompleted ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}>
+                              <Badge className={task.isCompleted ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'}>
                                 {task.isCompleted ? 'Completed' : 'Pending'}
                               </Badge>
                             </td>
                             <td className="px-6 py-4">
-                              <div className="flex space-x-2">
-                                <Button variant="outline" size="sm">
-                                  Edit
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openEditDialog(task)}
+                                >
+                                  <Edit3 size={16} />
                                 </Button>
-                                <Button variant="link" size="sm">
-                                  View
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openTransferDialog(task)}
+                                >
+                                  <UserCheck size={16} />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteTask(task.id)}
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  <Trash2 size={16} />
                                 </Button>
                               </div>
                             </td>
@@ -560,8 +685,186 @@ export default function TaskManagement() {
               </CardContent>
             </Card>
           </div>
-        </main>
+        </div>
       </div>
+
+      {/* Edit Task Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+            <DialogDescription>
+              Update the task details below.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Task Title</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter task title" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Enter task description" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Task Type</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="ONE_TIME">One-time Task</SelectItem>
+                          <SelectItem value="RECURRING">Recurring Task</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="assignedTo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Assign To</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select user" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {users.map((user: any) => (
+                            <SelectItem key={user.id} value={user.id}>
+                              {user.firstName} {user.lastName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="dueDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Due Date</FormLabel>
+                      <FormControl>
+                        <Input type="datetime-local" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="recurringInterval"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Recurring Interval (Days)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="e.g., 7 for weekly" 
+                          {...field} 
+                          disabled={editForm.watch("type") !== "RECURRING"}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateTaskMutation.isPending}>
+                  {updateTaskMutation.isPending ? "Updating..." : "Update Task"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer Task Dialog */}
+      <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Transfer Task</DialogTitle>
+            <DialogDescription>
+              Assign this task to a different user.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...transferForm}>
+            <form onSubmit={transferForm.handleSubmit(onTransferSubmit)} className="space-y-4">
+              <FormField
+                control={transferForm.control}
+                name="assignedTo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Transfer To</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select user" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {users.map((user: any) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.firstName} {user.lastName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setIsTransferDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={transferTaskMutation.isPending}>
+                  {transferTaskMutation.isPending ? "Transferring..." : "Transfer Task"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

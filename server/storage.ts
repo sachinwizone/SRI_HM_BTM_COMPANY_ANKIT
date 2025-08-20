@@ -324,6 +324,10 @@ export class DatabaseStorage implements IStorage {
     return task;
   }
 
+  async deleteTask(id: string): Promise<void> {
+    await db.delete(tasks).where(eq(tasks.id, id));
+  }
+
   // E-way Bills
   async getEwayBill(id: string): Promise<EwayBill | undefined> {
     const [ewayBill] = await db.select().from(ewayBills).where(eq(ewayBills.id, id));

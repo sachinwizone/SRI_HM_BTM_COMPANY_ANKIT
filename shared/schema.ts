@@ -399,6 +399,10 @@ export const insertPaymentSchema = createInsertSchema(payments).omit({
 export const insertTaskSchema = createInsertSchema(tasks).omit({
   id: true,
   createdAt: true,
+}).extend({
+  dueDate: z.string().optional().nullable(),
+  completedAt: z.string().optional().nullable(), 
+  nextDueDate: z.string().optional().nullable()
 });
 
 export const insertEwayBillSchema = createInsertSchema(ewayBills).omit({

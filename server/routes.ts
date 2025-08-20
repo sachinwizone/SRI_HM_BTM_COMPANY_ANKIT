@@ -470,7 +470,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tasks", async (req, res) => {
     try {
-      const taskData = insertTaskSchema.parse(req.body);
+      const validatedData = insertTaskSchema.parse(req.body);
+      
+      // Convert string dates to Date objects
+      const taskData = {
+        ...validatedData,
+        dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : null,
+        completedAt: validatedData.completedAt ? new Date(validatedData.completedAt) : null,
+        nextDueDate: validatedData.nextDueDate ? new Date(validatedData.nextDueDate) : null
+      };
+      
       const task = await storage.createTask(taskData);
       res.status(201).json(task);
     } catch (error) {
@@ -483,7 +492,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/tasks/:id", async (req, res) => {
     try {
-      const taskData = insertTaskSchema.partial().parse(req.body);
+      const validatedData = insertTaskSchema.partial().parse(req.body);
+      
+      // Convert string dates to Date objects
+      const taskData = {
+        ...validatedData,
+        dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : undefined,
+        completedAt: validatedData.completedAt ? new Date(validatedData.completedAt) : undefined,
+        nextDueDate: validatedData.nextDueDate ? new Date(validatedData.nextDueDate) : undefined
+      };
+      
+      // Remove undefined values
+      Object.keys(taskData).forEach(key => taskData[key] === undefined && delete taskData[key]);
+      
       const task = await storage.updateTask(req.params.id, taskData);
       res.json(task);
     } catch (error) {
@@ -491,6 +512,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid task data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to update task" });
+    }
+  });
+
+  app.delete("/api/tasks/:id", async (req, res) => {
+    try {
+      await storage.deleteTask(req.params.id);
+      res.json({ message: "Task deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete task" });
     }
   });
 
