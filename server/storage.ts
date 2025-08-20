@@ -25,6 +25,7 @@ export interface IStorage {
   getClient(id: string): Promise<Client | undefined>;
   getAllClients(): Promise<Client[]>;
   getClientsByCategory(category: string): Promise<Client[]>;
+  getClientCategoryStats(): Promise<{ ALFA: number; BETA: number; GAMMA: number; DELTA: number; total: number }>;
   createClient(client: InsertClient): Promise<Client>;
   updateClient(id: string, client: Partial<InsertClient>): Promise<Client>;
 
@@ -171,6 +172,24 @@ export class DatabaseStorage implements IStorage {
 
   async getClientsByCategory(category: string): Promise<Client[]> {
     return await db.select().from(clients).where(eq(clients.category, category as any)).orderBy(asc(clients.name));
+  }
+
+  async getClientCategoryStats(): Promise<{ ALFA: number; BETA: number; GAMMA: number; DELTA: number; total: number }> {
+    const results = await db.select({
+      category: clients.category,
+      count: sql<number>`count(*)::int`
+    }).from(clients).groupBy(clients.category);
+
+    const stats = { ALFA: 0, BETA: 0, GAMMA: 0, DELTA: 0, total: 0 };
+    
+    results.forEach(result => {
+      if (result.category in stats) {
+        stats[result.category as keyof typeof stats] = result.count;
+        stats.total += result.count;
+      }
+    });
+
+    return stats;
   }
 
   async createClient(insertClient: InsertClient): Promise<Client> {

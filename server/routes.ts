@@ -217,6 +217,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get client category statistics (must come before :id route)
+  app.get("/api/clients/stats", async (req, res) => {
+    try {
+      const stats = await storage.getClientCategoryStats();
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch client stats" });
+    }
+  });
+
   app.get("/api/clients/:id", async (req, res) => {
     try {
       const client = await storage.getClient(req.params.id);

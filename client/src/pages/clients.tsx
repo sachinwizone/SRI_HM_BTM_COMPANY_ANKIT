@@ -40,14 +40,14 @@ const extendedClientSchema = insertClientSchema.extend({
 type ExtendedClient = z.infer<typeof extendedClientSchema>;
 
 const categoryColors = {
-  ALPHA: "bg-red-100 text-red-800 border-red-200",
+  ALFA: "bg-red-100 text-red-800 border-red-200",
   BETA: "bg-orange-100 text-orange-800 border-orange-200", 
   GAMMA: "bg-yellow-100 text-yellow-800 border-yellow-200",
   DELTA: "bg-green-100 text-green-800 border-green-200",
 };
 
 const categoryLabels = {
-  ALPHA: "Alpha",
+  ALFA: "Alfa",
   BETA: "Beta", 
   GAMMA: "Gamma",
   DELTA: "Delta",
@@ -90,6 +90,10 @@ export default function Clients() {
 
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ["/api/clients"],
+  });
+
+  const { data: clientStats = { ALFA: 0, BETA: 0, GAMMA: 0, DELTA: 0, total: 0 } } = useQuery({
+    queryKey: ["/api/clients/stats"],
   });
 
   const form = useForm<ExtendedClient>({
@@ -1072,6 +1076,64 @@ export default function Clients() {
             </Form>
           </DialogContent>
         </Dialog>
+      </div>
+
+      {/* Client Category Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        {/* Total Clients Card */}
+        <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-medium">Total Clients</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{clientStats.total}</div>
+            <p className="text-blue-100 text-sm">All categories</p>
+          </CardContent>
+        </Card>
+
+        {/* Alfa Category Card */}
+        <Card className="bg-gradient-to-r from-red-500 to-red-600 text-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-medium">Alfa</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{clientStats.ALFA}</div>
+            <p className="text-red-100 text-sm">Priority clients</p>
+          </CardContent>
+        </Card>
+
+        {/* Beta Category Card */}
+        <Card className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-medium">Beta</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{clientStats.BETA}</div>
+            <p className="text-orange-100 text-sm">Regular clients</p>
+          </CardContent>
+        </Card>
+
+        {/* Gamma Category Card */}
+        <Card className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-medium">Gamma</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{clientStats.GAMMA}</div>
+            <p className="text-yellow-100 text-sm">Standard clients</p>
+          </CardContent>
+        </Card>
+
+        {/* Delta Category Card */}
+        <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-medium">Delta</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{clientStats.DELTA}</div>
+            <p className="text-green-100 text-sm">New clients</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Client Grid */}
