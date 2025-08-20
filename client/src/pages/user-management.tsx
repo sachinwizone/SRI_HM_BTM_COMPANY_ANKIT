@@ -28,8 +28,19 @@ interface User {
   updatedAt: string;
 }
 
+// Edit user schema (password is optional)
+interface EditUserRequest {
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: 'ADMIN' | 'SALES_MANAGER' | 'SALES_EXECUTIVE' | 'OPERATIONS';
+  password?: string;
+}
+
 export default function UserManagement() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -49,6 +60,18 @@ export default function UserManagement() {
       lastName: "",
       email: "",
       role: "SALES_EXECUTIVE",
+    },
+  });
+
+  // Edit form
+  const editForm = useForm<EditUserRequest>({
+    defaultValues: {
+      username: "",
+      firstName: "",
+      lastName: "",
+      email: "",
+      role: "SALES_EXECUTIVE",
+      password: "",
     },
   });
 
@@ -108,7 +131,9 @@ export default function UserManagement() {
         description: "User has been updated successfully.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setIsEditDialogOpen(false);
       setEditingUser(null);
+      editForm.reset();
     },
     onError: (error: any) => {
       toast({
@@ -155,6 +180,30 @@ export default function UserManagement() {
 
   const handleEditUser = (user: User) => {
     setEditingUser(user);
+    setIsEditDialogOpen(true);
+    editForm.reset({
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+      password: "",
+    });
+  };
+
+  const onEditSubmit = (data: EditUserRequest) => {
+    if (!editingUser) return;
+    
+    // Remove empty password field
+    const updateData = { ...data };
+    if (!updateData.password) {
+      delete updateData.password;
+    }
+    
+    updateUserMutation.mutate({ 
+      id: editingUser.id, 
+      data: updateData 
+    });
   };
 
   const handleDeleteUser = (userId: string) => {
@@ -348,6 +397,131 @@ export default function UserManagement() {
                 </Button>
                 <Button type="submit" disabled={createUserMutation.isPending}>
                   {createUserMutation.isPending ? "Creating..." : "Create User"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit User Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+              <DialogDescription>
+                Update user information. Leave password blank to keep current password.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-firstName">First Name</Label>
+                  <Input
+                    id="edit-firstName"
+                    {...editForm.register("firstName")}
+                    placeholder="Enter first name"
+                  />
+                  {editForm.formState.errors.firstName && (
+                    <p className="text-sm text-red-600 mt-1">
+                      {editForm.formState.errors.firstName.message}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="edit-lastName">Last Name</Label>
+                  <Input
+                    id="edit-lastName"
+                    {...editForm.register("lastName")}
+                    placeholder="Enter last name"
+                  />
+                  {editForm.formState.errors.lastName && (
+                    <p className="text-sm text-red-600 mt-1">
+                      {editForm.formState.errors.lastName.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-email">Email</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  {...editForm.register("email")}
+                  placeholder="Enter email address"
+                />
+                {editForm.formState.errors.email && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {editForm.formState.errors.email.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="edit-username">Username</Label>
+                <Input
+                  id="edit-username"
+                  {...editForm.register("username")}
+                  placeholder="Choose username"
+                />
+                {editForm.formState.errors.username && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {editForm.formState.errors.username.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="edit-role">Role</Label>
+                <Select 
+                  value={editForm.watch("role")} 
+                  onValueChange={(value) => editForm.setValue("role", value as any)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SALES_EXECUTIVE">Sales Executive</SelectItem>
+                    <SelectItem value="SALES_MANAGER">Sales Manager</SelectItem>
+                    <SelectItem value="OPERATIONS">Operations</SelectItem>
+                    <SelectItem value="ADMIN">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+                {editForm.formState.errors.role && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {editForm.formState.errors.role.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="edit-password">New Password (optional)</Label>
+                <Input
+                  id="edit-password"
+                  type="password"
+                  {...editForm.register("password")}
+                  placeholder="Leave blank to keep current password"
+                />
+                {editForm.formState.errors.password && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {editForm.formState.errors.password.message}
+                  </p>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setEditingUser(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateUserMutation.isPending}>
+                  {updateUserMutation.isPending ? "Updating..." : "Update User"}
                 </Button>
               </DialogFooter>
             </form>
