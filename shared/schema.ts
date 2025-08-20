@@ -4,7 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums
-export const clientCategoryEnum = pgEnum('client_category', ['ALPHA', 'BETA', 'GAMMA', 'DELTA']);
+export const clientCategoryEnum = pgEnum('client_category', ['ALFA', 'BETA', 'GAMMA', 'DELTA', 'ALPHA']);
 export const companyTypeEnum = pgEnum('company_type', ['PVT_LTD', 'PARTNERSHIP', 'PROPRIETOR', 'GOVT', 'OTHERS']);
 export const communicationPreferenceEnum = pgEnum('communication_preference', ['EMAIL', 'WHATSAPP', 'PHONE', 'SMS']);
 export const unloadingFacilityEnum = pgEnum('unloading_facility', ['PUMP', 'CRANE', 'MANUAL', 'OTHERS']);

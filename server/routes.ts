@@ -231,14 +231,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/clients", async (req, res) => {
     try {
+      console.log("Creating client with data:", req.body);
       const clientData = insertClientSchema.parse(req.body);
+      console.log("Parsed client data:", clientData);
       const client = await storage.createClient(clientData);
       res.status(201).json(client);
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Client creation error:", error);
       if (error instanceof z.ZodError) {
+        console.error("Zod validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid client data", errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to create client" });
+      res.status(500).json({ message: "Failed to create client", error: error.message });
     }
   });
 

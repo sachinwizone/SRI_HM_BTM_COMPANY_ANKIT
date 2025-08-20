@@ -96,7 +96,7 @@ export default function Clients() {
     resolver: zodResolver(extendedClientSchema),
     defaultValues: {
       name: "",
-      category: "ALPHA",
+      category: "ALFA",
       billingAddressLine: "",
       billingCity: "",
       billingPincode: "",
@@ -373,7 +373,7 @@ export default function Clients() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="ALPHA">Alpha</SelectItem>
+                                <SelectItem value="ALFA">Alfa</SelectItem>
                                 <SelectItem value="BETA">Beta</SelectItem>
                                 <SelectItem value="GAMMA">Gamma</SelectItem>
                                 <SelectItem value="DELTA">Delta</SelectItem>
