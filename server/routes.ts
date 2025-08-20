@@ -686,7 +686,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/sales", requireAuth, async (req, res) => {
     try {
+      console.log("Received sales data:", req.body);
       const salesData = insertSalesSchema.parse(req.body);
+      console.log("Validated sales data:", salesData);
       
       // Calculate net weight automatically (gross weight - tare weight)
       const grossWeight = parseFloat(salesData.grossWeight as any);
@@ -698,13 +700,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         netWeight: netWeight.toString()
       };
       
+      console.log("Final sales data to save:", finalSalesData);
       const sales = await storage.createSales(finalSalesData);
       res.status(201).json(sales);
     } catch (error) {
+      console.error("Sales creation error:", error);
       if (error instanceof z.ZodError) {
+        console.error("Validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid sales data", errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to create sales record" });
+      res.status(500).json({ message: "Failed to create sales record", error: error.message });
     }
   });
 
