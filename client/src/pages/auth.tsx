@@ -39,20 +39,27 @@ export default function AuthPage() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginRequest) => {
-      return apiRequest("/api/auth/login", {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify(data),
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
       });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Login failed");
+      }
+
+      return response.json();
     },
     onSuccess: (data) => {
       toast({
         title: "Login Successful",
         description: "Welcome back!",
       });
-      // Store user info and redirect
-      localStorage.setItem("user", JSON.stringify(data.user));
-      window.location.href = "/";
+      // Reload to trigger auth check
+      window.location.reload();
     },
     onError: (error: any) => {
       toast({
@@ -65,11 +72,18 @@ export default function AuthPage() {
 
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterRequest) => {
-      return apiRequest("/api/auth/register", {
+      const response = await fetch("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify(data),
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
       });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Registration failed");
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       toast({

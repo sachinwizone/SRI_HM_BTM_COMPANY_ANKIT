@@ -17,16 +17,15 @@ interface User {
 export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
-  const { data: user, isLoading, error } = useQuery({
+  const { data: authData, isLoading, error, refetch } = useQuery({
     queryKey: ["/api/auth/me"],
     retry: false,
     enabled: isAuthenticated !== false,
   });
 
   useEffect(() => {
-    // Check if user has session token or stored user info
-    const storedUser = localStorage.getItem("user");
-    if (storedUser || document.cookie.includes("sessionToken")) {
+    // Check if user has session token
+    if (document.cookie.includes("sessionToken")) {
       setIsAuthenticated(true);
     } else {
       setIsAuthenticated(false);
@@ -35,15 +34,13 @@ export function useAuth() {
 
   useEffect(() => {
     if (error) {
-      // If auth fails, clear stored data and redirect to auth
-      localStorage.removeItem("user");
+      // If auth fails, clear authentication state
       setIsAuthenticated(false);
-    } else if (user) {
-      // Update stored user info
-      localStorage.setItem("user", JSON.stringify(user.user));
+    } else if (authData && authData.user) {
+      // Auth successful
       setIsAuthenticated(true);
     }
-  }, [user, error]);
+  }, [authData, error]);
 
   const logout = async () => {
     try {
@@ -54,16 +51,20 @@ export function useAuth() {
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
-      localStorage.removeItem("user");
       setIsAuthenticated(false);
-      window.location.href = "/auth";
+      window.location.reload();
     }
   };
 
+  const login = () => {
+    refetch();
+  };
+
   return {
-    user: user?.user as User | undefined,
+    user: authData?.user as User | undefined,
     isLoading: isLoading || isAuthenticated === null,
-    isAuthenticated: isAuthenticated === true && !!user,
+    isAuthenticated: isAuthenticated === true && !!authData?.user,
     logout,
+    login,
   };
 }
