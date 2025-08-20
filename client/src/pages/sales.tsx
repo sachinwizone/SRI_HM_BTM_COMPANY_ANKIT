@@ -120,9 +120,9 @@ export default function Sales() {
   const salesMutation = useMutation({
     mutationFn: async (data: InsertSales) => {
       if (editingSales) {
-        return await apiRequest(`/api/sales/${editingSales.id}`, "PUT", data);
+        return await apiRequest("PUT", `/api/sales/${editingSales.id}`, data);
       }
-      return await apiRequest("/api/sales", "POST", data);
+      return await apiRequest("POST", "/api/sales", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
@@ -146,7 +146,7 @@ export default function Sales() {
   // Sign delivery challan
   const signChallanMutation = useMutation({
     mutationFn: async (salesId: string) => {
-      return await apiRequest(`/api/sales/${salesId}/sign-challan`, "PATCH");
+      return await apiRequest("PATCH", `/api/sales/${salesId}/sign-challan`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
@@ -167,7 +167,7 @@ export default function Sales() {
   // Transporter mutation
   const transporterMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest("/api/transporters", "POST", data);
+      return await apiRequest("POST", "/api/transporters", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/transporters"] });
@@ -190,7 +190,7 @@ export default function Sales() {
   // Product mutation
   const productMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest("/api/products", "POST", data);
+      return await apiRequest("POST", "/api/products", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
