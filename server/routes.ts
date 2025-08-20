@@ -7,7 +7,7 @@ import {
   insertUserSchema, insertClientSchema, insertOrderSchema, insertPaymentSchema,
   insertTaskSchema, insertEwayBillSchema, insertClientTrackingSchema, insertSalesRateSchema,
   insertCreditAgreementSchema, insertPurchaseOrderSchema, insertSalesSchema,
-  insertShippingAddressSchema,
+  insertShippingAddressSchema, insertFollowUpSchema,
   insertNumberSeriesSchema, insertTransporterSchema, insertProductSchema
 } from "@shared/schema";
 import { z } from "zod";
@@ -542,6 +542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(tasks);
     } catch (error) {
+      console.error("Task fetch error:", error);
       res.status(500).json({ message: "Failed to fetch tasks" });
     }
   });
@@ -599,6 +600,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Task deleted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete task" });
+    }
+  });
+
+  // Follow-ups API
+  app.get("/api/follow-ups", async (req, res) => {
+    try {
+      const { taskId, userId } = req.query;
+      let followUps;
+      
+      if (taskId) {
+        followUps = await storage.getFollowUpsByTask(taskId as string);
+      } else if (userId) {
+        followUps = await storage.getFollowUpsByUser(userId as string);
+      } else {
+        // Return all follow-ups for admin view
+        followUps = await storage.getFollowUpsByUser(""); // Will return empty array
+      }
+      
+      res.json(followUps);
+    } catch (error) {
+      console.error("Follow-up fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch follow-ups" });
+    }
+  });
+
+  app.post("/api/follow-ups", async (req, res) => {
+    try {
+      const validatedData = insertFollowUpSchema.parse(req.body);
+      
+      const followUpData = {
+        ...validatedData,
+        followUpDate: validatedData.followUpDate ? new Date(validatedData.followUpDate) : new Date(),
+        nextFollowUpDate: validatedData.nextFollowUpDate ? new Date(validatedData.nextFollowUpDate) : null,
+        completedAt: validatedData.completedAt ? new Date(validatedData.completedAt) : null,
+      } as any;
+      
+      const followUp = await storage.createFollowUp(followUpData);
+      res.status(201).json(followUp);
+    } catch (error) {
+      console.error("Follow-up creation error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid follow-up data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create follow-up" });
+    }
+  });
+
+  app.put("/api/follow-ups/:id", async (req, res) => {
+    try {
+      const validatedData = insertFollowUpSchema.partial().parse(req.body);
+      
+      const followUpData = {
+        ...validatedData,
+        followUpDate: validatedData.followUpDate ? new Date(validatedData.followUpDate) : undefined,
+        nextFollowUpDate: validatedData.nextFollowUpDate ? new Date(validatedData.nextFollowUpDate) : undefined,
+        completedAt: validatedData.completedAt ? new Date(validatedData.completedAt) : undefined,
+      } as any;
+      
+      // Remove undefined values
+      Object.keys(followUpData).forEach(key => (followUpData as any)[key] === undefined && delete (followUpData as any)[key]);
+      
+      const followUp = await storage.updateFollowUp(req.params.id, followUpData);
+      res.json(followUp);
+    } catch (error) {
+      console.error("Follow-up update error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid follow-up data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update follow-up" });
+    }
+  });
+
+  app.delete("/api/follow-ups/:id", async (req, res) => {
+    try {
+      await storage.deleteFollowUp(req.params.id);
+      res.json({ message: "Follow-up deleted successfully" });
+    } catch (error) {
+      console.error("Follow-up deletion error:", error);
+      res.status(500).json({ message: "Failed to delete follow-up" });
     }
   });
 

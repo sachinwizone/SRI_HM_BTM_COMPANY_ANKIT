@@ -8,6 +8,7 @@ export const clientCategoryEnum = pgEnum('client_category', ['ALFA', 'BETA', 'GA
 export const companyTypeEnum = pgEnum('company_type', ['PVT_LTD', 'PARTNERSHIP', 'PROPRIETOR', 'GOVT', 'OTHERS']);
 export const communicationPreferenceEnum = pgEnum('communication_preference', ['EMAIL', 'WHATSAPP', 'PHONE', 'SMS']);
 export const unloadingFacilityEnum = pgEnum('unloading_facility', ['PUMP', 'CRANE', 'MANUAL', 'OTHERS']);
+export const followUpStatusEnum = pgEnum("follow_up_status", ["PENDING", "COMPLETED", "CANCELLED"]);
 export const bankInterestEnum = pgEnum('bank_interest', ['FROM_DAY_1', 'FROM_DUE_DATE']);
 export const taskTypeEnum = pgEnum('task_type', ['ONE_TIME', 'RECURRING']);
 export const taskPriorityEnum = pgEnum('task_priority', ['LOW', 'MEDIUM', 'HIGH', 'URGENT']);
@@ -162,6 +163,20 @@ export const tasks = pgTable("tasks", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+// Follow-ups table
+export const followUps = pgTable("follow_ups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: varchar("task_id").notNull().references(() => tasks.id),
+  assignedUserId: varchar("assigned_user_id").notNull().references(() => users.id),
+  followUpDate: timestamp("follow_up_date").notNull(),
+  remarks: text("remarks").notNull(),
+  status: followUpStatusEnum("status").notNull().default('PENDING'),
+  completedAt: timestamp("completed_at"),
+  nextFollowUpDate: timestamp("next_follow_up_date"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
 // E-Way Bills table
 export const ewayBills = pgTable("eway_bills", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -288,7 +303,7 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   }),
 }));
 
-export const tasksRelations = relations(tasks, ({ one }) => ({
+export const tasksRelations = relations(tasks, ({ one, many }) => ({
   assignedUser: one(users, {
     fields: [tasks.assignedTo],
     references: [users.id],
@@ -300,6 +315,18 @@ export const tasksRelations = relations(tasks, ({ one }) => ({
   order: one(orders, {
     fields: [tasks.orderId],
     references: [orders.id],
+  }),
+  followUps: many(followUps),
+}));
+
+export const followUpsRelations = relations(followUps, ({ one }) => ({
+  task: one(tasks, {
+    fields: [followUps.taskId],
+    references: [tasks.id],
+  }),
+  assignedUser: one(users, {
+    fields: [followUps.assignedUserId],
+    references: [users.id],
   }),
 }));
 
@@ -438,6 +465,16 @@ export const insertTaskSchema = createInsertSchema(tasks).omit({
   nextDueDate: z.string().optional().nullable()
 });
 
+export const insertFollowUpSchema = createInsertSchema(followUps).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  followUpDate: z.string(),
+  nextFollowUpDate: z.string().optional().nullable(),
+  completedAt: z.string().optional().nullable(),
+});
+
 export const insertEwayBillSchema = createInsertSchema(ewayBills).omit({
   id: true,
   createdAt: true,
@@ -482,6 +519,9 @@ export type Payment = typeof payments.$inferSelect;
 
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type Task = typeof tasks.$inferSelect;
+
+export type InsertFollowUp = z.infer<typeof insertFollowUpSchema>;
+export type FollowUp = typeof followUps.$inferSelect;
 
 export type InsertEwayBill = z.infer<typeof insertEwayBillSchema>;
 export type EwayBill = typeof ewayBills.$inferSelect;

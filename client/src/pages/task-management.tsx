@@ -13,7 +13,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Plus, Filter, CheckSquare, RotateCcw, Calendar, User, Edit3, Trash2, UserCheck } from "lucide-react";
+import { Search, Plus, Filter, CheckSquare, RotateCcw, Calendar, User, Edit3, Trash2, UserCheck, MessageCircle, Clock } from "lucide-react";
 import { useState } from "react";
 
 export default function TaskManagement() {
@@ -21,9 +21,11 @@ export default function TaskManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [isFollowUpDialogOpen, setIsFollowUpDialogOpen] = useState(false);
   const [selectedType, setSelectedType] = useState("all");
   const [editingTask, setEditingTask] = useState<any>(null);
   const [transferringTask, setTransferringTask] = useState<any>(null);
+  const [followUpTask, setFollowUpTask] = useState<any>(null);
 
   // Fetch data
   const { data: allTasks = [], isLoading } = useQuery({
@@ -111,6 +113,21 @@ export default function TaskManagement() {
     }
   });
 
+  const followUpSchema = z.object({
+    followUpDate: z.string().min(1, "Follow-up date is required"),
+    remarks: z.string().min(1, "Remarks are required"),
+    nextFollowUpDate: z.string().optional(),
+  });
+
+  const followUpForm = useForm({
+    resolver: zodResolver(followUpSchema),
+    defaultValues: {
+      followUpDate: "",
+      remarks: "",
+      nextFollowUpDate: "",
+    }
+  });
+
   // Mutations
   const createTaskMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -179,6 +196,24 @@ export default function TaskManagement() {
     }
   });
 
+  const createFollowUpMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest('POST', '/api/follow-ups', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/follow-ups'] });
+      toast({ title: "Success", description: "Follow-up created successfully" });
+      setIsFollowUpDialogOpen(false);
+      setFollowUpTask(null);
+      followUpForm.reset();
+    },
+    onError: (error: any) => {
+      console.error("Follow-up creation error:", error);
+      const errorMsg = error?.message || "Failed to create follow-up";
+      toast({ title: "Error", description: errorMsg, variant: "destructive" });
+    }
+  });
+
   // Helper functions
   const processFormData = (data: z.infer<typeof formSchema>) => {
     return {
@@ -210,6 +245,65 @@ export default function TaskManagement() {
   const onTransferSubmit = (data: z.infer<typeof transferSchema>) => {
     if (!transferringTask) return;
     transferTaskMutation.mutate({ id: transferringTask.id, assignedTo: data.assignedTo });
+  };
+
+  const onFollowUpSubmit = (data: z.infer<typeof followUpSchema>) => {
+    if (!followUpTask) return;
+    const processedData = {
+      taskId: followUpTask.id,
+      assignedUserId: followUpTask.assignedTo || users[0]?.id,
+      followUpDate: new Date(data.followUpDate).toISOString(),
+      remarks: data.remarks,
+      status: "PENDING",
+      nextFollowUpDate: data.nextFollowUpDate ? new Date(data.nextFollowUpDate).toISOString() : null,
+    };
+    createFollowUpMutation.mutate(processedData);
+  };
+
+  const openFollowUpDialog = (task: any) => {
+    setFollowUpTask(task);
+    const now = new Date();
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    followUpForm.reset({
+      followUpDate: now.toISOString().slice(0, 16),
+      remarks: `Follow-up for task: ${task.title}`,
+      nextFollowUpDate: tomorrow.toISOString().slice(0, 16),
+    });
+    setIsFollowUpDialogOpen(true);
+  };
+
+  const sendWhatsAppMessage = (task: any, user: any) => {
+    if (!user?.mobileNumber) {
+      toast({ 
+        title: "Error", 
+        description: "User mobile number not found", 
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    const message = `Hello ${user.firstName}, 
+
+You have a follow-up for task: *${task.title}*
+
+Description: ${task.description || 'No description'}
+Priority: ${task.priority || 'MEDIUM'}
+Status: ${task.status || 'TODO'}
+
+Please provide an update on this task.
+
+Thanks!`;
+    
+    const encodedMessage = encodeURIComponent(message);
+    const phoneNumber = user.mobileNumber.replace(/[^0-9]/g, '');
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
+    
+    window.open(whatsappUrl, '_blank');
+    
+    toast({ 
+      title: "WhatsApp Opened", 
+      description: `Message template opened for ${user.firstName}` 
+    });
   };
 
   const toggleTaskCompletion = (taskId: string, isCompleted: boolean) => {
@@ -761,6 +855,29 @@ export default function TaskManagement() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  onClick={() => openFollowUpDialog(task)}
+                                  className="text-blue-600 hover:text-blue-800"
+                                >
+                                  <Clock size={16} />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    const assignedUser = users?.find(u => u.id === task.assignedTo);
+                                    if (assignedUser) {
+                                      sendWhatsAppMessage(task, assignedUser);
+                                    } else {
+                                      toast({ title: "Error", description: "Assigned user not found", variant: "destructive" });
+                                    }
+                                  }}
+                                  className="text-green-600 hover:text-green-800"
+                                >
+                                  <MessageCircle size={16} />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   onClick={() => handleDeleteTask(task.id)}
                                   className="text-red-600 hover:text-red-800"
                                 >
@@ -948,6 +1065,81 @@ export default function TaskManagement() {
                 </Button>
                 <Button type="submit" disabled={transferTaskMutation.isPending}>
                   {transferTaskMutation.isPending ? "Transferring..." : "Transfer Task"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Follow-up Dialog */}
+      <Dialog open={isFollowUpDialogOpen} onOpenChange={setIsFollowUpDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create Follow-up</DialogTitle>
+            <DialogDescription>
+              Schedule a follow-up for task: {followUpTask?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...followUpForm}>
+            <form onSubmit={followUpForm.handleSubmit(onFollowUpSubmit)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={followUpForm.control}
+                  name="followUpDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Follow-up Date & Time</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="datetime-local" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={followUpForm.control}
+                  name="nextFollowUpDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Next Follow-up Date (Optional)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="datetime-local" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={followUpForm.control}
+                name="remarks"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Remarks</FormLabel>
+                    <FormControl>
+                      <textarea 
+                        className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        placeholder="Enter follow-up details and notes..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setIsFollowUpDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={createFollowUpMutation.isPending}>
+                  {createFollowUpMutation.isPending ? "Creating..." : "Create Follow-up"}
                 </Button>
               </div>
             </form>

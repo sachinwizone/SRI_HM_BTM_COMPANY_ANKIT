@@ -1,7 +1,7 @@
 import { 
   users, clients, orders, payments, tasks, ewayBills, clientTracking, 
   salesRates, creditAgreements, purchaseOrders, sales, numberSeries,
-  transporters, products, shippingAddresses,
+  transporters, products, shippingAddresses, followUps,
   type User, type InsertUser, type Client, type InsertClient,
   type Order, type InsertOrder, type Payment, type InsertPayment,
   type Task, type InsertTask, type EwayBill, type InsertEwayBill,
@@ -9,7 +9,7 @@ import {
   type CreditAgreement, type InsertCreditAgreement, type PurchaseOrder, type InsertPurchaseOrder,
   type Sales, type InsertSales, type NumberSeries, type InsertNumberSeries,
   type Transporter, type InsertTransporter, type Product, type InsertProduct,
-  type ShippingAddress, type InsertShippingAddress
+  type ShippingAddress, type InsertShippingAddress, type FollowUp, type InsertFollowUp
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, gte, lte, count, or, ilike } from "drizzle-orm";
@@ -73,6 +73,17 @@ export interface IStorage {
   getAllTasks(): Promise<Task[]>;
   getTasksByUser(userId: string): Promise<Task[]>;
   getTasksByType(type: string): Promise<Task[]>;
+  createTask(task: InsertTask): Promise<Task>;
+  updateTask(id: string, task: Partial<InsertTask>): Promise<Task>;
+  deleteTask(id: string): Promise<void>;
+
+  // Follow-ups
+  getFollowUp(id: string): Promise<FollowUp | undefined>;
+  getFollowUpsByTask(taskId: string): Promise<FollowUp[]>;
+  getFollowUpsByUser(userId: string): Promise<FollowUp[]>;
+  createFollowUp(followUp: InsertFollowUp): Promise<FollowUp>;
+  updateFollowUp(id: string, followUp: Partial<InsertFollowUp>): Promise<FollowUp>;
+  deleteFollowUp(id: string): Promise<void>;
   createTask(task: InsertTask): Promise<Task>;
   updateTask(id: string, task: Partial<InsertTask>): Promise<Task>;
 
@@ -408,6 +419,56 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTask(id: string): Promise<void> {
     await db.delete(tasks).where(eq(tasks.id, id));
+  }
+
+  // Follow-ups
+  async getFollowUp(id: string): Promise<FollowUp | undefined> {
+    const [followUp] = await db.select().from(followUps).where(eq(followUps.id, id));
+    return followUp || undefined;
+  }
+
+  async getFollowUpsByTask(taskId: string): Promise<FollowUp[]> {
+    return await db.select().from(followUps)
+      .where(eq(followUps.taskId, taskId))
+      .orderBy(desc(followUps.followUpDate));
+  }
+
+  async getFollowUpsByUser(userId: string): Promise<FollowUp[]> {
+    return await db.select().from(followUps)
+      .where(eq(followUps.assignedUserId, userId))
+      .orderBy(desc(followUps.followUpDate));
+  }
+
+  async createFollowUp(insertFollowUp: InsertFollowUp): Promise<FollowUp> {
+    const followUpData = {
+      ...insertFollowUp,
+      followUpDate: new Date(insertFollowUp.followUpDate),
+      nextFollowUpDate: insertFollowUp.nextFollowUpDate ? new Date(insertFollowUp.nextFollowUpDate) : null,
+      completedAt: insertFollowUp.completedAt ? new Date(insertFollowUp.completedAt) : null,
+    } as any;
+    
+    const [followUp] = await db.insert(followUps).values(followUpData).returning();
+    return followUp;
+  }
+
+  async updateFollowUp(id: string, updateFollowUp: Partial<InsertFollowUp>): Promise<FollowUp> {
+    const followUpData = {
+      ...updateFollowUp,
+      followUpDate: updateFollowUp.followUpDate ? new Date(updateFollowUp.followUpDate) : undefined,
+      nextFollowUpDate: updateFollowUp.nextFollowUpDate ? new Date(updateFollowUp.nextFollowUpDate) : undefined,
+      completedAt: updateFollowUp.completedAt ? new Date(updateFollowUp.completedAt) : undefined,
+      updatedAt: new Date()
+    } as any;
+    
+    // Remove undefined values
+    Object.keys(followUpData).forEach(key => (followUpData as any)[key] === undefined && delete (followUpData as any)[key]);
+    
+    const [followUp] = await db.update(followUps).set(followUpData).where(eq(followUps.id, id)).returning();
+    return followUp;
+  }
+
+  async deleteFollowUp(id: string): Promise<void> {
+    await db.delete(followUps).where(eq(followUps.id, id));
   }
 
   // E-way Bills
