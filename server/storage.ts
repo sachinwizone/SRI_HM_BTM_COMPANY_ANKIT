@@ -1,14 +1,15 @@
 import { 
   users, clients, orders, payments, tasks, ewayBills, clientTracking, 
   salesRates, creditAgreements, purchaseOrders, sales, numberSeries,
-  transporters, products,
+  transporters, products, shippingAddresses,
   type User, type InsertUser, type Client, type InsertClient,
   type Order, type InsertOrder, type Payment, type InsertPayment,
   type Task, type InsertTask, type EwayBill, type InsertEwayBill,
   type ClientTracking, type InsertClientTracking, type SalesRate, type InsertSalesRate,
   type CreditAgreement, type InsertCreditAgreement, type PurchaseOrder, type InsertPurchaseOrder,
   type Sales, type InsertSales, type NumberSeries, type InsertNumberSeries,
-  type Transporter, type InsertTransporter, type Product, type InsertProduct
+  type Transporter, type InsertTransporter, type Product, type InsertProduct,
+  type ShippingAddress, type InsertShippingAddress
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, gte, lte, count } from "drizzle-orm";
@@ -26,6 +27,13 @@ export interface IStorage {
   getClientsByCategory(category: string): Promise<Client[]>;
   createClient(client: InsertClient): Promise<Client>;
   updateClient(id: string, client: Partial<InsertClient>): Promise<Client>;
+
+  // Shipping Addresses
+  getShippingAddress(id: string): Promise<ShippingAddress | undefined>;
+  getShippingAddressesByClient(clientId: string): Promise<ShippingAddress[]>;
+  createShippingAddress(address: InsertShippingAddress): Promise<ShippingAddress>;
+  updateShippingAddress(id: string, address: Partial<InsertShippingAddress>): Promise<ShippingAddress>;
+  deleteShippingAddress(id: string): Promise<void>;
 
   // Orders
   getOrder(id: string): Promise<Order | undefined>;
@@ -617,8 +625,47 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  // Shipping Addresses
+  async getShippingAddress(id: string): Promise<ShippingAddress | undefined> {
+    const [address] = await db
+      .select()
+      .from(shippingAddresses)
+      .where(eq(shippingAddresses.id, id))
+      .limit(1);
+    return address;
+  }
 
+  async getShippingAddressesByClient(clientId: string): Promise<ShippingAddress[]> {
+    return await db
+      .select()
+      .from(shippingAddresses)
+      .where(and(eq(shippingAddresses.clientId, clientId), eq(shippingAddresses.isActive, true)))
+      .orderBy(asc(shippingAddresses.createdAt));
+  }
 
+  async createShippingAddress(addressData: InsertShippingAddress): Promise<ShippingAddress> {
+    const [address] = await db
+      .insert(shippingAddresses)
+      .values(addressData)
+      .returning();
+    return address;
+  }
+
+  async updateShippingAddress(id: string, addressData: Partial<InsertShippingAddress>): Promise<ShippingAddress> {
+    const [address] = await db
+      .update(shippingAddresses)
+      .set(addressData)
+      .where(eq(shippingAddresses.id, id))
+      .returning();
+    return address;
+  }
+
+  async deleteShippingAddress(id: string): Promise<void> {
+    await db
+      .update(shippingAddresses)
+      .set({ isActive: false })
+      .where(eq(shippingAddresses.id, id));
+  }
 }
 
 export const storage = new DatabaseStorage();

@@ -7,6 +7,7 @@ import {
   insertUserSchema, insertClientSchema, insertOrderSchema, insertPaymentSchema,
   insertTaskSchema, insertEwayBillSchema, insertClientTrackingSchema, insertSalesRateSchema,
   insertCreditAgreementSchema, insertPurchaseOrderSchema, insertSalesSchema,
+  insertShippingAddressSchema,
   insertNumberSeriesSchema, insertTransporterSchema, insertProductSchema
 } from "@shared/schema";
 import { z } from "zod";
@@ -251,6 +252,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid client data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to update client" });
+    }
+  });
+
+  // Shipping Addresses routes
+  app.get('/api/shipping-addresses/:clientId', async (req, res) => {
+    try {
+      const { clientId } = req.params;
+      const addresses = await storage.getShippingAddressesByClient(clientId);
+      res.json(addresses);
+    } catch (error) {
+      console.error("Get shipping addresses error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/shipping-addresses', async (req, res) => {
+    try {
+      const result = insertShippingAddressSchema.parse(req.body);
+      const address = await storage.createShippingAddress(result);
+      res.status(201).json(address);
+    } catch (error) {
+      console.error("Create shipping address error:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/shipping-addresses/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = insertShippingAddressSchema.parse(req.body);
+      const address = await storage.updateShippingAddress(id, result);
+      res.json(address);
+    } catch (error) {
+      console.error("Update shipping address error:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/shipping-addresses/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteShippingAddress(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete shipping address error:", error);
+      res.status(500).json({ error: error.message });
     }
   });
 
