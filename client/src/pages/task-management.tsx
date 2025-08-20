@@ -22,27 +22,27 @@ export default function TaskManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedType, setSelectedType] = useState("all");
 
-  const { data: allTasks, isLoading } = useQuery({
+  const { data: allTasks = [], isLoading } = useQuery({
     queryKey: ['/api/tasks'],
   });
 
-  const { data: oneTimeTasks } = useQuery({
+  const { data: oneTimeTasks = [] } = useQuery({
     queryKey: ['/api/tasks', { type: 'ONE_TIME' }],
   });
 
-  const { data: recurringTasks } = useQuery({
+  const { data: recurringTasks = [] } = useQuery({
     queryKey: ['/api/tasks', { type: 'RECURRING' }],
   });
 
-  const { data: users } = useQuery({
+  const { data: users = [] } = useQuery({
     queryKey: ['/api/users'],
   });
 
-  const { data: clients } = useQuery({
+  const { data: clients = [] } = useQuery({
     queryKey: ['/api/clients'],
   });
 
-  const { data: orders } = useQuery({
+  const { data: orders = [] } = useQuery({
     queryKey: ['/api/orders'],
   });
 
@@ -85,7 +85,7 @@ export default function TaskManagement() {
       orderId: "",
       isCompleted: false,
       dueDate: "",
-      recurringInterval: null
+      recurringInterval: ""
     }
   });
 
@@ -93,7 +93,7 @@ export default function TaskManagement() {
     createTaskMutation.mutate({
       ...data,
       dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
-      recurringInterval: data.type === 'RECURRING' ? parseInt(data.recurringInterval) : null
+      recurringInterval: data.type === 'RECURRING' && data.recurringInterval ? parseInt(data.recurringInterval) : null
     });
   };
 
@@ -132,12 +132,12 @@ export default function TaskManagement() {
 
   const filteredTasks = selectedType === "all" 
     ? allTasks 
-    : allTasks?.filter(task => task.type === selectedType);
+    : allTasks?.filter((task: any) => task.type === selectedType);
 
-  const oneTimeCount = oneTimeTasks?.filter(task => !task.isCompleted).length || 0;
-  const recurringCount = recurringTasks?.filter(task => !task.isCompleted).length || 0;
-  const completedCount = allTasks?.filter(task => task.isCompleted).length || 0;
-  const overdueCount = allTasks?.filter(task => 
+  const oneTimeCount = oneTimeTasks?.filter((task: any) => !task.isCompleted).length || 0;
+  const recurringCount = recurringTasks?.filter((task: any) => !task.isCompleted).length || 0;
+  const completedCount = allTasks?.filter((task: any) => task.isCompleted).length || 0;
+  const overdueCount = allTasks?.filter((task: any) => 
     !task.isCompleted && task.dueDate && new Date(task.dueDate) < new Date()
   ).length || 0;
 
@@ -302,7 +302,7 @@ export default function TaskManagement() {
                                         </SelectTrigger>
                                       </FormControl>
                                       <SelectContent>
-                                        {users?.map((user) => (
+                                        {users?.map((user: any) => (
                                           <SelectItem key={user.id} value={user.id}>
                                             {user.firstName} {user.lastName}
                                           </SelectItem>
@@ -361,7 +361,7 @@ export default function TaskManagement() {
                                         </SelectTrigger>
                                       </FormControl>
                                       <SelectContent>
-                                        {clients?.map((client) => (
+                                        {clients?.map((client: any) => (
                                           <SelectItem key={client.id} value={client.id}>
                                             {client.name}
                                           </SelectItem>
@@ -385,7 +385,7 @@ export default function TaskManagement() {
                                         </SelectTrigger>
                                       </FormControl>
                                       <SelectContent>
-                                        {orders?.map((order) => (
+                                        {orders?.map((order: any) => (
                                           <SelectItem key={order.id} value={order.id}>
                                             {order.orderNumber}
                                           </SelectItem>
@@ -455,7 +455,7 @@ export default function TaskManagement() {
                           </td>
                         </tr>
                       ) : (
-                        filteredTasks.map((task, index) => (
+                        filteredTasks.map((task: any, index: number) => (
                           <tr key={index} className="hover:bg-gray-50">
                             <td className="px-6 py-4">
                               <input 
