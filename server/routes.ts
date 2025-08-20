@@ -963,15 +963,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Transporters API
-  app.get("/api/transporters", requireAuth, async (req, res) => {
-    try {
-      const transporters = await storage.getAllTransporters();
-      res.json(transporters);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch transporters" });
-    }
-  });
+  // Remove duplicate - keeping the one above
 
   app.post("/api/transporters", requireAuth, async (req, res) => {
     try {
@@ -1032,6 +1024,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid product data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to update product" });
+    }
+  });
+
+  // Products API
+  app.get("/api/products", async (req, res) => {
+    try {
+      const products = await storage.getAllProducts();
+      res.json(products);
+    } catch (error) {
+      console.error("Products fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  app.post("/api/products", async (req, res) => {
+    try {
+      const validatedData = insertProductSchema.parse(req.body);
+      const product = await storage.createProduct(validatedData);
+      res.status(201).json(product);
+    } catch (error) {
+      console.error("Product creation error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid product data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create product" });
+    }
+  });
+
+  // Transporters API
+  app.get("/api/transporters", async (req, res) => {
+    try {
+      const transporters = await storage.getAllTransporters();
+      res.json(transporters);
+    } catch (error) {
+      console.error("Transporters fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch transporters" });
+    }
+  });
+
+  app.post("/api/transporters", async (req, res) => {
+    try {
+      const validatedData = insertTransporterSchema.parse(req.body);
+      const transporter = await storage.createTransporter(validatedData);
+      res.status(201).json(transporter);
+    } catch (error) {
+      console.error("Transporter creation error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid transporter data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create transporter" });
     }
   });
 

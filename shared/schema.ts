@@ -553,7 +553,7 @@ export const sales = pgTable("sales", {
   totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).notNull(),
   basicRatePurchase: decimal("basic_rate_purchase", { precision: 15, scale: 2 }).notNull(),
   productId: varchar("product_id").notNull().references(() => products.id),
-  salespersonId: varchar("salesperson_id").notNull().references(() => users.id),
+  salespersonId: varchar("salesperson_id").references(() => users.id),
   deliveryStatus: deliveryStatusEnum("delivery_status").notNull().default('RECEIVING'),
   deliveryChallanSigned: boolean("delivery_challan_signed").notNull().default(false),
   deliveryChallanSignedAt: timestamp("delivery_challan_signed_at"),

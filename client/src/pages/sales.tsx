@@ -2,7 +2,10 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Edit, Trash2, Search, CalendarDays, FileCheck, Save, X, Package, Truck } from "lucide-react";
+import { Plus, Edit, Trash2, Search, CalendarDays, FileCheck, Save, X, Package, Truck, BarChart3 } from "lucide-react";
+import { SalesDashboard } from "@/components/analytics/sales-dashboard";
+import { DataTable } from "@/components/ui/data-table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 
 // UI Components
@@ -27,6 +30,7 @@ const statusColors = {
 };
 
 export default function Sales() {
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingSales, setEditingSales] = useState<Sales | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
