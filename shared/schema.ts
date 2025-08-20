@@ -10,6 +10,8 @@ export const communicationPreferenceEnum = pgEnum('communication_preference', ['
 export const unloadingFacilityEnum = pgEnum('unloading_facility', ['PUMP', 'CRANE', 'MANUAL', 'OTHERS']);
 export const bankInterestEnum = pgEnum('bank_interest', ['FROM_DAY_1', 'FROM_DUE_DATE']);
 export const taskTypeEnum = pgEnum('task_type', ['ONE_TIME', 'RECURRING']);
+export const taskPriorityEnum = pgEnum('task_priority', ['LOW', 'MEDIUM', 'HIGH', 'URGENT']);
+export const taskStatusEnum = pgEnum('task_status', ['TODO', 'IN_PROGRESS', 'BLOCKED', 'REVIEW', 'COMPLETED']);
 export const orderStatusEnum = pgEnum('order_status', ['PENDING_AGREEMENT', 'APPROVED', 'IN_PROGRESS', 'LOADING', 'IN_TRANSIT', 'DELIVERED', 'COMPLETED', 'CANCELLED']);
 export const paymentStatusEnum = pgEnum('payment_status', ['PENDING', 'OVERDUE', 'PAID', 'PARTIAL']);
 export const trackingStatusEnum = pgEnum('tracking_status', ['LOADING', 'IN_TRANSIT', 'DELIVERED']);
@@ -147,6 +149,8 @@ export const tasks = pgTable("tasks", {
   title: text("title").notNull(),
   description: text("description"),
   type: taskTypeEnum("type").notNull(),
+  priority: taskPriorityEnum("priority").notNull().default('MEDIUM'),
+  status: taskStatusEnum("status").notNull().default('TODO'),
   assignedTo: varchar("assigned_to").references(() => users.id),
   clientId: varchar("client_id").references(() => clients.id),
   orderId: varchar("order_id").references(() => orders.id),

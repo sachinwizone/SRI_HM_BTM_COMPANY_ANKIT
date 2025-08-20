@@ -55,6 +55,8 @@ export default function TaskManagement() {
     title: z.string().min(1, "Title is required"),
     description: z.string().optional(),
     type: z.enum(["ONE_TIME", "RECURRING"]),
+    priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).default("MEDIUM"),
+    status: z.enum(["TODO", "IN_PROGRESS", "BLOCKED", "REVIEW", "COMPLETED"]).default("TODO"),
     assignedTo: z.string().optional(),
     clientId: z.string().optional(),
     orderId: z.string().optional(),
@@ -74,6 +76,8 @@ export default function TaskManagement() {
       title: "",
       description: "",
       type: "ONE_TIME" as const,
+      priority: "MEDIUM" as const,
+      status: "TODO" as const,
       assignedTo: "",
       clientId: "",
       orderId: "",
@@ -89,6 +93,8 @@ export default function TaskManagement() {
       title: "",
       description: "",
       type: "ONE_TIME" as const,
+      priority: "MEDIUM" as const,
+      status: "TODO" as const,
       assignedTo: "",
       clientId: "",
       orderId: "",
@@ -179,6 +185,8 @@ export default function TaskManagement() {
       title: data.title,
       description: data.description || null,
       type: data.type,
+      priority: data.priority,
+      status: data.status,
       assignedTo: data.assignedTo && data.assignedTo.trim() ? data.assignedTo : null,
       clientId: data.clientId && data.clientId.trim() ? data.clientId : null,
       orderId: data.orderId && data.orderId.trim() ? data.orderId : null,
@@ -220,6 +228,8 @@ export default function TaskManagement() {
       title: task.title,
       description: task.description || "",
       type: task.type,
+      priority: task.priority || "MEDIUM",
+      status: task.status || "TODO",
       assignedTo: task.assignedTo || "",
       clientId: task.clientId || "",
       orderId: task.orderId || "",
@@ -450,6 +460,55 @@ export default function TaskManagement() {
                           <div className="grid grid-cols-2 gap-4">
                             <FormField
                               control={form.control}
+                              name="priority"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Priority</FormLabel>
+                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select priority" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      <SelectItem value="LOW">Low</SelectItem>
+                                      <SelectItem value="MEDIUM">Medium</SelectItem>
+                                      <SelectItem value="HIGH">High</SelectItem>
+                                      <SelectItem value="URGENT">Urgent</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="status"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Status</FormLabel>
+                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select status" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      <SelectItem value="TODO">To Do</SelectItem>
+                                      <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                                      <SelectItem value="BLOCKED">Blocked</SelectItem>
+                                      <SelectItem value="REVIEW">Review</SelectItem>
+                                      <SelectItem value="COMPLETED">Completed</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
                               name="dueDate"
                               render={({ field }) => (
                                 <FormItem>
@@ -627,17 +686,61 @@ export default function TaskManagement() {
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <Badge className={getPriorityColor(task.dueDate)}>
-                                {!task.dueDate ? 'Normal' : 
-                                  Math.ceil((new Date(task.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) < 0 ? 'Overdue' :
-                                  Math.ceil((new Date(task.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) <= 3 ? 'Urgent' : 'Normal'
-                                }
-                              </Badge>
+                              <Select 
+                                value={task.priority || 'MEDIUM'} 
+                                onValueChange={(value) => updateTaskMutation.mutate({ 
+                                  id: task.id, 
+                                  data: { priority: value } 
+                                })}
+                              >
+                                <SelectTrigger className="w-24 h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="LOW">
+                                    <Badge className="bg-gray-100 text-gray-800">Low</Badge>
+                                  </SelectItem>
+                                  <SelectItem value="MEDIUM">
+                                    <Badge className="bg-blue-100 text-blue-800">Medium</Badge>
+                                  </SelectItem>
+                                  <SelectItem value="HIGH">
+                                    <Badge className="bg-orange-100 text-orange-800">High</Badge>
+                                  </SelectItem>
+                                  <SelectItem value="URGENT">
+                                    <Badge className="bg-red-100 text-red-800">Urgent</Badge>
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
                             </td>
                             <td className="px-6 py-4">
-                              <Badge className={task.isCompleted ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'}>
-                                {task.isCompleted ? 'Completed' : 'Pending'}
-                              </Badge>
+                              <Select 
+                                value={task.status || 'TODO'} 
+                                onValueChange={(value) => updateTaskMutation.mutate({ 
+                                  id: task.id, 
+                                  data: { status: value, isCompleted: value === 'COMPLETED' } 
+                                })}
+                              >
+                                <SelectTrigger className="w-32 h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="TODO">
+                                    <Badge className="bg-gray-100 text-gray-800">To Do</Badge>
+                                  </SelectItem>
+                                  <SelectItem value="IN_PROGRESS">
+                                    <Badge className="bg-blue-100 text-blue-800">In Progress</Badge>
+                                  </SelectItem>
+                                  <SelectItem value="BLOCKED">
+                                    <Badge className="bg-red-100 text-red-800">Blocked</Badge>
+                                  </SelectItem>
+                                  <SelectItem value="REVIEW">
+                                    <Badge className="bg-yellow-100 text-yellow-800">Review</Badge>
+                                  </SelectItem>
+                                  <SelectItem value="COMPLETED">
+                                    <Badge className="bg-green-100 text-green-800">Completed</Badge>
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
                             </td>
                             <td className="px-6 py-4">
                               <div className="flex items-center space-x-2">
