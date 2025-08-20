@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { db } from './db';
 import { users, userSessions, type User, type UserSession } from '@shared/schema';
-import { eq, and, gt } from 'drizzle-orm';
+import { eq, and, gt, lt } from 'drizzle-orm';
 import type { Request, Response, NextFunction } from 'express';
 
 export class AuthService {
@@ -106,7 +106,7 @@ export class AuthService {
   // Clean expired sessions
   static async cleanExpiredSessions(): Promise<void> {
     await db.delete(userSessions).where(
-      gt(userSessions.expiresAt, new Date())
+      lt(userSessions.expiresAt, new Date())
     );
   }
 
@@ -156,12 +156,15 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   const sessionToken = req.headers.authorization?.replace('Bearer ', '') ||
                       req.cookies?.sessionToken;
 
+
+
   if (!sessionToken) {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
   AuthService.verifySession(sessionToken)
     .then(user => {
+
       if (!user) {
         return res.status(401).json({ error: 'Invalid session' });
       }
@@ -174,20 +177,36 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     });
 }
 
-// Middleware to check specific role
+// Middleware to check specific role (includes auth check)
 export function requireRole(roles: string[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const user = (req as any).user;
-    
-    if (!user) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const sessionToken = req.headers.authorization?.replace('Bearer ', '') ||
+                        req.cookies?.sessionToken;
+
+
+
+    if (!sessionToken) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    if (!roles.includes(user.role)) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
-    }
+    try {
+      const user = await AuthService.verifySession(sessionToken);
 
-    next();
+      
+      if (!user) {
+        return res.status(401).json({ error: 'Invalid session' });
+      }
+
+      if (!roles.includes(user.role)) {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
+
+      (req as any).user = user;
+      next();
+    } catch (error) {
+      console.error('Role middleware error:', error);
+      res.status(500).json({ error: 'Authentication error' });
+    }
   };
 }
 
