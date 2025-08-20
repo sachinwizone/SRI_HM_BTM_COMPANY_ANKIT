@@ -4,13 +4,14 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { insertTaskSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -75,7 +76,10 @@ export default function TaskManagement() {
   });
 
   const form = useForm({
-    resolver: zodResolver(insertTaskSchema),
+    resolver: zodResolver(insertTaskSchema.extend({
+      dueDate: z.string().optional(),
+      recurringInterval: z.string().optional()
+    })),
     defaultValues: {
       title: "",
       description: "",
@@ -90,11 +94,16 @@ export default function TaskManagement() {
   });
 
   const onSubmit = (data: any) => {
-    createTaskMutation.mutate({
+    const processedData = {
       ...data,
-      dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
-      recurringInterval: data.type === 'RECURRING' && data.recurringInterval ? parseInt(data.recurringInterval) : null
-    });
+      dueDate: data.dueDate && data.dueDate.trim() ? new Date(data.dueDate).toISOString() : null,
+      recurringInterval: data.type === 'RECURRING' && data.recurringInterval && data.recurringInterval.trim() ? parseInt(data.recurringInterval) : null,
+      clientId: data.clientId && data.clientId.trim() ? data.clientId : null,
+      orderId: data.orderId && data.orderId.trim() ? data.orderId : null,
+      assignedTo: data.assignedTo && data.assignedTo.trim() ? data.assignedTo : null
+    };
+    
+    createTaskMutation.mutate(processedData);
   };
 
   const toggleTaskCompletion = (taskId: string, isCompleted: boolean) => {
@@ -238,6 +247,9 @@ export default function TaskManagement() {
                       <DialogContent className="max-w-2xl">
                         <DialogHeader>
                           <DialogTitle>Create New Task</DialogTitle>
+                          <DialogDescription>
+                            Fill in the details below to create a new task for your team.
+                          </DialogDescription>
                         </DialogHeader>
                         <Form {...form}>
                           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
