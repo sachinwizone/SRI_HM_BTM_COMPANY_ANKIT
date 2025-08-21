@@ -23,6 +23,7 @@ import FollowUps from "@/pages/follow-ups";
 import AuthPage from "@/pages/auth";
 import { useAuth } from "@/hooks/useAuth";
 import Sidebar from "@/components/layout/sidebar";
+import TopBar from "@/components/layout/topbar";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -42,8 +43,9 @@ function Router() {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <Sidebar />
-      <main className="flex-1 overflow-auto">
-        <div className="p-6">
+      <main className="flex-1 overflow-auto flex flex-col">
+        <TopBar title="Business Management" subtitle="Comprehensive business operations platform" />
+        <div className="flex-1 p-6">
           <Switch>
             <Route path="/" component={Dashboard} />
             <Route path="/credit-payments" component={CreditPayments} />

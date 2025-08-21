@@ -1,9 +1,11 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 import { 
   Home, CreditCard, Bell, Users, MapPin, BarChart3, 
   CheckSquare, ShoppingCart, File, Receipt, 
-  FileText, TrendingUp, DollarSign, Database, Settings, LucideIcon, Package, Clock
+  FileText, TrendingUp, DollarSign, Database, Settings, LucideIcon, Package, Clock, LogOut
 } from "lucide-react";
 
 type NavigationItem = {
@@ -67,6 +69,7 @@ const navigation: NavigationEntry[] = [
 
 export default function Sidebar() {
   const [location] = useLocation();
+  const { user, logout } = useAuth();
 
   return (
     <aside className="w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col">
@@ -138,20 +141,30 @@ export default function Sidebar() {
 
       {/* User Profile */}
       <div className="p-4 border-t border-gray-200">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <span className="text-white text-sm font-medium">JD</span>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+              <span className="text-white text-sm font-medium">
+                {user?.firstName?.[0]}{user?.lastName?.[0]}
+              </span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">
+                {user?.firstName} {user?.lastName}
+              </p>
+              <p className="text-xs text-gray-500">{user?.role}</p>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">John Doe</p>
-            <p className="text-xs text-gray-500">Sales Manager</p>
-          </div>
-          <button className="text-gray-400 hover:text-gray-600">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-          </button>
         </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="w-full text-gray-700 hover:text-red-600 hover:border-red-300"
+          onClick={logout}
+        >
+          <LogOut size={16} className="mr-2" />
+          Logout
+        </Button>
       </div>
     </aside>
   );
