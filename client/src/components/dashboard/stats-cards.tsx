@@ -28,7 +28,7 @@ export default function StatsCards() {
   const cards = [
     {
       title: "Pending Payments",
-      value: `₹${parseInt(stats?.pendingPayments || '0').toLocaleString()}`,
+      value: `₹${parseInt((stats as any)?.pendingPayments || '0').toLocaleString()}`,
       icon: CreditCard,
       iconColor: "text-primary",
       bgColor: "bg-primary/10",
@@ -37,7 +37,7 @@ export default function StatsCards() {
     },
     {
       title: "Active Clients",
-      value: stats?.activeClients || 0,
+      value: (stats as any)?.activeClients || 0,
       icon: Users,
       iconColor: "text-success",
       bgColor: "bg-success/10",
@@ -46,7 +46,7 @@ export default function StatsCards() {
     },
     {
       title: "Open Tasks",
-      value: stats?.openTasks || 0,
+      value: (stats as any)?.openTasks || 0,
       icon: CheckSquare,
       iconColor: "text-warning",
       bgColor: "bg-warning/10",
@@ -55,7 +55,7 @@ export default function StatsCards() {
     },
     {
       title: "In Transit",
-      value: stats?.inTransit || 0,
+      value: (stats as any)?.inTransit || 0,
       icon: Truck,
       iconColor: "text-info",
       bgColor: "bg-info/10",
@@ -69,21 +69,15 @@ export default function StatsCards() {
       {cards.map((card, index) => {
         const Icon = card.icon;
         return (
-          <Card key={index} className="p-6">
+          <Card key={index} className="p-6 hover:shadow-lg transition-all duration-300 cursor-pointer border-l-4 border-l-transparent hover:border-l-primary">
             <div className="flex items-center">
               <div className={`p-2 ${card.bgColor} rounded-lg`}>
                 <Icon className={card.iconColor} size={24} />
               </div>
-              <div className="ml-4">
+              <div className="ml-4 flex-1">
                 <p className="text-sm font-medium text-gray-600">{card.title}</p>
-                <p className="text-2xl font-bold text-gray-900">{card.value}</p>
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="flex items-center">
-                <span className={`text-sm font-medium ${card.changeColor}`}>
-                  {card.change}
-                </span>
+                <p className="text-2xl font-bold text-gray-900 hover:text-primary transition-colors">{card.value}</p>
+                <p className={`text-xs ${card.changeColor} mt-1`}>{card.change}</p>
               </div>
             </div>
           </Card>
