@@ -156,6 +156,7 @@ export const tasks = pgTable("tasks", {
   assignedTo: varchar("assigned_to").references(() => users.id),
   clientId: varchar("client_id").references(() => clients.id),
   orderId: varchar("order_id").references(() => orders.id),
+  mobileNumber: text("mobile_number"), // Mobile number for WhatsApp redirection
   isCompleted: boolean("is_completed").notNull().default(false),
   dueDate: timestamp("due_date"),
   completedAt: timestamp("completed_at"),

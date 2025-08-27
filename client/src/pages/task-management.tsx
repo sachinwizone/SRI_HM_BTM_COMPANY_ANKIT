@@ -69,6 +69,7 @@ export default function TaskManagement() {
     assignedTo: z.string().optional(),
     clientId: z.string().optional(),
     orderId: z.string().optional(),
+    mobileNumber: z.string().optional(),
     isCompleted: z.boolean().default(false),
     dueDate: z.string().optional(),
     recurringInterval: z.string().optional()
@@ -90,6 +91,7 @@ export default function TaskManagement() {
       assignedTo: "",
       clientId: "",
       orderId: "",
+      mobileNumber: "",
       isCompleted: false,
       dueDate: "",
       recurringInterval: ""
@@ -107,6 +109,7 @@ export default function TaskManagement() {
       assignedTo: "",
       clientId: "",
       orderId: "",
+      mobileNumber: "",
       isCompleted: false,
       dueDate: "",
       recurringInterval: ""
@@ -352,6 +355,7 @@ Thanks!`;
       assignedTo: task.assignedTo || "",
       clientId: task.clientId || "",
       orderId: task.orderId || "",
+      mobileNumber: task.mobileNumber || "",
       isCompleted: task.isCompleted,
       dueDate: task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : "",
       recurringInterval: task.recurringInterval ? task.recurringInterval.toString() : ""
@@ -708,6 +712,23 @@ Thanks!`;
                               )}
                             />
                           </div>
+                          <FormField
+                            control={form.control}
+                            name="mobileNumber"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Mobile Number (WhatsApp)</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="tel" 
+                                    placeholder="e.g., +91 9876543210" 
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                           <div className="flex justify-end space-x-2">
                             <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                               Cancel
@@ -1129,6 +1150,23 @@ Thanks!`;
                   )}
                 />
               </div>
+              <FormField
+                control={editForm.control}
+                name="mobileNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mobile Number (WhatsApp)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="tel" 
+                        placeholder="e.g., +91 9876543210" 
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <div className="flex justify-end space-x-2">
                 <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                   Cancel
