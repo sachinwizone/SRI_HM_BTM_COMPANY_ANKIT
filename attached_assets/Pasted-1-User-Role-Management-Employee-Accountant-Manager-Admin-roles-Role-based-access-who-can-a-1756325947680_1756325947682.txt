@@ -1,0 +1,942 @@
+1. User & Role Management
+
+Employee, Accountant, Manager, Admin roles.
+
+Role-based access (who can approve tours, who can sanction advances, who can see sales reports).
+
+2. Sales & Purchase Module
+
+Create Sales Orders, Purchase Orders.
+
+Auto-generate invoices from orders.
+
+GST/Tax integrated billing.
+
+Alpha/Beta/Gamma client categorization (for credit & priority handling).
+
+3. Payment & Finance Module
+
+Invoice wise payment tracking.
+
+Interest auto-calculation on overdue payments.
+
+Dashboard showing: Pending, Overdue, Not Due, Bad Debts, Disputed Payments.
+
+Automated reminders via WhatsApp/Email for pending invoices.
+
+4. Tour & Advance Management
+
+Tour request & approval workflow (Advance sanction letter digitalized from your PDF).
+
+Expense submission with receipts.
+
+Auto-adjustment of advances before sanctioning a new one.
+
+Analytics: Travel cost per client, ROI on sales tours.
+
+5. Godown & Inventory
+
+Loading/unloading entries digitized from Google Form.
+
+Stock in (purchase) and stock out (sales).
+
+Multiple godown support.
+
+Reports: Available stock, daily dispatches, labor usage.
+
+6. Analytics & Reporting
+
+Sales Graphs: Monthly, region-wise, product-wise.
+
+Payment Health Meter: Client wise overdue %, average collection days.
+
+Tour ROI: Expense vs sales achieved.
+
+Inventory: Fast/slow moving products.
+
+7. Automation
+
+WhatsApp/SMS alerts for payment reminders.
+
+Auto-email of daily reports (sales, payments, stock).
+
+Recurring order notifications.
+
+Auto-block clients crossing credit limit.
+
+⚙️ Tech Recommendations
+
+Frontend: React + Tailwind (fast, modern, mobile-friendly).
+
+Backend: Node.js with Express.
+
+Database: MS SQL Server (since you already track structured finance data).
+
+Automation: Integration with Twilio (WhatsApp), Gmail/Outlook APIs.
+
+Hosting: Azure/AWS (with backup).
+
+📊 Suggested Dashboards
+
+Admin Dashboard → Total Sales, Pending Payments, Stock Position, Top Clients.
+
+Accounts Dashboard → Invoice wise payments, overdue interest, disputed cases.
+
+Sales Dashboard → Leads, client visits, orders, recurring orders.
+
+Inventory Dashboard → Loading/unloading, current stock, shortages.
+
+Employee Dashboard → Tour status, advance pending, approvals.
+
+✅ By building this end-to-end web app, you can remove dependency on Excel/PDF, reduce errors, and achieve full automation in billing, payments, tours, and godown operations.
+
+Sir, do you want me to prepare a polished Scope of Work (SOW) document with modules, submodules, and fields (like we did earlier for ERP) so you can directly give it to your developer?
+
+You said:
+SUGGEST ME MODULE AND SUB MODULES WITH RESPECTIVE FIELDS 
+ChatGPT said:
+Thought for 28s
+
+Awesome—here’s a complete, field-level blueprint for a Bitumen Trading Web App with full automation. It’s organized into modules → sub-modules → exhaustive fields (no tech jargon, no data types), so you can hand this straight to your developer.
+
+1) Organization & Users
+1.1 Company Profile
+
+Legal name
+
+Trade name
+
+CIN
+
+GSTIN
+
+PAN
+
+MSME/Udyam number
+
+Registered address (lines, city, state, pin)
+
+Corporate address
+
+Primary contact person (name, mobile, email)
+
+Accounts contact (name, mobile, email)
+
+Support contact (name, mobile, email)
+
+Financial year start month
+
+Invoice prefix/series rules
+
+E-invoice API credentials (if applicable)
+
+E-way bill API credentials (if applicable)
+
+1.2 Branch / Depot / Plant Master
+
+Branch/depot name
+
+Address (lines, city, state, pin)
+
+Geo coordinates (lat, long)
+
+Contact person (name, mobile, email)
+
+Storage type (bulk tank / drums / both)
+
+Capacity (bulk KL / drums count)
+
+Working hours
+
+Holiday calendar
+
+1.3 User & Role Management
+
+Employee code
+
+Full name
+
+Designation
+
+Department
+
+Mobile
+
+Email
+
+Work location/branch
+
+Role(s)
+
+Approval limits (₹)
+
+Active/inactive
+
+1.4 Approval Matrix
+
+Document type (quotation / PO / SO / invoice / GRN / TA / expense / credit note / debit note)
+
+Approval level sequence
+
+Approver names
+
+Amount slabs (from–to)
+
+Auto-escalation time (hrs)
+
+2) Master Data
+2.1 Customer Master (B2B)
+
+Customer code
+
+Legal/billing name
+
+Trade name
+
+GSTIN (state code auto)
+
+PAN
+
+MSME/Udyam number
+
+Industry
+
+Category (Alpha / Beta / Gamma / Delta)
+
+Credit limit (₹)
+
+Credit days
+
+Payment mode preference (NEFT/RTGS/UPI/Cheque)
+
+Billing address (lines, city, state, pin)
+
+Multiple shipping addresses (nickname, lines, city, state, pin, contact person, mobile, delivery window, unloading facility: pump/crane/manual/other, geo lat/long, site instructions)
+
+Contacts (name, designation, mobile, email, WhatsApp opt-in)
+
+TCS applicability (yes/no, % if any)
+
+Price level (A/B/C/custom)
+
+Recurring order pattern (yes/no, frequency, typical quantity)
+
+Documents (PAN, GST, cancelled cheque, LOI, rate contract)
+
+2.2 Supplier Master
+
+Supplier code
+
+Name
+
+GSTIN / PAN
+
+Address
+
+Contact (name, mobile, email)
+
+Payment terms
+
+Product categories (VG/emulsion/accessories)
+
+2.3 Product Master (Bitumen/Emulsion/Accessories)
+
+Product code
+
+Product family (VG bitumen / emulsion / bulk / accessories)
+
+Grade (e.g., VG-10, VG-30, CRS/SS/RS emulsions)
+
+Packaging (bulk / drum / embossed / any)
+
+Unit (MT / KL / drum / unit)
+
+Conversion factors (density, MT↔KL, drums↔MT)
+
+HSN
+
+Tax rate %
+
+Batch/lot tracking (yes/no)
+
+Shelf life (days)
+
+QC parameters (penetration/viscosity/softening point/emulsion spec list)
+
+Default price level mappings
+
+Min/Max order quantity
+
+Reorder level
+
+2.4 Pricing & Freight Master
+
+Price list name
+
+Effective from / to
+
+Customer class/region/state mapping
+
+Product code
+
+Base rate (per unit)
+
+Freight matrix (zone, km slab, per-km or fixed)
+
+Loading/unloading charges
+
+Other surcharges (packing/handling/fuel)
+
+Discount (₹/%/per unit)
+
+2.5 Transporter & Vehicle Master
+
+Transporter name
+
+GSTIN
+
+Contact (name, mobile, email)
+
+Contract rate cards (lane, km, slab, monthly)
+
+Vehicle register number
+
+Vehicle type/capacity (bulk KL / drums count)
+
+Driver name, mobile, license
+
+Fitness/permit/insurance expiry dates
+
+2.6 Bank Master
+
+Bank name
+
+Branch
+
+Account name
+
+Account number
+
+IFSC
+
+UPI ID
+
+Payment narration templates
+
+3) Sales (CRM → Order → Dispatch → Invoice)
+3.1 Lead & Opportunity
+
+Lead source
+
+Lead owner (salesperson)
+
+Company/person name
+
+Contact details
+
+Requirement (product, monthly volume, typical order size)
+
+Stage (new / qualified / quoted / won / lost)
+
+Probability %
+
+Next action date & notes
+
+3.2 Quotation
+
+Quotation number/series
+
+Date & validity
+
+Customer
+
+Price list reference
+
+Line items (product, grade, packaging, quantity, base rate, discount, freight, taxes)
+
+Delivery terms (Ex-depot/FOB/CIF)
+
+Payment terms (days, advance %)
+
+Special conditions
+
+Approval status
+
+Convert to Sales Order (link)
+
+3.3 Sales Order (SO)
+
+SO number/series
+
+Date
+
+Customer
+
+Billing address
+
+Shipping address (select from saved)
+
+Delivery window
+
+Unloading facility
+
+Recurring order flag
+
+Line items (product, grade, packaging, quantity, price, discount, freight, taxes, expected dispatch date, depot/plant)
+
+Credit check status (limit, exposure)
+
+Approval status
+
+Reserve inventory (yes/no)
+
+3.4 Delivery Planning
+
+SO reference
+
+Depot/plant
+
+Vehicle allocation (vehicle no, capacity utilization %)
+
+Route plan (origin, waypoints, destination, km)
+
+Expected loading time
+
+Expected arrival time
+
+Transporter assignment
+
+Weighbridge requirement (yes/no)
+
+3.5 Dispatch / Delivery Challan (DC)
+
+DC number/series
+
+Date & time
+
+SO link
+
+Product line items (batch/lot, quantity actual, temperature if bulk)
+
+Loading slip number
+
+Lorry receipt number
+
+Weighbridge slip number (gross/tare/net)
+
+Seal number(s)
+
+Documents handed over (invoice, e-way bill, COA)
+
+POD required (yes/no)
+
+3.6 Sales Invoice
+
+Invoice number/series
+
+Date & time
+
+Customer & GST state
+
+Place of supply
+
+DC reference
+
+Line items (HSN, qty, basic, discount, freight, packing, taxes)
+
+TCS (yes/no, amount)
+
+Round-off
+
+Payment terms (due date)
+
+E-invoice IRN/QR (if applicable)
+
+E-way bill number/validity
+
+Sent via (email/WhatsApp/SMS)
+
+3.7 Returns / Credit Note
+
+Reference invoice
+
+Reason (shortage/leak/damage/price diff)
+
+Qty returned
+
+QC outcome
+
+Credit amount
+
+Approval status
+
+4) Purchase (Source → Receive → Bill)
+4.1 RFQ / Vendor Quote
+
+Supplier
+
+Products & expected qty
+
+Quote validity
+
+Freight & taxes
+
+Selection reason
+
+4.2 Purchase Order (PO)
+
+PO number/series
+
+Supplier
+
+Delivery depot/plant
+
+Line items (product, grade, packaging, qty, rate, freight, taxes)
+
+Expected arrival date
+
+Terms & conditions
+
+Approval status
+
+4.3 GRN (Goods Receipt Note)
+
+GRN number
+
+PO reference
+
+Received date & time
+
+Vehicle details
+
+Weighbridge slip (gross/tare/net)
+
+Batch/lot capture
+
+QC sampling result (pass/fail, parameters)
+
+Shortage/damage remarks
+
+Put-away location (tank/drum bay)
+
+4.4 Purchase Invoice / Debit Note
+
+Vendor invoice number/date
+
+GRN reference
+
+Line items, taxes, freight
+
+TCS (if applicable)
+
+Due date
+
+Payment status
+
+5) Inventory & Godown
+5.1 Stock Registers
+
+Product
+
+Batch/lot
+
+UOM (MT/KL/drums)
+
+Opening, in, out, closing
+
+Location (tank/drum bay)
+
+Ageing (days)
+
+5.2 Loading/Unloading (Ops Log)
+
+Date/time
+
+Operation type (load/unload/transfer)
+
+Product, grade
+
+Packaging (bulk/drum)
+
+Quantity (actual)
+
+Shift, operator names
+
+Equipment used (pump/crane)
+
+Variance (expected vs actual)
+
+Safety checklist (yes/no, remarks)
+
+5.3 Stock Transfer (Inter-depot)
+
+Transfer number
+
+From depot
+
+To depot
+
+Product/grade/packaging
+
+Qty
+
+Vehicle/Transporter
+
+Weighbridge slips
+
+Received confirmation
+
+5.4 Repack / Conversion
+
+From bulk to drums (or reverse)
+
+Loss/gain qty
+
+New batch/lot for packed units
+
+Cost impact
+
+5.5 Physical Stock Count
+
+Schedule/date
+
+Counters
+
+Counted qty (bulk gauge/drum count)
+
+Book qty
+
+Difference & adjustment note
+
+Approval
+
+6) Logistics & POD
+
+Trip sheet number
+
+Vehicle no, driver, mobile
+
+Route km
+
+Fuel issued
+
+Tolls/parking
+
+LR number
+
+POD status (pending/received)
+
+POD attachment (photo/pdf)
+
+Demurrage (yes/no, amount, reason)
+
+7) Finance, Collections & Interest
+7.1 Receipt Register
+
+Receipt number
+
+Date
+
+Customer
+
+Mode (NEFT/RTGS/UPI/Cheque/Cash)
+
+Bank reference/UTR/cheque number
+
+Amount
+
+On-account or invoice-wise allocation
+
+Short/Excess adjustment
+
+Narration
+
+7.2 Invoice Allocation (Knock-off)
+
+Invoice numbers selected
+
+Allocation amount per invoice
+
+Balance pending
+
+Auto-suggest allocation (oldest first / highest first)
+
+7.3 Ageing & Credit Control
+
+Customer
+
+Not due
+
+0–7 / 8–15 / 16–30 / 31–60 / 61–90 / 90+ buckets
+
+Average collection days
+
+Credit limit vs exposure
+
+Credit hold flag (auto/manual)
+
+Promise-to-pay date & notes
+
+7.4 Interest & Penalties (Daily)
+
+Interest policy (free credit days, daily rate %, compounding yes/no)
+
+Invoice date
+
+Due date
+
+Paid date
+
+Days overdue
+
+Interest amount till date
+
+Waiver reason (if any)
+
+7.5 Disputes
+
+Invoice number
+
+Dispute type (shortage/quality/price/others)
+
+Reported date
+
+Description
+
+Evidence (photos/docs)
+
+Responsible team
+
+Target resolution date
+
+Status
+
+Resolution summary
+
+7.6 Bank Reconciliation
+
+Bank account
+
+Statement date range
+
+Imported statement file ref
+
+Auto match %
+
+Unmatched entries list
+
+Adjustments
+
+8) Tours, TA/DA & Expenses
+8.1 Tour Plan & Advance Request
+
+Employee name & designation
+
+Phone
+
+No. of days
+
+Itinerary (dep/arr dates & locations)
+
+Mode of travel, vehicle number
+
+Purpose (client visit/plant visit/party meeting/department visit/other)
+
+Advance requested (₹)
+
+Approvals (accountant/signatory)
+
+Notes & policy checklist
+
+8.2 Expense Sheet & Settlement
+
+Trip reference
+
+Dates (day-wise)
+
+From–To
+
+Room rent, water, breakfast, lunch, dinner
+
+Train/air ticket, auto/taxi, rent-a-car, other transport
+
+Telephone, tolls, parking, diesel/petrol
+
+Personal car usage (kms, rate ₹/km)
+
+Daily totals
+
+Bills/receipts attachments
+
+Cash advance adjusted
+
+Total expense amount (in words)
+
+Approved by / date
+
+Balance payable/recoverable
+
+8.3 Visit/Party Details (Outcome)
+
+Date
+
+Party name
+
+Contact numbers
+
+Location
+
+Email
+
+Plant/plant manager/operator contacts
+
+Remarks
+
+Follow-up date
+
+Lead/opportunity linkage
+
+9) Quality & Compliance
+
+Batch/lot COA
+
+QC tests logged (penetration/viscosity/softening/emulsion parameters)
+
+Sample numbers
+
+Pass/fail, remarks
+
+Customer complaint register (quality)
+
+Corrective action taken
+
+Safety checklist logs (PPE, spillage handling, fire safety drills)
+
+10) Documents & Attachments
+
+Document type (PO/SO/Invoice/GRN/COA/POD/Weighbridge/Receipts/Photos)
+
+Linked record
+
+File name
+
+Uploaded by/date
+
+Version/comments
+
+11) Automation, Alerts & Workflows
+
+Trigger name
+
+Event (SO approved / dispatch created / invoice posted / payment due in X days / credit limit breached / POD pending / TA settlement pending)
+
+Conditions (customer class, amount >, overdue > days)
+
+Action (email/WhatsApp/SMS/in-app task)
+
+Message template (placeholders: {Customer}, {Invoice}, {Amount}, {DueDate}, {Link})
+
+Recurrence (once/daily/weekly)
+
+Responsible owner
+
+12) Reports & Dashboards
+12.1 Executive KPIs
+
+Sales today/MTD/QTD/YTD
+
+Collection MTD vs target
+
+Overdues & interest accrued
+
+Top 10 customers (sales/receivables)
+
+Inventory by depot (bulk KL / drums)
+
+Dispatch OTIF %
+
+Credit exposure vs limit
+
+12.2 Sales & CRM
+
+Quotation win/loss
+
+Sales by grade/packaging/state
+
+Recurring orders due this week
+
+Price realization vs list
+
+12.3 Finance
+
+Ageing summary & details
+
+Invoice-wise payment mapping
+
+Interest register (daily)
+
+Dispute register
+
+Bank reconciliation status
+
+12.4 Inventory & Operations
+
+Stock ledger (batch/lot)
+
+Slow/fast movers
+
+Stock variance (physical vs book)
+
+Loading/unloading productivity
+
+Loss/gain in repack/conversion
+
+12.5 Logistics
+
+POD pending list
+
+Demurrage report
+
+Transporter performance (on-time, claims)
+
+12.6 Tours & Expenses
+
+Cost per visit
+
+Monthly TA vs budget
+
+Visit-to-order conversion
+
+13) Settings & Policies
+
+Tax settings (GST rates, TCS, rounding)
+
+Interest policy (free days, rate %)
+
+Credit policy (limits, holds, overrides)
+
+Quality specs per product
+
+Safety SOP references
+
+Numbering series (per branch/document)
+
+Data retention periods
+
+Built-in Automations (recommended)
+
+Auto credit-hold when exposure > limit or overdue > N days
+
+Payment reminders: T-7/T-3/T-1 and D+1/D+7 with WhatsApp & email
+
+Auto-interest ledger posted daily on overdue invoices
+
+Recurring order alerts for customers with monthly patterns
+
+Dispatch compliance: block invoice if E-way bill/IRN missing (where applicable)
+
+POD chase: reminder to transporter after 48 hours of delivery
+
+TA settlement: block new advances until prior trip settled
+
+Stock safety: alert when depot stock < reorder level or tank > max%
