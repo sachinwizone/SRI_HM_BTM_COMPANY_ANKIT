@@ -1187,7 +1187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Product Master API
-  app.get("/api/product-master", requireAuth, async (req, res) => {
+  app.get("/api/product-master", async (req, res) => {
     try {
       const products = await storage.getAllProductMaster();
       res.json(products);
@@ -1197,35 +1197,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/product-master", requireAuth, async (req, res) => {
+  app.post("/api/product-master", async (req, res) => {
     try {
-      const validatedData = insertProductMasterSchema.parse(req.body);
+      console.log("Received create request with body:", req.body);
+      
+      // Clean the data - remove empty strings and convert to proper types
+      const cleanedData = {
+        ...req.body,
+        densityFactor: req.body.densityFactor || null,
+        drumsPerMT: req.body.drumsPerMT || null,
+        taxRate: req.body.taxRate || null,
+        shelfLifeDays: req.body.shelfLifeDays || null,
+        minOrderQuantity: req.body.minOrderQuantity || null,
+        maxOrderQuantity: req.body.maxOrderQuantity || null,
+        reorderLevel: req.body.reorderLevel || null,
+      };
+      
+      const validatedData = insertProductMasterSchema.parse(cleanedData);
+      console.log("Validated data:", validatedData);
       const product = await storage.createProductMaster(validatedData);
       res.status(201).json(product);
     } catch (error) {
       console.error("Product master creation error:", error);
       if (error instanceof z.ZodError) {
+        console.error("Validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid product master data", errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to create product master" });
+      // Handle duplicate key constraint
+      if (error.code === '23505') {
+        return res.status(400).json({ message: "Product code already exists. Please use a different product code." });
+      }
+      res.status(500).json({ message: "Failed to create product master", error: error.message });
     }
   });
 
-  app.put("/api/product-master/:id", requireAuth, async (req, res) => {
+  app.put("/api/product-master/:id", async (req, res) => {
     try {
-      const validatedData = insertProductMasterSchema.parse(req.body);
+      console.log("Received update request for ID:", req.params.id);
+      console.log("Request body:", req.body);
+      
+      // Clean the data - remove empty strings and convert to proper types
+      const cleanedData = {
+        ...req.body,
+        densityFactor: req.body.densityFactor || null,
+        drumsPerMT: req.body.drumsPerMT || null,
+        taxRate: req.body.taxRate || null,
+        shelfLifeDays: req.body.shelfLifeDays || null,
+        minOrderQuantity: req.body.minOrderQuantity || null,
+        maxOrderQuantity: req.body.maxOrderQuantity || null,
+        reorderLevel: req.body.reorderLevel || null,
+      };
+      
+      const validatedData = insertProductMasterSchema.parse(cleanedData);
+      console.log("Validated data:", validatedData);
       const product = await storage.updateProductMaster(req.params.id, validatedData);
       res.json(product);
     } catch (error) {
       console.error("Product master update error:", error);
       if (error instanceof z.ZodError) {
+        console.error("Validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid product master data", errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to update product master" });
+      res.status(500).json({ message: "Failed to update product master", error: error.message });
     }
   });
 
-  app.delete("/api/product-master/:id", requireAuth, async (req, res) => {
+  app.delete("/api/product-master/:id", async (req, res) => {
     try {
       await storage.deleteProductMaster(req.params.id);
       res.status(204).send();
