@@ -282,17 +282,21 @@ export default function TaskManagement() {
     setIsFollowUpDialogOpen(true);
   };
 
-  const sendWhatsAppMessage = (task: any, user: any) => {
-    if (!user?.mobileNumber) {
+  const sendWhatsAppMessage = (task: any) => {
+    const mobileNumber = task.mobileNumber;
+    if (!mobileNumber) {
       toast({ 
         title: "Error", 
-        description: "User mobile number not found", 
+        description: "Mobile number not found for this task", 
         variant: "destructive" 
       });
       return;
     }
     
-    const message = `Hello ${user.firstName}, 
+    const assignedUser = users?.find(u => u.id === task.assignedTo);
+    const userName = assignedUser ? assignedUser.firstName : 'there';
+    
+    const message = `Hello ${userName}, 
 
 You have a follow-up for task: *${task.title}*
 
@@ -305,14 +309,14 @@ Please provide an update on this task.
 Thanks!`;
     
     const encodedMessage = encodeURIComponent(message);
-    const phoneNumber = user.mobileNumber.replace(/[^0-9]/g, '');
+    const phoneNumber = mobileNumber.replace(/[^0-9]/g, '');
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
     
     window.open(whatsappUrl, '_blank');
     
     toast({ 
       title: "WhatsApp Opened", 
-      description: `Message template opened for ${user.firstName}` 
+      description: `Message template opened for ${userName}` 
     });
   };
 
@@ -758,6 +762,7 @@ Thanks!`;
                         <th className="px-6 py-3">Task</th>
                         <th className="px-6 py-3">Type</th>
                         <th className="px-6 py-3">Assigned To</th>
+                        <th className="px-6 py-3">Mobile Number</th>
                         <th className="px-6 py-3">Due Date</th>
                         <th className="px-6 py-3">Priority</th>
                         <th className="px-6 py-3">Status</th>
@@ -772,6 +777,7 @@ Thanks!`;
                             <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-48"></div></td>
                             <td className="px-6 py-4"><div className="h-6 bg-gray-200 rounded w-20"></div></td>
                             <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
+                            <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-28"></div></td>
                             <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
                             <td className="px-6 py-4"><div className="h-6 bg-gray-200 rounded w-16"></div></td>
                             <td className="px-6 py-4"><div className="h-6 bg-gray-200 rounded w-16"></div></td>
@@ -780,7 +786,7 @@ Thanks!`;
                         ))
                       ) : !filteredTasks || filteredTasks.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                          <td colSpan={9} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                             <CheckSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                             <p>No tasks found</p>
                           </td>
@@ -834,6 +840,11 @@ Thanks!`;
                                   {getAssignedUserName(task.assignedTo)}
                                 </span>
                               </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="text-gray-900 dark:text-white">
+                                {task.mobileNumber || 'Not provided'}
+                              </span>
                             </td>
                             <td className="px-6 py-4">
                               <div className="text-gray-900 dark:text-white">
@@ -932,14 +943,7 @@ Thanks!`;
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => {
-                                    const assignedUser = users?.find(u => u.id === task.assignedTo);
-                                    if (assignedUser) {
-                                      sendWhatsAppMessage(task, assignedUser);
-                                    } else {
-                                      toast({ title: "Error", description: "Assigned user not found", variant: "destructive" });
-                                    }
-                                  }}
+                                  onClick={() => sendWhatsAppMessage(task)}
                                   className="h-8 w-8 p-0 text-green-600 hover:text-green-800 hover:bg-green-50"
                                   title="WhatsApp Message"
                                 >
