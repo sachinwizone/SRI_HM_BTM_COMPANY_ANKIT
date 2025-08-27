@@ -20,6 +20,7 @@ import Pricing from "@/pages/pricing";
 import Sales from "@/pages/sales";
 
 import UserManagement from "@/pages/user-management";
+import MasterData from "@/pages/master-data";
 import FollowUps from "@/pages/follow-ups";
 import AuthPage from "@/pages/auth";
 import { useAuth } from "@/hooks/useAuth";
@@ -63,6 +64,7 @@ function Router() {
             <Route path="/sales-rates" component={SalesRates} />
             <Route path="/pricing" component={Pricing} />
 
+            <Route path="/master-data" component={MasterData} />
             <Route path="/user-management" component={UserManagement} />
             <Route path="/auth" component={AuthPage} />
             <Route component={NotFound} />

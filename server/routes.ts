@@ -8,7 +8,9 @@ import {
   insertTaskSchema, insertEwayBillSchema, insertClientTrackingSchema, insertSalesRateSchema,
   insertCreditAgreementSchema, insertPurchaseOrderSchema, insertSalesSchema,
   insertShippingAddressSchema, insertFollowUpSchema,
-  insertNumberSeriesSchema, insertTransporterSchema, insertProductSchema
+  insertNumberSeriesSchema, insertTransporterSchema, insertProductSchema,
+  insertCompanyProfileSchema, insertBranchSchema, insertProductMasterSchema,
+  insertSupplierSchema, insertBankSchema, insertVehicleSchema
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -1074,6 +1076,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid transporter data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to create transporter" });
+    }
+  });
+
+  // ==================== MASTER DATA API ENDPOINTS ====================
+  
+  // Company Profile API
+  app.get("/api/company-profile", requireAuth, async (req, res) => {
+    try {
+      const companyProfile = await storage.getCompanyProfile();
+      res.json(companyProfile);
+    } catch (error) {
+      console.error("Company profile fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch company profile" });
+    }
+  });
+
+  app.post("/api/company-profile", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertCompanyProfileSchema.parse(req.body);
+      const companyProfile = await storage.createCompanyProfile(validatedData);
+      res.status(201).json(companyProfile);
+    } catch (error) {
+      console.error("Company profile creation error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid company profile data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create company profile" });
+    }
+  });
+
+  app.put("/api/company-profile/:id", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertCompanyProfileSchema.parse(req.body);
+      const companyProfile = await storage.updateCompanyProfile(req.params.id, validatedData);
+      res.json(companyProfile);
+    } catch (error) {
+      console.error("Company profile update error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid company profile data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update company profile" });
+    }
+  });
+
+  // Branches API
+  app.get("/api/branches", requireAuth, async (req, res) => {
+    try {
+      const branches = await storage.getAllBranches();
+      res.json(branches);
+    } catch (error) {
+      console.error("Branches fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch branches" });
+    }
+  });
+
+  app.post("/api/branches", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertBranchSchema.parse(req.body);
+      const branch = await storage.createBranch(validatedData);
+      res.status(201).json(branch);
+    } catch (error) {
+      console.error("Branch creation error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid branch data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create branch" });
+    }
+  });
+
+  app.put("/api/branches/:id", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertBranchSchema.parse(req.body);
+      const branch = await storage.updateBranch(req.params.id, validatedData);
+      res.json(branch);
+    } catch (error) {
+      console.error("Branch update error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid branch data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update branch" });
     }
   });
 

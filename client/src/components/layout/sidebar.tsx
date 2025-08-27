@@ -62,6 +62,7 @@ const navigation: NavigationEntry[] = [
   {
     section: "SYSTEM",
     items: [
+      { name: "Master Data", href: "/master-data", icon: Database },
       { name: "User Management", href: "/user-management", icon: Settings },
     ],
   },

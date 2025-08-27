@@ -16,18 +16,25 @@ export const taskStatusEnum = pgEnum('task_status', ['TODO', 'IN_PROGRESS', 'BLO
 export const orderStatusEnum = pgEnum('order_status', ['PENDING_AGREEMENT', 'APPROVED', 'IN_PROGRESS', 'LOADING', 'IN_TRANSIT', 'DELIVERED', 'COMPLETED', 'CANCELLED']);
 export const paymentStatusEnum = pgEnum('payment_status', ['PENDING', 'OVERDUE', 'PAID', 'PARTIAL']);
 export const trackingStatusEnum = pgEnum('tracking_status', ['LOADING', 'IN_TRANSIT', 'DELIVERED']);
-export const userRoleEnum = pgEnum('user_role', ['ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE', 'OPERATIONS']);
+export const userRoleEnum = pgEnum('user_role', ['ADMIN', 'MANAGER', 'ACCOUNTANT', 'EMPLOYEE', 'SALES_MANAGER', 'SALES_EXECUTIVE', 'OPERATIONS']);
 export const deliveryStatusEnum = pgEnum('delivery_status', ['RECEIVING', 'OK', 'APPROVED', 'DELIVERED']);
 
-// Users table (Simple authentication without Replit)
+// Users table (Enhanced for ERP system)
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   password: text("password").notNull(), // Hashed password
+  employeeCode: text("employee_code").unique(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   email: text("email").notNull().unique(),
-  role: userRoleEnum("role").notNull().default('SALES_EXECUTIVE'),
+  mobileNumber: text("mobile_number"),
+  designation: text("designation"),
+  department: text("department"),
+  role: userRoleEnum("role").notNull().default('EMPLOYEE'),
+  approvalLimitAmount: decimal("approval_limit_amount", { precision: 15, scale: 2 }),
+  workLocation: text("work_location"),
+  branchId: varchar("branch_id"), // Will reference branches table
   isActive: boolean("is_active").notNull().default(true),
   lastLogin: timestamp("last_login"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
@@ -662,4 +669,198 @@ export type Transporter = typeof transporters.$inferSelect;
 
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
+
+// ==================== ERP EXTENSION TABLES ====================
+
+// Company Profile table
+export const companyProfile = pgTable("company_profile", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  legalName: text("legal_name").notNull(),
+  tradeName: text("trade_name"),
+  cin: text("cin"),
+  gstin: text("gstin"),
+  pan: text("pan"),
+  msmeNumber: text("msme_number"),
+  registeredAddressLine: text("registered_address_line"),
+  registeredCity: text("registered_city"),
+  registeredState: text("registered_state"),
+  registeredPincode: text("registered_pincode"),
+  corporateAddressLine: text("corporate_address_line"),
+  corporateCity: text("corporate_city"),
+  corporateState: text("corporate_state"),
+  corporatePincode: text("corporate_pincode"),
+  primaryContactName: text("primary_contact_name"),
+  primaryContactMobile: text("primary_contact_mobile"),
+  primaryContactEmail: text("primary_contact_email"),
+  accountsContactName: text("accounts_contact_name"),
+  accountsContactMobile: text("accounts_contact_mobile"),
+  accountsContactEmail: text("accounts_contact_email"),
+  supportContactName: text("support_contact_name"),
+  supportContactMobile: text("support_contact_mobile"),
+  supportContactEmail: text("support_contact_email"),
+  financialYearStartMonth: integer("financial_year_start_month").default(4), // April = 4
+  invoicePrefix: text("invoice_prefix").default("INV"),
+  eInvoiceApiCredentials: text("e_invoice_api_credentials"),
+  eWayBillApiCredentials: text("e_way_bill_api_credentials"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Branches/Depots table
+export const branches = pgTable("branches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  code: text("code").unique().notNull(),
+  addressLine: text("address_line"),
+  city: text("city"),
+  state: text("state"),
+  pincode: text("pincode"),
+  latitude: decimal("latitude", { precision: 10, scale: 8 }),
+  longitude: decimal("longitude", { precision: 11, scale: 8 }),
+  contactPersonName: text("contact_person_name"),
+  contactPersonMobile: text("contact_person_mobile"),
+  contactPersonEmail: text("contact_person_email"),
+  storageType: text("storage_type"), // BULK_TANK, DRUMS, BOTH
+  bulkCapacityKL: decimal("bulk_capacity_kl", { precision: 10, scale: 2 }),
+  drumCapacityCount: integer("drum_capacity_count"),
+  workingHours: text("working_hours"),
+  holidayCalendar: text("holiday_calendar").array(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Enhanced Product Master for Bitumen/Emulsion
+export const productMaster = pgTable("product_master", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productCode: text("product_code").unique().notNull(),
+  productFamily: text("product_family").notNull(), // VG_BITUMEN, EMULSION, BULK, ACCESSORIES
+  grade: text("grade"), // VG-10, VG-30, CRS, SS, RS etc
+  name: text("name").notNull(),
+  description: text("description"),
+  packaging: text("packaging").notNull(), // BULK, DRUM, EMBOSSED, ANY
+  unit: text("unit").notNull().default('MT'), // MT, KL, DRUM, UNIT
+  densityFactor: decimal("density_factor", { precision: 5, scale: 3 }), // MT to KL conversion
+  drumsPerMT: integer("drums_per_mt"), // Drums to MT conversion
+  hsnCode: text("hsn_code"),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default('18.00'),
+  batchTracking: boolean("batch_tracking").default(false),
+  shelfLifeDays: integer("shelf_life_days"),
+  qcParameters: text("qc_parameters").array(), // JSON array of QC params
+  minOrderQuantity: decimal("min_order_quantity", { precision: 10, scale: 2 }),
+  maxOrderQuantity: decimal("max_order_quantity", { precision: 10, scale: 2 }),
+  reorderLevel: decimal("reorder_level", { precision: 10, scale: 2 }),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Suppliers Master
+export const suppliers = pgTable("suppliers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  supplierCode: text("supplier_code").unique().notNull(),
+  name: text("name").notNull(),
+  gstin: text("gstin"),
+  pan: text("pan"),
+  addressLine: text("address_line"),
+  city: text("city"),
+  state: text("state"),
+  pincode: text("pincode"),
+  contactPersonName: text("contact_person_name"),
+  contactPersonMobile: text("contact_person_mobile"),
+  contactPersonEmail: text("contact_person_email"),
+  paymentTerms: integer("payment_terms").default(30), // days
+  productCategories: text("product_categories").array(), // VG, EMULSION, ACCESSORIES
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Bank Master
+export const banks = pgTable("banks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bankName: text("bank_name").notNull(),
+  branchName: text("branch_name"),
+  accountName: text("account_name").notNull(),
+  accountNumber: text("account_number").notNull(),
+  ifscCode: text("ifsc_code").notNull(),
+  upiId: text("upi_id"),
+  paymentNarrationTemplate: text("payment_narration_template"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Vehicle Master
+export const vehicles = pgTable("vehicles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  registrationNumber: text("registration_number").unique().notNull(),
+  vehicleType: text("vehicle_type"), // BULK_TANKER, DRUM_TRUCK
+  capacityKL: decimal("capacity_kl", { precision: 8, scale: 2 }),
+  drumCapacity: integer("drum_capacity"),
+  transporterId: varchar("transporter_id").references(() => transporters.id),
+  driverName: text("driver_name"),
+  driverMobile: text("driver_mobile"),
+  driverLicense: text("driver_license"),
+  fitnessExpiryDate: timestamp("fitness_expiry_date"),
+  permitExpiryDate: timestamp("permit_expiry_date"),
+  insuranceExpiryDate: timestamp("insurance_expiry_date"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Insert schemas for new tables
+export const insertCompanyProfileSchema = createInsertSchema(companyProfile).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBranchSchema = createInsertSchema(branches).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertProductMasterSchema = createInsertSchema(productMaster).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSupplierSchema = createInsertSchema(suppliers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBankSchema = createInsertSchema(banks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertVehicleSchema = createInsertSchema(vehicles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types for new tables
+export type InsertCompanyProfile = z.infer<typeof insertCompanyProfileSchema>;
+export type CompanyProfile = typeof companyProfile.$inferSelect;
+
+export type InsertBranch = z.infer<typeof insertBranchSchema>;
+export type Branch = typeof branches.$inferSelect;
+
+export type InsertProductMaster = z.infer<typeof insertProductMasterSchema>;
+export type ProductMaster = typeof productMaster.$inferSelect;
+
+export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
+export type Supplier = typeof suppliers.$inferSelect;
+
+export type InsertBank = z.infer<typeof insertBankSchema>;
+export type Bank = typeof banks.$inferSelect;
+
+export type InsertVehicle = z.infer<typeof insertVehicleSchema>;
+export type Vehicle = typeof vehicles.$inferSelect;
 

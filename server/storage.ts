@@ -2,6 +2,7 @@ import {
   users, clients, orders, payments, tasks, ewayBills, clientTracking, 
   salesRates, creditAgreements, purchaseOrders, sales, numberSeries,
   transporters, products, shippingAddresses, followUps,
+  companyProfile, branches, productMaster, suppliers, banks, vehicles,
   type User, type InsertUser, type Client, type InsertClient,
   type Order, type InsertOrder, type Payment, type InsertPayment,
   type Task, type InsertTask, type EwayBill, type InsertEwayBill,
@@ -9,7 +10,10 @@ import {
   type CreditAgreement, type InsertCreditAgreement, type PurchaseOrder, type InsertPurchaseOrder,
   type Sales, type InsertSales, type NumberSeries, type InsertNumberSeries,
   type Transporter, type InsertTransporter, type Product, type InsertProduct,
-  type ShippingAddress, type InsertShippingAddress, type FollowUp, type InsertFollowUp
+  type ShippingAddress, type InsertShippingAddress, type FollowUp, type InsertFollowUp,
+  type CompanyProfile, type InsertCompanyProfile, type Branch, type InsertBranch,
+  type ProductMaster, type InsertProductMaster, type Supplier, type InsertSupplier,
+  type Bank, type InsertBank, type Vehicle, type InsertVehicle
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, gte, lte, count, or, ilike } from "drizzle-orm";
@@ -150,6 +154,43 @@ export interface IStorage {
       DELTA: number;
     };
   }>;
+
+  // ==================== MASTER DATA ====================
+  
+  // Company Profile
+  getCompanyProfile(): Promise<CompanyProfile | null>;
+  createCompanyProfile(profile: InsertCompanyProfile): Promise<CompanyProfile>;
+  updateCompanyProfile(id: string, profile: Partial<InsertCompanyProfile>): Promise<CompanyProfile>;
+  
+  // Branches
+  getBranch(id: string): Promise<Branch | undefined>;
+  getAllBranches(): Promise<Branch[]>;
+  createBranch(branch: InsertBranch): Promise<Branch>;
+  updateBranch(id: string, branch: Partial<InsertBranch>): Promise<Branch>;
+  
+  // Product Master
+  getProductMaster(id: string): Promise<ProductMaster | undefined>;
+  getAllProductMaster(): Promise<ProductMaster[]>;
+  createProductMaster(product: InsertProductMaster): Promise<ProductMaster>;
+  updateProductMaster(id: string, product: Partial<InsertProductMaster>): Promise<ProductMaster>;
+  
+  // Suppliers
+  getSupplier(id: string): Promise<Supplier | undefined>;
+  getAllSuppliers(): Promise<Supplier[]>;
+  createSupplier(supplier: InsertSupplier): Promise<Supplier>;
+  updateSupplier(id: string, supplier: Partial<InsertSupplier>): Promise<Supplier>;
+  
+  // Banks
+  getBank(id: string): Promise<Bank | undefined>;
+  getAllBanks(): Promise<Bank[]>;
+  createBank(bank: InsertBank): Promise<Bank>;
+  updateBank(id: string, bank: Partial<InsertBank>): Promise<Bank>;
+  
+  // Vehicles
+  getVehicle(id: string): Promise<Vehicle | undefined>;
+  getAllVehicles(): Promise<Vehicle[]>;
+  createVehicle(vehicle: InsertVehicle): Promise<Vehicle>;
+  updateVehicle(id: string, vehicle: Partial<InsertVehicle>): Promise<Vehicle>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -792,6 +833,181 @@ export class DatabaseStorage implements IStorage {
       .update(shippingAddresses)
       .set({ isActive: false })
       .where(eq(shippingAddresses.id, id));
+  }
+
+  // ==================== MASTER DATA IMPLEMENTATIONS ====================
+  
+  // Company Profile
+  async getCompanyProfile(): Promise<CompanyProfile | null> {
+    const [profile] = await db.select().from(companyProfile).limit(1);
+    return profile || null;
+  }
+
+  async createCompanyProfile(profileData: InsertCompanyProfile): Promise<CompanyProfile> {
+    const [profile] = await db
+      .insert(companyProfile)
+      .values(profileData)
+      .returning();
+    return profile;
+  }
+
+  async updateCompanyProfile(id: string, profileData: Partial<InsertCompanyProfile>): Promise<CompanyProfile> {
+    const [profile] = await db
+      .update(companyProfile)
+      .set({ ...profileData, updatedAt: new Date() })
+      .where(eq(companyProfile.id, id))
+      .returning();
+    return profile;
+  }
+
+  // Branches
+  async getBranch(id: string): Promise<Branch | undefined> {
+    const [branch] = await db.select().from(branches).where(eq(branches.id, id));
+    return branch || undefined;
+  }
+
+  async getAllBranches(): Promise<Branch[]> {
+    return await db
+      .select()
+      .from(branches)
+      .orderBy(asc(branches.name));
+  }
+
+  async createBranch(branchData: InsertBranch): Promise<Branch> {
+    const [branch] = await db
+      .insert(branches)
+      .values(branchData)
+      .returning();
+    return branch;
+  }
+
+  async updateBranch(id: string, branchData: Partial<InsertBranch>): Promise<Branch> {
+    const [branch] = await db
+      .update(branches)
+      .set({ ...branchData, updatedAt: new Date() })
+      .where(eq(branches.id, id))
+      .returning();
+    return branch;
+  }
+
+  // Product Master
+  async getProductMaster(id: string): Promise<ProductMaster | undefined> {
+    const [product] = await db.select().from(productMaster).where(eq(productMaster.id, id));
+    return product || undefined;
+  }
+
+  async getAllProductMaster(): Promise<ProductMaster[]> {
+    return await db
+      .select()
+      .from(productMaster)
+      .orderBy(asc(productMaster.name));
+  }
+
+  async createProductMaster(productData: InsertProductMaster): Promise<ProductMaster> {
+    const [product] = await db
+      .insert(productMaster)
+      .values(productData)
+      .returning();
+    return product;
+  }
+
+  async updateProductMaster(id: string, productData: Partial<InsertProductMaster>): Promise<ProductMaster> {
+    const [product] = await db
+      .update(productMaster)
+      .set({ ...productData, updatedAt: new Date() })
+      .where(eq(productMaster.id, id))
+      .returning();
+    return product;
+  }
+
+  // Suppliers
+  async getSupplier(id: string): Promise<Supplier | undefined> {
+    const [supplier] = await db.select().from(suppliers).where(eq(suppliers.id, id));
+    return supplier || undefined;
+  }
+
+  async getAllSuppliers(): Promise<Supplier[]> {
+    return await db
+      .select()
+      .from(suppliers)
+      .orderBy(asc(suppliers.name));
+  }
+
+  async createSupplier(supplierData: InsertSupplier): Promise<Supplier> {
+    const [supplier] = await db
+      .insert(suppliers)
+      .values(supplierData)
+      .returning();
+    return supplier;
+  }
+
+  async updateSupplier(id: string, supplierData: Partial<InsertSupplier>): Promise<Supplier> {
+    const [supplier] = await db
+      .update(suppliers)
+      .set({ ...supplierData, updatedAt: new Date() })
+      .where(eq(suppliers.id, id))
+      .returning();
+    return supplier;
+  }
+
+  // Banks
+  async getBank(id: string): Promise<Bank | undefined> {
+    const [bank] = await db.select().from(banks).where(eq(banks.id, id));
+    return bank || undefined;
+  }
+
+  async getAllBanks(): Promise<Bank[]> {
+    return await db
+      .select()
+      .from(banks)
+      .orderBy(asc(banks.bankName));
+  }
+
+  async createBank(bankData: InsertBank): Promise<Bank> {
+    const [bank] = await db
+      .insert(banks)
+      .values(bankData)
+      .returning();
+    return bank;
+  }
+
+  async updateBank(id: string, bankData: Partial<InsertBank>): Promise<Bank> {
+    const [bank] = await db
+      .update(banks)
+      .set(bankData)
+      .where(eq(banks.id, id))
+      .returning();
+    return bank;
+  }
+
+  // Vehicles
+  async getVehicle(id: string): Promise<Vehicle | undefined> {
+    const [vehicle] = await db.select().from(vehicles).where(eq(vehicles.id, id));
+    return vehicle || undefined;
+  }
+
+  async getAllVehicles(): Promise<Vehicle[]> {
+    return await db
+      .select()
+      .from(vehicles)
+      .orderBy(asc(vehicles.registrationNumber));
+  }
+
+  async createVehicle(vehicleData: InsertVehicle): Promise<Vehicle> {
+    const [vehicle] = await db
+      .insert(vehicles)
+      .values(vehicleData)
+      .returning();
+    return vehicle;
+  }
+
+  async updateVehicle(id: string, vehicleData: Partial<InsertVehicle>): Promise<Vehicle> {
+    const [vehicle] = await db
+      .update(vehicles)
+      .set({ ...vehicleData, updatedAt: new Date() })
+      .where(eq(vehicles.id, id))
+      .returning();
+    return vehicle;
   }
 }
 
