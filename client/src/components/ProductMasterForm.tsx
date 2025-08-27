@@ -91,7 +91,7 @@ export function ProductMasterForm() {
 
   // Create mutation
   const createMutation = useMutation({
-    mutationFn: (data: any) => {
+    mutationFn: (data: ProductMasterFormData) => {
       console.log("Creating product with data:", data);
       return apiRequest("POST", "/api/product-master", data);
     },
@@ -109,7 +109,7 @@ export function ProductMasterForm() {
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: (data: any) => {
+    mutationFn: (data: ProductMasterFormData) => {
       console.log("Updating product with data:", data);
       return apiRequest("PUT", `/api/product-master/${editingProduct.id}`, data);
     },
@@ -142,22 +142,11 @@ export function ProductMasterForm() {
   });
 
   const onSubmit = (data: ProductMasterFormData) => {
-    // Convert string values to numbers for numeric fields
-    const processedData = {
-      ...data,
-      densityFactor: data.densityFactor ? parseFloat(data.densityFactor) : null,
-      drumsPerMT: data.drumsPerMT ? parseInt(data.drumsPerMT) : null,
-      taxRate: data.taxRate ? parseFloat(data.taxRate) : null,
-      shelfLifeDays: data.shelfLifeDays ? parseInt(data.shelfLifeDays) : null,
-      minOrderQuantity: data.minOrderQuantity ? parseFloat(data.minOrderQuantity) : null,
-      maxOrderQuantity: data.maxOrderQuantity ? parseFloat(data.maxOrderQuantity) : null,
-      reorderLevel: data.reorderLevel ? parseFloat(data.reorderLevel) : null,
-    };
-
+    // Send data as-is, backend will handle type conversions
     if (editingProduct) {
-      updateMutation.mutate(processedData);
+      updateMutation.mutate(data);
     } else {
-      createMutation.mutate(processedData);
+      createMutation.mutate(data);
     }
   };
 

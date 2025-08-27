@@ -1204,13 +1204,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clean the data - remove empty strings and convert to proper types
       const cleanedData = {
         ...req.body,
-        densityFactor: req.body.densityFactor || null,
-        drumsPerMT: req.body.drumsPerMT || null,
-        taxRate: req.body.taxRate || null,
-        shelfLifeDays: req.body.shelfLifeDays || null,
-        minOrderQuantity: req.body.minOrderQuantity || null,
-        maxOrderQuantity: req.body.maxOrderQuantity || null,
-        reorderLevel: req.body.reorderLevel || null,
+        densityFactor: req.body.densityFactor ? String(req.body.densityFactor) : null,
+        drumsPerMT: req.body.drumsPerMT ? Number(req.body.drumsPerMT) : null,
+        taxRate: req.body.taxRate ? String(req.body.taxRate) : null,
+        shelfLifeDays: req.body.shelfLifeDays ? Number(req.body.shelfLifeDays) : null,
+        minOrderQuantity: req.body.minOrderQuantity ? String(req.body.minOrderQuantity) : null,
+        maxOrderQuantity: req.body.maxOrderQuantity ? String(req.body.maxOrderQuantity) : null,
+        reorderLevel: req.body.reorderLevel ? String(req.body.reorderLevel) : null,
       };
       
       const validatedData = insertProductMasterSchema.parse(cleanedData);
@@ -1239,13 +1239,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clean the data - remove empty strings and convert to proper types
       const cleanedData = {
         ...req.body,
-        densityFactor: req.body.densityFactor || null,
-        drumsPerMT: req.body.drumsPerMT || null,
-        taxRate: req.body.taxRate || null,
-        shelfLifeDays: req.body.shelfLifeDays || null,
-        minOrderQuantity: req.body.minOrderQuantity || null,
-        maxOrderQuantity: req.body.maxOrderQuantity || null,
-        reorderLevel: req.body.reorderLevel || null,
+        densityFactor: req.body.densityFactor ? String(req.body.densityFactor) : null,
+        drumsPerMT: req.body.drumsPerMT ? Number(req.body.drumsPerMT) : null,
+        taxRate: req.body.taxRate ? String(req.body.taxRate) : null,
+        shelfLifeDays: req.body.shelfLifeDays ? Number(req.body.shelfLifeDays) : null,
+        minOrderQuantity: req.body.minOrderQuantity ? String(req.body.minOrderQuantity) : null,
+        maxOrderQuantity: req.body.maxOrderQuantity ? String(req.body.maxOrderQuantity) : null,
+        reorderLevel: req.body.reorderLevel ? String(req.body.reorderLevel) : null,
       };
       
       const validatedData = insertProductMasterSchema.parse(cleanedData);
