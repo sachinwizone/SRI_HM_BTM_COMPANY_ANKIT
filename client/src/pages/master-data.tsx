@@ -13,16 +13,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit, Building, Factory, Package, Truck, Building2, CreditCard } from "lucide-react";
+import { Plus, Edit, Building, Factory, Package, Building2 } from "lucide-react";
 import { CompanyProfileForm } from "@/components/CompanyProfileForm";
 import { ProductMasterForm } from "@/components/ProductMasterForm";
 import type { 
   CompanyProfile, 
   Branch,
   ProductMaster,
-  Supplier,
-  Bank,
-  Vehicle
+  Supplier
 } from "@shared/schema";
 import { 
   insertCompanyProfileSchema,
@@ -36,9 +34,7 @@ export default function MasterDataPage() {
     { id: "company", label: "Company Profile", icon: Building },
     { id: "branches", label: "Branches", icon: Factory },
     { id: "products", label: "Product Master", icon: Package },
-    { id: "suppliers", label: "Suppliers", icon: Building2 },
-    { id: "banks", label: "Banks", icon: CreditCard },
-    { id: "vehicles", label: "Vehicles", icon: Truck }
+    { id: "suppliers", label: "Suppliers", icon: Building2 }
   ];
 
   return (
@@ -53,7 +49,7 @@ export default function MasterDataPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6" data-testid="master-data-tabs">
+        <TabsList className="grid w-full grid-cols-4" data-testid="master-data-tabs">
           {tabs.map(tab => {
             const Icon = tab.icon;
             return (
@@ -90,13 +86,6 @@ export default function MasterDataPage() {
           <SuppliersSection />
         </TabsContent>
 
-        <TabsContent value="banks">
-          <BanksSection />
-        </TabsContent>
-
-        <TabsContent value="vehicles">
-          <VehiclesSection />
-        </TabsContent>
       </Tabs>
     </div>
   );
@@ -541,42 +530,3 @@ function SuppliersSection() {
   );
 }
 
-function BanksSection() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Banks</CardTitle>
-        <CardDescription>Configure bank accounts for payments and transactions</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="text-center py-8">
-          <CreditCard className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-medium mb-2">Bank Management Coming Soon</h3>
-          <p className="text-muted-foreground">
-            Add bank accounts and configure payment processing
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function VehiclesSection() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Vehicles</CardTitle>
-        <CardDescription>Manage transportation vehicles and logistics</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="text-center py-8">
-          <Truck className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-medium mb-2">Vehicle Management Coming Soon</h3>
-          <p className="text-muted-foreground">
-            Track tankers, trucks, and transportation assets
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
