@@ -326,6 +326,7 @@ Thanks!`;
 
   // Get follow-ups for a specific task
   const getTaskFollowUps = (taskId: string) => {
+    if (!allFollowUps) return [];
     return (allFollowUps as any[]).filter((followUp: any) => followUp.taskId === taskId)
       .sort((a: any, b: any) => new Date(b.followUpDate).getTime() - new Date(a.followUpDate).getTime());
   };
@@ -440,7 +441,14 @@ Thanks!`;
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Task Management</h1>
-        <p className="text-gray-600 mt-1">Manage and track your team's tasks</p>
+        <p className="text-gray-600 mt-1">
+          Manage and track your team's tasks
+          {allFollowUps && (allFollowUps as any[]).length > 0 && (
+            <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
+              {(allFollowUps as any[]).length} follow-ups loaded
+            </span>
+          )}
+        </p>
       </div>
 
       {/* Stats Cards */}
