@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { 
   Home, CreditCard, Bell, Users, MapPin, BarChart3, 
   CheckSquare, ShoppingCart, File, Receipt, 
-  FileText, TrendingUp, DollarSign, Database, Settings, LucideIcon, Package, Clock, LogOut
+  FileText, TrendingUp, DollarSign, Database, Settings, LucideIcon, Package, Clock, LogOut, Target
 } from "lucide-react";
 
 type NavigationItem = {
@@ -43,6 +43,7 @@ const navigation: NavigationEntry[] = [
     section: "OPERATIONS",
     items: [
       { name: "Task Management", href: "/task-management", icon: CheckSquare },
+      { name: "Follow-up Hub", href: "/follow-up-hub", icon: Target },
       { name: "Order Workflow", href: "/order-workflow", icon: ShoppingCart },
       { name: "Credit Agreements", href: "/credit-agreements", icon: File },
       { name: "E-Way Bills", href: "/eway-bills", icon: Receipt },

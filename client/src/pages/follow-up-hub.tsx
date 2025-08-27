@@ -2,15 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Calendar, 
@@ -29,18 +21,7 @@ import {
 import { useState } from "react";
 import { format, parseISO, isToday, isTomorrow, isThisWeek, isThisMonth, isPast } from 'date-fns';
 
-const followUpSchema = z.object({
-  taskId: z.string().min(1, "Task is required"),
-  followUpDate: z.string().min(1, "Follow-up date is required"),
-  nextFollowUpDate: z.string().optional(),
-  contactMethod: z.enum(["EMAIL", "PHONE", "WHATSAPP", "IN_PERSON", "VIDEO_CALL"]),
-  remarks: z.string().min(1, "Follow-up notes are required"),
-  status: z.enum(["PENDING", "COMPLETED", "CANCELLED"]).default("PENDING")
-});
-
 export default function FollowUpHub() {
-  const { toast } = useToast();
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
 
   // Fetch follow-ups and tasks
@@ -56,45 +37,6 @@ export default function FollowUpHub() {
     queryKey: ['/api/users']
   });
 
-  const form = useForm({
-    resolver: zodResolver(followUpSchema),
-    defaultValues: {
-      taskId: "",
-      followUpDate: "",
-      nextFollowUpDate: "",
-      contactMethod: "EMAIL",
-      remarks: "",
-      status: "PENDING"
-    }
-  });
-
-  const addFollowUpMutation = useMutation({
-    mutationFn: (data: any) => apiRequest('/api/follow-ups', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/follow-ups'] });
-      setIsAddDialogOpen(false);
-      form.reset();
-      toast({
-        title: "Success",
-        description: "Follow-up created successfully!"
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create follow-up",
-        variant: "destructive"
-      });
-    }
-  });
-
-  const onSubmit = (data: any) => {
-    addFollowUpMutation.mutate(data);
-  };
-
   // Calculate follow-up schedule stats
   const getFollowUpScheduleStats = () => {
     const today = new Date();
@@ -106,7 +48,7 @@ export default function FollowUpHub() {
       thisMonth: 0
     };
 
-    followUps.forEach((followUp: any) => {
+    (followUps as any[]).forEach((followUp: any) => {
       if (followUp.status === 'COMPLETED' || followUp.status === 'CANCELLED') return;
       
       const followUpDate = parseISO(followUp.followUpDate);
@@ -137,7 +79,7 @@ export default function FollowUpHub() {
       completed: 0
     };
 
-    tasks.forEach((task: any) => {
+    (tasks as any[]).forEach((task: any) => {
       switch (task.status) {
         case 'TODO':
           stats.todo++;
@@ -166,12 +108,12 @@ export default function FollowUpHub() {
   const progressStats = getProgressStats();
 
   const getTaskTitle = (taskId: string) => {
-    const task = tasks.find((t: any) => t.id === taskId);
+    const task = (tasks as any[]).find((t: any) => t.id === taskId);
     return task ? task.title : 'Unknown Task';
   };
 
   const getUserName = (userId: string) => {
-    const user = users.find((u: any) => u.id === userId);
+    const user = (users as any[]).find((u: any) => u.id === userId);
     return user ? `${user.firstName} ${user.lastName}`.trim() || user.username : 'Unknown User';
   };
 
@@ -192,7 +134,7 @@ export default function FollowUpHub() {
             <DialogTrigger asChild>
               <Button variant="outline" className="flex items-center">
                 <History size={16} className="mr-2" />
-                History ({followUps.length})
+                History ({(followUps as any[]).length})
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -203,10 +145,10 @@ export default function FollowUpHub() {
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4 mt-4">
-                {followUps.length === 0 ? (
+                {(followUps as any[]).length === 0 ? (
                   <p className="text-center text-gray-500 py-8">No follow-ups found.</p>
                 ) : (
-                  followUps.map((followUp: any) => (
+                  (followUps as any[]).map((followUp: any) => (
                     <div key={followUp.id} className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
@@ -241,134 +183,6 @@ export default function FollowUpHub() {
                   ))
                 )}
               </div>
-            </DialogContent>
-          </Dialog>
-          
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center bg-purple-600 hover:bg-purple-700">
-                <Plus size={16} className="mr-2" />
-                Add New
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle className="flex items-center">
-                  <Target size={20} className="mr-2 text-purple-500" />
-                  Schedule New Follow-up
-                </DialogTitle>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="taskId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Select Task</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Choose a task..." />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {tasks.map((task: any) => (
-                              <SelectItem key={task.id} value={task.id}>
-                                {task.title}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="contactMethod"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Contact Method</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Choose how you'll contact them..." />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="EMAIL">Email</SelectItem>
-                              <SelectItem value="PHONE">Phone Call</SelectItem>
-                              <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
-                              <SelectItem value="IN_PERSON">In Person</SelectItem>
-                              <SelectItem value="VIDEO_CALL">Video Call</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="followUpDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Next Follow-up Date & Time</FormLabel>
-                          <FormControl>
-                            <Input type="datetime-local" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <FormField
-                    control={form.control}
-                    name="nextFollowUpDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Future Follow-up Date (Optional)</FormLabel>
-                        <FormControl>
-                          <Input type="datetime-local" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="remarks"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Follow-up Notes</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="What did you discuss? What are the next steps? Add detailed notes here..."
-                            className="min-h-[100px]"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <div className="flex justify-end space-x-2 pt-4">
-                    <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" className="bg-purple-600 hover:bg-purple-700" disabled={addFollowUpMutation.isPending}>
-                      <Target size={16} className="mr-2" />
-                      {addFollowUpMutation.isPending ? "Adding..." : "Add Follow-up"}
-                    </Button>
-                  </div>
-                </form>
-              </Form>
             </DialogContent>
           </Dialog>
         </div>

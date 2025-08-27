@@ -9,6 +9,7 @@ import CreditPayments from "@/pages/credit-payments";
 import Clients from "@/pages/clients";
 import ClientTracking from "@/pages/client-tracking";
 import TaskManagement from "@/pages/task-management";
+import FollowUpHub from "@/pages/follow-up-hub";
 import OrderWorkflow from "@/pages/order-workflow";
 import CreditAgreements from "@/pages/credit-agreements";
 import EwayBills from "@/pages/eway-bills";
@@ -52,6 +53,7 @@ function Router() {
             <Route path="/client-management" component={Clients} />
             <Route path="/client-tracking" component={ClientTracking} />
             <Route path="/task-management" component={TaskManagement} />
+            <Route path="/follow-up-hub" component={FollowUpHub} />
             <Route path="/order-workflow" component={OrderWorkflow} />
             <Route path="/credit-agreements" component={CreditAgreements} />
             <Route path="/eway-bills" component={EwayBills} />
