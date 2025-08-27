@@ -14,6 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Plus, Edit, Building, Factory, Package, Truck, Building2, CreditCard } from "lucide-react";
+import { CompanyProfileForm } from "@/components/CompanyProfileForm";
 import type { 
   CompanyProfile, 
   Branch,
@@ -69,7 +70,7 @@ export default function MasterDataPage() {
         </TabsList>
 
         <TabsContent value="company">
-          <CompanyProfileSection />
+          <CompanyProfileForm />
         </TabsContent>
 
         <TabsContent value="branches">

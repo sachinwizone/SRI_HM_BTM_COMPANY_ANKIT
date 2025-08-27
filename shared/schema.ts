@@ -675,33 +675,59 @@ export type Product = typeof products.$inferSelect;
 // Company Profile table
 export const companyProfile = pgTable("company_profile", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // 1) Basic Information
   legalName: text("legal_name").notNull(),
   tradeName: text("trade_name"),
-  cin: text("cin"),
-  gstin: text("gstin"),
-  pan: text("pan"),
-  msmeNumber: text("msme_number"),
-  registeredAddressLine: text("registered_address_line"),
-  registeredCity: text("registered_city"),
-  registeredState: text("registered_state"),
-  registeredPincode: text("registered_pincode"),
-  corporateAddressLine: text("corporate_address_line"),
+  entityType: text("entity_type").notNull(), // P Ltd / LLP / Proprietorship / Partnership / Others
+  gstin: varchar("gstin", { length: 15 }),
+  gstinState: text("gstin_state"), // Auto-derived from GSTIN
+  pan: varchar("pan", { length: 10 }),
+  cinRegistrationNumber: text("cin_registration_number"), // Only for P Ltd
+  yearOfIncorporation: integer("year_of_incorporation"), // Only for P Ltd
+  
+  // 2) Addresses - Registered Office
+  registeredAddressLine1: text("registered_address_line1").notNull(),
+  registeredAddressLine2: text("registered_address_line2"),
+  registeredCity: text("registered_city").notNull(),
+  registeredState: text("registered_state").notNull(),
+  registeredPincode: varchar("registered_pincode", { length: 6 }).notNull(),
+  
+  // Corporate Office (Optional)
+  corporateAddressLine1: text("corporate_address_line1"),
+  corporateAddressLine2: text("corporate_address_line2"),
   corporateCity: text("corporate_city"),
   corporateState: text("corporate_state"),
-  corporatePincode: text("corporate_pincode"),
-  primaryContactName: text("primary_contact_name"),
-  primaryContactMobile: text("primary_contact_mobile"),
-  primaryContactEmail: text("primary_contact_email"),
+  corporatePincode: varchar("corporate_pincode", { length: 6 }),
+  
+  // 3) Contacts - Primary Contact Person
+  primaryContactName: text("primary_contact_name").notNull(),
+  primaryContactDesignation: text("primary_contact_designation"),
+  primaryContactMobile: varchar("primary_contact_mobile", { length: 10 }).notNull(),
+  primaryContactEmail: text("primary_contact_email").notNull(),
+  
+  // Accounts Contact
   accountsContactName: text("accounts_contact_name"),
-  accountsContactMobile: text("accounts_contact_mobile"),
+  accountsContactMobile: varchar("accounts_contact_mobile", { length: 10 }),
   accountsContactEmail: text("accounts_contact_email"),
-  supportContactName: text("support_contact_name"),
-  supportContactMobile: text("support_contact_mobile"),
-  supportContactEmail: text("support_contact_email"),
-  financialYearStartMonth: integer("financial_year_start_month").default(4), // April = 4
-  invoicePrefix: text("invoice_prefix").default("INV"),
-  eInvoiceApiCredentials: text("e_invoice_api_credentials"),
-  eWayBillApiCredentials: text("e_way_bill_api_credentials"),
+  
+  // 4) Banking & Finance
+  bankName: text("bank_name"),
+  branchName: text("branch_name"),
+  accountName: text("account_name"),
+  accountNumber: text("account_number"),
+  ifscCode: varchar("ifsc_code", { length: 11 }),
+  
+  // 5) Business Details
+  defaultInvoicePrefix: text("default_invoice_prefix").default("INV"),
+  officeWorkingHours: text("office_working_hours"), // Format: "09:00-18:00"
+  godownWorkingHours: text("godown_working_hours"), // Format: "08:00-20:00"
+  
+  // 6) Digital Settings
+  companyWebsiteUrl: text("company_website_url"),
+  companyLogo: text("company_logo"), // File path/URL
+  whatsappBusinessNumber: varchar("whatsapp_business_number", { length: 10 }),
+  
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -809,6 +835,38 @@ export const vehicles = pgTable("vehicles", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
+// Godown/Warehouse Addresses (Multiple)
+export const godownAddresses = pgTable("godown_addresses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyProfileId: varchar("company_profile_id").references(() => companyProfile.id),
+  nickname: text("nickname").notNull(),
+  addressLine1: text("address_line1").notNull(),
+  addressLine2: text("address_line2"),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  pincode: varchar("pincode", { length: 6 }).notNull(),
+  latitude: decimal("latitude", { precision: 10, scale: 8 }),
+  longitude: decimal("longitude", { precision: 11, scale: 8 }),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Plant Addresses (Multiple) (Optional)
+export const plantAddresses = pgTable("plant_addresses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyProfileId: varchar("company_profile_id").references(() => companyProfile.id),
+  nickname: text("nickname").notNull(),
+  addressLine1: text("address_line1").notNull(),
+  addressLine2: text("address_line2"),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  pincode: varchar("pincode", { length: 6 }).notNull(),
+  latitude: decimal("latitude", { precision: 10, scale: 8 }),
+  longitude: decimal("longitude", { precision: 11, scale: 8 }),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
 // Insert schemas for new tables
 export const insertCompanyProfileSchema = createInsertSchema(companyProfile).omit({
   id: true,
@@ -845,6 +903,18 @@ export const insertVehicleSchema = createInsertSchema(vehicles).omit({
   updatedAt: true,
 });
 
+export const insertGodownAddressSchema = createInsertSchema(godownAddresses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPlantAddressSchema = createInsertSchema(plantAddresses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types for new tables
 export type InsertCompanyProfile = z.infer<typeof insertCompanyProfileSchema>;
 export type CompanyProfile = typeof companyProfile.$inferSelect;
@@ -863,4 +933,10 @@ export type Bank = typeof banks.$inferSelect;
 
 export type InsertVehicle = z.infer<typeof insertVehicleSchema>;
 export type Vehicle = typeof vehicles.$inferSelect;
+
+export type InsertGodownAddress = z.infer<typeof insertGodownAddressSchema>;
+export type GodownAddress = typeof godownAddresses.$inferSelect;
+
+export type InsertPlantAddress = z.infer<typeof insertPlantAddressSchema>;
+export type PlantAddress = typeof plantAddresses.$inferSelect;
 
