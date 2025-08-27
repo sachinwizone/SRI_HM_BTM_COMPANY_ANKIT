@@ -126,7 +126,7 @@ export function CompanyProfileForm() {
   const createMutation = useMutation({
     mutationFn: (data: CompanyProfileFormData) => {
       console.log("Creating company profile with data:", { ...data, gstinState });
-      return apiRequest("/api/company-profile", "POST", { ...data, gstinState });
+      return apiRequest("POST", "/api/company-profile", { ...data, gstinState });
     },
     onSuccess: () => {
       toast({ title: "Success", description: "Company profile created successfully" });
@@ -141,7 +141,7 @@ export function CompanyProfileForm() {
   const updateMutation = useMutation({
     mutationFn: (data: CompanyProfileFormData) => {
       console.log("Updating company profile with data:", { ...data, gstinState });
-      return apiRequest(`/api/company-profile/${(companyProfile as any)?.id}`, "PUT", { ...data, gstinState });
+      return apiRequest("PUT", `/api/company-profile/${(companyProfile as any)?.id}`, { ...data, gstinState });
     },
     onSuccess: () => {
       toast({ title: "Success", description: "Company profile updated successfully" });
