@@ -99,8 +99,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const currentUser = (req as any).user;
       
-      // Only admins and managers can see all users
-      if (!['ADMIN', 'SALES_MANAGER'].includes(currentUser.role)) {
+      // Allow admins, managers, and sales executives to see users (for client assignment)
+      if (!['ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'].includes(currentUser.role)) {
         return res.status(403).json({ error: "Insufficient permissions" });
       }
 
@@ -206,46 +206,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Clients API
-  app.get("/api/clients", async (req, res) => {
+  // Clients API - Role-based access control
+  app.get("/api/clients", requireAuth, async (req, res) => {
     try {
       const { category, search, dateFrom, dateTo } = req.query;
-      const clients = await storage.getFilteredClients({
-        category: category as string,
-        search: search as string,
-        dateFrom: dateFrom as string,
-        dateTo: dateTo as string,
-      });
+      const currentUser = (req as any).user;
+      
+      // Get filtered clients based on user role
+      let clients;
+      if (currentUser.role === 'ADMIN') {
+        // Admin can see all clients
+        clients = await storage.getFilteredClients({
+          category: category as string,
+          search: search as string,
+          dateFrom: dateFrom as string,
+          dateTo: dateTo as string,
+        });
+      } else if (currentUser.role === 'SALES_MANAGER') {
+        // Sales Manager can see all clients
+        clients = await storage.getFilteredClients({
+          category: category as string,
+          search: search as string,
+          dateFrom: dateFrom as string,
+          dateTo: dateTo as string,
+        });
+      } else if (currentUser.role === 'SALES_EXECUTIVE') {
+        // Sales Executive can only see their assigned clients
+        clients = await storage.getFilteredClients({
+          category: category as string,
+          search: search as string,
+          dateFrom: dateFrom as string,
+          dateTo: dateTo as string,
+          assignedToUserId: currentUser.id,
+        });
+      } else {
+        // Other roles can only see their assigned clients
+        clients = await storage.getFilteredClients({
+          category: category as string,
+          search: search as string,
+          dateFrom: dateFrom as string,
+          dateTo: dateTo as string,
+          assignedToUserId: currentUser.id,
+        });
+      }
+      
       res.json(clients);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch clients" });
     }
   });
 
-  // Get client category statistics (must come before :id route)
-  app.get("/api/clients/stats", async (req, res) => {
+  // Get client category statistics (must come before :id route) - Role-based
+  app.get("/api/clients/stats", requireAuth, async (req, res) => {
     try {
-      const stats = await storage.getClientCategoryStats();
+      const currentUser = (req as any).user;
+      
+      let stats;
+      if (currentUser.role === 'ADMIN' || currentUser.role === 'SALES_MANAGER') {
+        // Admin and Sales Manager can see all client stats
+        stats = await storage.getClientCategoryStats();
+      } else {
+        // Sales Executive and others can only see stats for their assigned clients
+        stats = await storage.getClientCategoryStats(currentUser.id);
+      }
+      
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch client stats" });
     }
   });
 
-  app.get("/api/clients/:id", async (req, res) => {
+  app.get("/api/clients/:id", requireAuth, async (req, res) => {
     try {
+      const currentUser = (req as any).user;
       const client = await storage.getClient(req.params.id);
+      
       if (!client) {
         return res.status(404).json({ message: "Client not found" });
       }
+      
+      // Check if user can access this client
+      if (currentUser.role === 'SALES_EXECUTIVE' && client.primarySalesPersonId !== currentUser.id) {
+        return res.status(403).json({ error: "You can only access your assigned clients" });
+      }
+      
       res.json(client);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch client" });
     }
   });
 
-  app.post("/api/clients", async (req, res) => {
+  app.post("/api/clients", requireAuth, async (req, res) => {
     try {
+      const currentUser = (req as any).user;
+      
+      // Check if user can create clients
+      if (!['ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'].includes(currentUser.role)) {
+        return res.status(403).json({ error: "Insufficient permissions to create clients" });
+      }
+      
       // Clean up empty strings and convert to appropriate types
       const cleanedData = { ...req.body };
       
@@ -256,6 +315,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
+      // If no primary sales person is assigned and user is Sales Executive, assign to themselves
+      if (!cleanedData.primarySalesPersonId && currentUser.role === 'SALES_EXECUTIVE') {
+        cleanedData.primarySalesPersonId = currentUser.id;
+      }
 
       const clientData = insertClientSchema.parse(cleanedData);
       const client = await storage.createClient(clientData);
@@ -270,8 +333,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/clients/:id", async (req, res) => {
+  app.put("/api/clients/:id", requireAuth, async (req, res) => {
     try {
+      const currentUser = (req as any).user;
+      
+      // Check if user can update clients
+      if (!['ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'].includes(currentUser.role)) {
+        return res.status(403).json({ error: "Insufficient permissions to update clients" });
+      }
+      
+      // For Sales Executive, check if they can access this client
+      if (currentUser.role === 'SALES_EXECUTIVE') {
+        const existingClient = await storage.getClient(req.params.id);
+        if (!existingClient) {
+          return res.status(404).json({ message: "Client not found" });
+        }
+        if (existingClient.primarySalesPersonId !== currentUser.id) {
+          return res.status(403).json({ error: "You can only update your assigned clients" });
+        }
+      }
+      
       const clientData = insertClientSchema.partial().parse(req.body);
       const client = await storage.updateClient(req.params.id, clientData);
       res.json(client);

@@ -37,8 +37,8 @@ export interface IStorage {
   getClient(id: string): Promise<Client | undefined>;
   getAllClients(): Promise<Client[]>;
   getClientsByCategory(category: string): Promise<Client[]>;
-  getFilteredClients(filters: { category?: string; search?: string; dateFrom?: string; dateTo?: string }): Promise<Client[]>;
-  getClientCategoryStats(): Promise<{ ALFA: number; BETA: number; GAMMA: number; DELTA: number; total: number }>;
+  getFilteredClients(filters: { category?: string; search?: string; dateFrom?: string; dateTo?: string; assignedToUserId?: string }): Promise<Client[]>;
+  getClientCategoryStats(assignedToUserId?: string): Promise<{ ALFA: number; BETA: number; GAMMA: number; DELTA: number; total: number }>;
   createClient(client: InsertClient): Promise<Client>;
   updateClient(id: string, client: Partial<InsertClient>): Promise<Client>;
   deleteClient(id: string): Promise<void>;
@@ -322,7 +322,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(clients).where(eq(clients.category, category as any)).orderBy(asc(clients.name));
   }
 
-  async getFilteredClients(filters: { category?: string; search?: string; dateFrom?: string; dateTo?: string }): Promise<Client[]> {
+  async getFilteredClients(filters: { category?: string; search?: string; dateFrom?: string; dateTo?: string; assignedToUserId?: string }): Promise<Client[]> {
     let query = db.select().from(clients);
     const conditions = [];
 
@@ -351,6 +351,11 @@ export class DatabaseStorage implements IStorage {
       conditions.push(lte(clients.createdAt, toDate));
     }
 
+    // User assignment filter - only show clients assigned to the specified user
+    if (filters.assignedToUserId) {
+      conditions.push(eq(clients.primarySalesPersonId, filters.assignedToUserId));
+    }
+
     // Apply conditions
     if (conditions.length > 0) {
       query = query.where(and(...conditions));
@@ -359,11 +364,18 @@ export class DatabaseStorage implements IStorage {
     return await query.orderBy(asc(clients.name));
   }
 
-  async getClientCategoryStats(): Promise<{ ALFA: number; BETA: number; GAMMA: number; DELTA: number; total: number }> {
-    const results = await db.select({
+  async getClientCategoryStats(assignedToUserId?: string): Promise<{ ALFA: number; BETA: number; GAMMA: number; DELTA: number; total: number }> {
+    let query = db.select({
       category: clients.category,
       count: sql<number>`count(*)::int`
-    }).from(clients).groupBy(clients.category);
+    }).from(clients);
+
+    // If assignedToUserId is provided, filter clients by assignment
+    if (assignedToUserId) {
+      query = query.where(eq(clients.primarySalesPersonId, assignedToUserId));
+    }
+
+    const results = await query.groupBy(clients.category);
 
     const stats = { ALFA: 0, BETA: 0, GAMMA: 0, DELTA: 0, total: 0 };
     
