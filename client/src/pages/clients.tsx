@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertClientSchema, type Client, type InsertClient } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -136,6 +137,7 @@ export default function Clients() {
     poRateContract?: File;
   }>({});
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ["/api/clients", selectedCategory, searchTerm, dateFrom, dateTo],
@@ -274,7 +276,39 @@ export default function Clients() {
 
   const handleAddNew = () => {
     setEditingClient(null);
-    form.reset();
+    form.reset({
+      name: "",
+      category: "ALFA",
+      billingAddressLine: "",
+      billingCity: "",
+      billingPincode: "",
+      billingState: "",
+      billingCountry: "India",
+      gstNumber: "",
+      panNumber: "",
+      msmeNumber: "",
+      incorporationCertNumber: "",
+      incorporationDate: null,
+      companyType: "PVT_LTD",
+      contactPersonName: "",
+      mobileNumber: "",
+      email: "",
+      communicationPreferences: [],
+      paymentTerms: 30,
+      creditLimit: "",
+      interestPercent: "",
+      bankInterestApplicable: "FROM_DUE_DATE",
+      poRequired: false,
+      invoicingEmails: [],
+      primarySalesPersonId: user?.id || null, // Default to current user
+      gstCertificateUploaded: false,
+      panCopyUploaded: false,
+      securityChequeUploaded: false,
+      aadharCardUploaded: false,
+      agreementUploaded: false,
+      poRateContractUploaded: false,
+      shippingAddresses: [],
+    });
     setUploadedFiles({});
     setIsFormOpen(true);
   };

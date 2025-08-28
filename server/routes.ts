@@ -315,8 +315,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
-      // If no primary sales person is assigned and user is Sales Executive, assign to themselves
-      if (!cleanedData.primarySalesPersonId && currentUser.role === 'SALES_EXECUTIVE') {
+      // Auto-assign primary sales person to the user creating the client (if not already assigned)
+      if (!cleanedData.primarySalesPersonId) {
         cleanedData.primarySalesPersonId = currentUser.id;
       }
 
