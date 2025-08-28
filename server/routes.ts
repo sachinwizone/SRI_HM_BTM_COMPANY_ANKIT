@@ -7,7 +7,7 @@ import {
   insertUserSchema, insertClientSchema, insertOrderSchema, insertPaymentSchema,
   insertTaskSchema, insertEwayBillSchema, insertClientTrackingSchema, insertSalesRateSchema,
   insertCreditAgreementSchema, insertPurchaseOrderSchema, insertSalesSchema,
-  insertShippingAddressSchema, insertFollowUpSchema,
+  insertShippingAddressSchema, insertFollowUpSchema, insertClientAssignmentSchema,
   insertNumberSeriesSchema, insertTransporterSchema, insertProductSchema,
   insertCompanyProfileSchema, insertBranchSchema, insertProductMasterSchema,
   insertSupplierSchema, insertBankSchema, insertVehicleSchema,
@@ -335,6 +335,180 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Delete shipping address error:", error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Client Assignments API
+  app.get("/api/client-assignments", requireAuth, async (req, res) => {
+    try {
+      const assignments = await storage.getAllClientAssignments();
+      res.json(assignments);
+    } catch (error) {
+      console.error("Get all client assignments error:", error);
+      res.status(500).json({ message: "Failed to fetch client assignments" });
+    }
+  });
+
+  app.get("/api/client-assignments/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const assignment = await storage.getClientAssignment(id);
+      if (!assignment) {
+        return res.status(404).json({ message: "Client assignment not found" });
+      }
+      res.json(assignment);
+    } catch (error) {
+      console.error("Get client assignment error:", error);
+      res.status(500).json({ message: "Failed to fetch client assignment" });
+    }
+  });
+
+  app.get("/api/client-assignments/client/:clientId", requireAuth, async (req, res) => {
+    try {
+      const { clientId } = req.params;
+      const assignments = await storage.getClientAssignmentsByClient(clientId);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Get client assignments by client error:", error);
+      res.status(500).json({ message: "Failed to fetch client assignments" });
+    }
+  });
+
+  app.get("/api/client-assignments/sales-person/:salesPersonId", requireAuth, async (req, res) => {
+    try {
+      const { salesPersonId } = req.params;
+      const assignments = await storage.getClientAssignmentsBySalesPerson(salesPersonId);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Get client assignments by sales person error:", error);
+      res.status(500).json({ message: "Failed to fetch client assignments" });
+    }
+  });
+
+  app.get("/api/my-clients", requireAuth, async (req, res) => {
+    try {
+      const currentUser = (req as any).user;
+      const myClients = await storage.getMyClients(currentUser.id);
+      res.json(myClients);
+    } catch (error) {
+      console.error("Get my clients error:", error);
+      res.status(500).json({ message: "Failed to fetch my clients" });
+    }
+  });
+
+  app.post("/api/client-assignments", requireAuth, async (req, res) => {
+    try {
+      const currentUser = (req as any).user;
+      const assignmentData = insertClientAssignmentSchema.parse({
+        ...req.body,
+        assignedBy: currentUser.id
+      });
+      const assignment = await storage.createClientAssignment(assignmentData);
+      res.status(201).json(assignment);
+    } catch (error: any) {
+      console.error("Create client assignment error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid assignment data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create client assignment" });
+    }
+  });
+
+  app.put("/api/client-assignments/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const assignmentData = insertClientAssignmentSchema.partial().parse(req.body);
+      const assignment = await storage.updateClientAssignment(id, assignmentData);
+      res.json(assignment);
+    } catch (error: any) {
+      console.error("Update client assignment error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid assignment data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update client assignment" });
+    }
+  });
+
+  app.delete("/api/client-assignments/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteClientAssignment(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete client assignment error:", error);
+      res.status(500).json({ message: "Failed to delete client assignment" });
+    }
+  });
+
+  // Assign client to primary sales person
+  app.post("/api/clients/:clientId/assign-primary", requireAuth, async (req, res) => {
+    try {
+      const currentUser = (req as any).user;
+      const { clientId } = req.params;
+      const { salesPersonId } = req.body;
+
+      if (!salesPersonId) {
+        return res.status(400).json({ message: "Sales person ID is required" });
+      }
+
+      const assignment = await storage.assignClientToPrimarySalesPerson(
+        clientId, 
+        salesPersonId, 
+        currentUser.id
+      );
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error("Assign primary sales person error:", error);
+      res.status(500).json({ message: "Failed to assign primary sales person" });
+    }
+  });
+
+  // Bulk assign clients
+  app.post("/api/client-assignments/bulk", requireAuth, async (req, res) => {
+    try {
+      const currentUser = (req as any).user;
+      const { clientIds, salesPersonId, assignmentType = 'PRIMARY' } = req.body;
+
+      if (!clientIds || !Array.isArray(clientIds) || clientIds.length === 0) {
+        return res.status(400).json({ message: "Client IDs array is required" });
+      }
+
+      if (!salesPersonId) {
+        return res.status(400).json({ message: "Sales person ID is required" });
+      }
+
+      const assignments = await storage.bulkAssignClients(
+        clientIds, 
+        salesPersonId, 
+        currentUser.id, 
+        assignmentType
+      );
+      res.status(201).json(assignments);
+    } catch (error) {
+      console.error("Bulk assign clients error:", error);
+      res.status(500).json({ message: "Failed to bulk assign clients" });
+    }
+  });
+
+  // Transfer clients from one sales person to another
+  app.post("/api/client-assignments/transfer", requireAuth, async (req, res) => {
+    try {
+      const currentUser = (req as any).user;
+      const { fromSalesPersonId, toSalesPersonId } = req.body;
+
+      if (!fromSalesPersonId || !toSalesPersonId) {
+        return res.status(400).json({ message: "Both from and to sales person IDs are required" });
+      }
+
+      const assignments = await storage.transferClients(
+        fromSalesPersonId, 
+        toSalesPersonId, 
+        currentUser.id
+      );
+      res.status(201).json(assignments);
+    } catch (error) {
+      console.error("Transfer clients error:", error);
+      res.status(500).json({ message: "Failed to transfer clients" });
     }
   });
 

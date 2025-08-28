@@ -29,6 +29,7 @@ export const deliveryPlanStatusEnum = pgEnum('delivery_plan_status', ['PLANNED',
 export const dispatchStatusEnum = pgEnum('dispatch_status', ['PENDING', 'LOADING', 'IN_TRANSIT', 'DELIVERED', 'RETURNED']);
 export const creditCheckStatusEnum = pgEnum('credit_check_status', ['PENDING', 'APPROVED', 'REJECTED', 'REQUIRES_GUARANTEE']);
 export const approvalStatusEnum = pgEnum('approval_status', ['PENDING', 'APPROVED', 'REJECTED', 'REQUIRES_REVISION']);
+export const assignmentTypeEnum = pgEnum('assignment_type', ['PRIMARY', 'SECONDARY', 'BACKUP']);
 
 // Users table (Enhanced for ERP system)
 export const users = pgTable("users", {
@@ -101,6 +102,11 @@ export const clients = pgTable("clients", {
   agreementUploaded: boolean("agreement_uploaded").default(false),
   poRateContractUploaded: boolean("po_rate_contract_uploaded").default(false),
   
+  // Sales Assignment Fields
+  primarySalesPersonId: varchar("primary_sales_person_id").references(() => users.id),
+  lastContactDate: timestamp("last_contact_date"),
+  nextFollowUpDate: timestamp("next_follow_up_date"),
+  
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -117,6 +123,20 @@ export const creditAgreements = pgTable("credit_agreements", {
   signedAt: timestamp("signed_at"),
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Client Assignments table
+export const clientAssignments = pgTable("client_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  salesPersonId: varchar("sales_person_id").notNull().references(() => users.id),
+  assignmentType: assignmentTypeEnum("assignment_type").notNull().default('PRIMARY'),
+  assignedDate: timestamp("assigned_date").notNull().default(sql`now()`),
+  assignedBy: varchar("assigned_by").notNull().references(() => users.id),
+  isActive: boolean("is_active").notNull().default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
 // Orders table
@@ -264,9 +284,13 @@ export const usersRelations = relations(users, ({ many }) => ({
   orders: many(orders),
   tasks: many(tasks),
   salesRates: many(salesRates),
+  clientAssignments: many(clientAssignments),
+  assignedClientAssignments: many(clientAssignments, {
+    relationName: "assignedBy"
+  }),
 }));
 
-export const clientsRelations = relations(clients, ({ many }) => ({
+export const clientsRelations = relations(clients, ({ one, many }) => ({
   orders: many(orders),
   payments: many(payments),
   creditAgreements: many(creditAgreements),
@@ -275,6 +299,11 @@ export const clientsRelations = relations(clients, ({ many }) => ({
   salesRates: many(salesRates),
   purchaseOrders: many(purchaseOrders),
   shippingAddresses: many(shippingAddresses),
+  clientAssignments: many(clientAssignments),
+  primarySalesPerson: one(users, {
+    fields: [clients.primarySalesPersonId],
+    references: [users.id],
+  }),
 }));
 
 export const shippingAddressesRelations = relations(shippingAddresses, ({ one }) => ({
@@ -310,6 +339,22 @@ export const creditAgreementsRelations = relations(creditAgreements, ({ one, man
     references: [clients.id],
   }),
   orders: many(orders),
+}));
+
+export const clientAssignmentsRelations = relations(clientAssignments, ({ one }) => ({
+  client: one(clients, {
+    fields: [clientAssignments.clientId],
+    references: [clients.id],
+  }),
+  salesPerson: one(users, {
+    fields: [clientAssignments.salesPersonId],
+    references: [users.id],
+  }),
+  assignedBy: one(users, {
+    fields: [clientAssignments.assignedBy],
+    references: [users.id],
+    relationName: "assignedBy"
+  }),
 }));
 
 export const paymentsRelations = relations(payments, ({ one }) => ({
@@ -455,6 +500,12 @@ export const insertShippingAddressSchema = createInsertSchema(shippingAddresses)
   createdAt: true,
 });
 
+export const insertClientAssignmentSchema = createInsertSchema(clientAssignments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertCreditAgreementSchema = createInsertSchema(creditAgreements).omit({
   id: true,
   createdAt: true,
@@ -524,6 +575,8 @@ export type InsertClient = z.infer<typeof insertClientSchema>;
 export type Client = typeof clients.$inferSelect;
 export type InsertShippingAddress = z.infer<typeof insertShippingAddressSchema>;
 export type ShippingAddress = typeof shippingAddresses.$inferSelect;
+export type InsertClientAssignment = z.infer<typeof insertClientAssignmentSchema>;
+export type ClientAssignment = typeof clientAssignments.$inferSelect;
 
 export type InsertCreditAgreement = z.infer<typeof insertCreditAgreementSchema>;
 export type CreditAgreement = typeof creditAgreements.$inferSelect;
