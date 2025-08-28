@@ -1242,25 +1242,34 @@ export default function Clients() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Primary Sales Person</FormLabel>
-                          <Select onValueChange={(value) => field.onChange(value === "none" ? null : value)} value={field.value || "none"}>
-                            <FormControl>
-                              <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500">
-                                <SelectValue placeholder="Select sales person" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="none">No Assignment</SelectItem>
-                              {salesUsers.data?.filter(user => 
-                                user.role === 'SALES_MANAGER' || 
-                                user.role === 'SALES_EXECUTIVE' || 
-                                user.role === 'ADMIN'
-                              ).map((user) => (
-                                <SelectItem key={user.id} value={user.id}>
-                                  {user.firstName} {user.lastName} ({user.role})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          {user?.role === 'SALES_EXECUTIVE' ? (
+                            // For Sales Executive: Show only their name (no dropdown)
+                            <div className="p-3 bg-gray-50 border border-gray-300 rounded-md">
+                              <span className="text-sm font-medium text-gray-900">
+                                {user.firstName} {user.lastName} ({user.role})
+                              </span>
+                            </div>
+                          ) : (
+                            // For Admin and Sales Manager: Show dropdown
+                            <Select onValueChange={field.onChange} value={field.value || ""}>
+                              <FormControl>
+                                <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                                  <SelectValue placeholder="Select sales person" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {salesUsers.data?.filter(user => 
+                                  user.role === 'SALES_MANAGER' || 
+                                  user.role === 'SALES_EXECUTIVE' || 
+                                  user.role === 'ADMIN'
+                                ).map((user) => (
+                                  <SelectItem key={user.id} value={user.id}>
+                                    {user.firstName} {user.lastName} ({user.role})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
