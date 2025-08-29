@@ -2232,8 +2232,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/quotations/:id", async (req, res) => {
     try {
-      const validatedData = insertQuotationSchema.partial().parse(req.body);
+      const { items, ...quotationFields } = req.body;
+      const validatedData = insertQuotationSchema.partial().parse(quotationFields);
       const quotation = await storage.updateQuotation(req.params.id, validatedData);
+      
+      // Handle quotation items update
+      if (items && Array.isArray(items)) {
+        // Delete existing items
+        const existingItems = await storage.getQuotationItemsByQuotation(req.params.id);
+        for (const item of existingItems) {
+          await storage.deleteQuotationItem(item.id);
+        }
+        
+        // Create new items
+        for (const item of items) {
+          const quotationItemData = {
+            quotationId: quotation.id,
+            productId: item.productId,
+            description: item.description,
+            quantity: item.quantity.toString(),
+            unit: item.unit,
+            rate: item.unitPrice ? item.unitPrice.toString() : item.rate?.toString() || "0",
+            amount: item.totalPrice ? item.totalPrice.toString() : item.amount?.toString() || "0",
+          };
+          
+          await storage.createQuotationItem(quotationItemData);
+        }
+      }
+      
       res.json(quotation);
     } catch (error) {
       console.error("Quotation update error:", error);

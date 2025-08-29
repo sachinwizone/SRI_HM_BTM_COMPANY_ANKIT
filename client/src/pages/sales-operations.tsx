@@ -2474,9 +2474,7 @@ function QuotationSection() {
   const handleDeleteQuotation = async (quotationId: string) => {
     if (window.confirm("Are you sure you want to delete this quotation? This action cannot be undone.")) {
       try {
-        await apiCall(`/api/quotations/${quotationId}`, {
-          method: 'DELETE'
-        });
+        await apiCall(`/api/quotations/${quotationId}`, 'DELETE');
         
         // Refresh quotations list
         queryClient.invalidateQueries({ queryKey: ['/api/quotations'] });
@@ -2497,9 +2495,7 @@ function QuotationSection() {
 
   const handleGenerateSalesOrder = async (quotationId: string) => {
     try {
-      const response = await apiCall(`/api/quotations/${quotationId}/generate-sales-order`, {
-        method: 'POST'
-      });
+      const response = await apiCall(`/api/quotations/${quotationId}/generate-sales-order`, 'POST');
       
       toast({
         title: "Success",
@@ -3143,7 +3139,7 @@ function QuotationSection() {
                   <div className="col-span-2">
                     <Input 
                       className="h-8" 
-                      value={item.amount.toFixed(2)} 
+                      value={(item.amount || 0).toFixed(2)} 
                       readOnly 
                       placeholder="0.00"
                     />
