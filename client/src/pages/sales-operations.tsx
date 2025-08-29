@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,7 +29,13 @@ import {
   Target,
   DollarSign,
   Calendar,
-  Package
+  Package,
+  Eye,
+  Download,
+  MoreHorizontal,
+  Send,
+  ThumbsUp,
+  ThumbsDown
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { 
@@ -633,6 +640,8 @@ function QuotationSection() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [isQuotationDialogOpen, setIsQuotationDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
   const [quotationItems, setQuotationItems] = useState([
     { productId: "", quantity: 0, unit: "", rate: 0, amount: 0 }
   ]);
@@ -655,6 +664,27 @@ function QuotationSection() {
   const { data: quotations = [], refetch: refetchQuotations } = useQuery({
     queryKey: ["/api/quotations"],
     retry: false,
+  });
+
+  // Status update mutation
+  const updateQuotationStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      return apiCall(`/api/quotations/${id}`, "PUT", { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+      toast({
+        title: "Success",
+        description: "Quotation status updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update quotation status",
+        variant: "destructive",
+      });
+    },
   });
 
   const createQuotationMutation = useMutation({
@@ -769,6 +799,52 @@ function QuotationSection() {
     createQuotationMutation.mutate(quotationData);
   };
 
+  const handleViewDetails = (quotation: any) => {
+    setSelectedQuotation(quotation);
+    setIsDetailsDialogOpen(true);
+  };
+
+  const handleUpdateStatus = (quotationId: string, status: string) => {
+    updateQuotationStatusMutation.mutate({ id: quotationId, status });
+  };
+
+  const handleDownloadPDF = (quotation: any) => {
+    // Generate PDF content
+    const pdfContent = `
+QUOTATION: ${quotation.quotationNumber}
+
+Client: ${(clients as any[]).find((c: any) => c.id === quotation.clientId)?.name || 'Unknown'}
+Date: ${new Date(quotation.quotationDate).toLocaleDateString()}
+Valid Until: ${new Date(quotation.validUntil).toLocaleDateString()}
+
+Total Amount: ₹${parseFloat(quotation.totalAmount).toFixed(2)}
+Tax Amount: ₹${parseFloat(quotation.taxAmount || 0).toFixed(2)}
+Grand Total: ₹${parseFloat(quotation.grandTotal).toFixed(2)}
+
+Payment Terms: ${quotation.paymentTerms} days
+Delivery Terms: ${quotation.deliveryTerms || 'Standard'}
+
+Status: ${quotation.status}
+Approval Status: ${quotation.approvalStatus}
+    `;
+
+    // Create and download file
+    const blob = new Blob([pdfContent], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${quotation.quotationNumber}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+
+    toast({
+      title: "Success",
+      description: "Quotation downloaded successfully",
+    });
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -795,9 +871,9 @@ function QuotationSection() {
               {(quotations as any[]).map((quotation: any) => (
                 <Card key={quotation.id} className="p-4">
                   <div className="flex justify-between items-start">
-                    <div className="space-y-1">
+                    <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-2">
-                        <Badge variant={quotation.status === 'DRAFT' ? 'secondary' : 'default'}>
+                        <Badge variant={quotation.status === 'DRAFT' ? 'secondary' : quotation.status === 'SENT' ? 'outline' : quotation.status === 'ACCEPTED' ? 'default' : 'destructive'}>
                           {quotation.status}
                         </Badge>
                         <span className="font-medium">{quotation.quotationNumber}</span>
@@ -810,10 +886,61 @@ function QuotationSection() {
                         {quotation.validUntil && ` • Valid until: ${new Date(quotation.validUntil).toLocaleDateString()}`}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <div className="font-bold">₹{parseFloat(quotation.totalAmount).toFixed(2)}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {quotation.paymentTerms} days
+                    <div className="flex items-start gap-3">
+                      <div className="text-right">
+                        <div className="font-bold">₹{parseFloat(quotation.totalAmount).toFixed(2)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {quotation.paymentTerms} days
+                        </div>
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleViewDetails(quotation)}
+                          data-testid={`button-view-details-${quotation.id}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownloadPDF(quotation)}
+                          data-testid={`button-download-${quotation.id}`}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="sm" variant="outline" data-testid={`button-actions-${quotation.id}`}>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {quotation.status === 'DRAFT' && (
+                              <DropdownMenuItem onClick={() => handleUpdateStatus(quotation.id, 'SENT')}>
+                                <Send className="h-4 w-4 mr-2" />
+                                Mark as Sent
+                              </DropdownMenuItem>
+                            )}
+                            {quotation.status === 'SENT' && (
+                              <>
+                                <DropdownMenuItem onClick={() => handleUpdateStatus(quotation.id, 'ACCEPTED')}>
+                                  <ThumbsUp className="h-4 w-4 mr-2" />
+                                  Mark as Accepted
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleUpdateStatus(quotation.id, 'REJECTED')}>
+                                  <ThumbsDown className="h-4 w-4 mr-2" />
+                                  Mark as Rejected
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </div>
@@ -1040,6 +1167,137 @@ function QuotationSection() {
             >
               {createQuotationMutation.isPending ? "Creating..." : "Create Quotation"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quotation Details Dialog */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Quotation Details</DialogTitle>
+            <DialogDescription>
+              Complete quotation information and status tracking
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedQuotation && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Quotation Number</label>
+                  <p className="font-medium">{selectedQuotation.quotationNumber}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Status</label>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={selectedQuotation.status === 'DRAFT' ? 'secondary' : selectedQuotation.status === 'SENT' ? 'outline' : selectedQuotation.status === 'ACCEPTED' ? 'default' : 'destructive'}>
+                      {selectedQuotation.status}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Client</label>
+                  <p className="font-medium">
+                    {(clients as any[]).find((c: any) => c.id === selectedQuotation.clientId)?.name || 'Unknown'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Prepared By</label>
+                  <p className="font-medium">{selectedQuotation.preparedByUserId}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Quotation Date</label>
+                  <p className="font-medium">{new Date(selectedQuotation.quotationDate).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Valid Until</label>
+                  <p className="font-medium">{new Date(selectedQuotation.validUntil).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Description</label>
+                <p className="text-sm bg-muted p-3 rounded-md">{selectedQuotation.description || 'No description provided'}</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Items</label>
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="grid grid-cols-5 gap-2 p-3 bg-muted text-xs font-medium">
+                    <div>Product</div>
+                    <div>Quantity</div>
+                    <div>Unit</div>
+                    <div>Rate</div>
+                    <div>Amount</div>
+                  </div>
+                  {(selectedQuotation.items || []).map((item: any, index: number) => (
+                    <div key={index} className="grid grid-cols-5 gap-2 p-3 border-t text-sm">
+                      <div>{(products as any[]).find((p: any) => p.id === item.productId)?.name || 'Unknown Product'}</div>
+                      <div>{item.quantity}</div>
+                      <div>{item.unit}</div>
+                      <div>₹{parseFloat(item.rate).toFixed(2)}</div>
+                      <div>₹{parseFloat(item.amount).toFixed(2)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <div className="flex justify-between items-center text-sm">
+                  <span>Subtotal:</span>
+                  <span>₹{parseFloat(selectedQuotation.totalAmount).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span>Tax (18% GST):</span>
+                  <span>₹{parseFloat(selectedQuotation.taxAmount || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center text-lg font-bold border-t pt-2 mt-2">
+                  <span>Grand Total:</span>
+                  <span>₹{parseFloat(selectedQuotation.grandTotal).toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Payment Terms</label>
+                  <p className="font-medium">{selectedQuotation.paymentTerms} days</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Delivery Terms</label>
+                  <p className="font-medium">{selectedQuotation.deliveryTerms || 'Standard delivery'}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)}>
+              Close
+            </Button>
+            {selectedQuotation && (
+              <>
+                <Button variant="outline" onClick={() => handleDownloadPDF(selectedQuotation)}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+                {selectedQuotation.status === 'DRAFT' && (
+                  <Button onClick={() => {
+                    handleUpdateStatus(selectedQuotation.id, 'SENT');
+                    setIsDetailsDialogOpen(false);
+                  }}>
+                    <Send className="h-4 w-4 mr-2" />
+                    Send to Client
+                  </Button>
+                )}
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
