@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -128,19 +128,52 @@ function AddLeadDialog({ open, onOpenChange, lead, onLeadSaved }: AddLeadDialogP
         })
     ),
     defaultValues: {
-      companyName: lead?.companyName || "",
-      contactPersonName: lead?.contactPersonName || "",
-      mobileNumber: lead?.mobileNumber || "",
-      email: lead?.email || "",
-      leadSource: lead?.leadSource || "WEBSITE",
-      leadStatus: lead?.leadStatus || "NEW",
-      interestedProducts: lead?.interestedProducts || [],
-      estimatedValue: lead?.estimatedValue || "",
-      expectedCloseDate: lead?.expectedCloseDate ? new Date(lead.expectedCloseDate).toISOString().split('T')[0] : "",
-      notes: lead?.notes || "",
-      assignedToUserId: lead?.assignedToUserId || user?.id || "",
+      companyName: "",
+      contactPersonName: "",
+      mobileNumber: "",
+      email: "",
+      leadSource: "WEBSITE",
+      leadStatus: "NEW",
+      interestedProducts: [],
+      estimatedValue: "",
+      expectedCloseDate: "",
+      notes: "",
+      assignedToUserId: user?.id || "",
     },
   });
+
+  // Reset form when lead prop changes
+  useEffect(() => {
+    if (lead) {
+      form.reset({
+        companyName: lead.companyName || "",
+        contactPersonName: lead.contactPersonName || "",
+        mobileNumber: lead.mobileNumber || "",
+        email: lead.email || "",
+        leadSource: lead.leadSource || "WEBSITE",
+        leadStatus: lead.leadStatus || "NEW",
+        interestedProducts: lead.interestedProducts || [],
+        estimatedValue: lead.estimatedValue || "",
+        expectedCloseDate: lead.expectedCloseDate ? new Date(lead.expectedCloseDate).toISOString().split('T')[0] : "",
+        notes: lead.notes || "",
+        assignedToUserId: lead.assignedToUserId || user?.id || "",
+      });
+    } else {
+      form.reset({
+        companyName: "",
+        contactPersonName: "",
+        mobileNumber: "",
+        email: "",
+        leadSource: "WEBSITE",
+        leadStatus: "NEW",
+        interestedProducts: [],
+        estimatedValue: "",
+        expectedCloseDate: "",
+        notes: "",
+        assignedToUserId: user?.id || "",
+      });
+    }
+  }, [lead, user?.id, form]);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiCall("/api/leads", "POST", data),
@@ -441,7 +474,10 @@ function LeadCRMSection() {
               data-testid="search-leads"
             />
           </div>
-          <Button data-testid="button-add-lead" onClick={() => setIsDialogOpen(true)}>
+          <Button data-testid="button-add-lead" onClick={() => {
+            setEditingLead(null);
+            setIsDialogOpen(true);
+          }}>
             <Plus className="h-4 w-4 mr-2" />
             Add Lead
           </Button>
