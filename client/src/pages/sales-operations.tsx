@@ -630,6 +630,7 @@ function LeadCRMSection() {
 // Quotation System Component
 function QuotationSection() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isQuotationDialogOpen, setIsQuotationDialogOpen] = useState(false);
   const [quotationItems, setQuotationItems] = useState([
     { productId: "", quantity: 0, unit: "", rate: 0, amount: 0 }
@@ -665,7 +666,7 @@ function QuotationSection() {
         description: "Quotation created successfully",
       });
       setIsQuotationDialogOpen(false);
-      refetchQuotations();
+      queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       // Reset form
       setQuotationItems([{ productId: "", quantity: 0, unit: "", rate: 0, amount: 0 }]);
       setSelectedClient("");
