@@ -16,6 +16,7 @@ import {
   insertDispatchSchema, insertDeliveryChallanSchema
 } from "@shared/schema";
 import { z } from "zod";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication Routes (Public)
@@ -1233,7 +1234,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Remove duplicate - keeping the one above
+  // Object Storage Routes for Client Documents
+
+  // Get upload URL for client documents  
+  app.post("/api/clients/documents/upload", requireAuth, async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error: any) {
+      console.error("Get upload URL error:", error);
+      res.status(500).json({ message: "Failed to get upload URL", error: error.message });
+    }
+  });
+
+  // Set ACL policy for uploaded client documents
+  app.put("/api/clients/:clientId/documents/:documentType", requireAuth, async (req, res) => {
+    try {
+      if (!req.body.documentURL) {
+        return res.status(400).json({ error: "documentURL is required" });
+      }
+
+      const { clientId, documentType } = req.params;
+      const currentUser = (req as any).user;
+      
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        req.body.documentURL,
+        {
+          owner: currentUser.id,
+          visibility: "private",
+        }
+      );
+
+      // Update client document status in database
+      const updateData: any = {};
+      switch (documentType) {
+        case 'gst-certificate':
+          updateData.gstCertificateUploaded = true;
+          break;
+        case 'pan-copy':
+          updateData.panCopyUploaded = true;
+          break;
+        case 'security-cheque':
+          updateData.securityChequeUploaded = true;
+          break;
+        case 'aadhar-card':
+          updateData.aadharCardUploaded = true;
+          break;
+        case 'agreement':
+          updateData.agreementUploaded = true;
+          break;
+        case 'po-rate-contract':
+          updateData.poRateContractUploaded = true;
+          break;
+        default:
+          return res.status(400).json({ error: "Invalid document type" });
+      }
+
+      await storage.updateClient(clientId, updateData);
+
+      res.json({ objectPath, message: "Document uploaded successfully" });
+    } catch (error: any) {
+      console.error("Document upload error:", error);
+      res.status(500).json({ error: "Failed to upload document" });
+    }
+  });
+
+  // Serve client documents (with authentication)
+  app.get("/objects/:objectPath(*)", requireAuth, async (req, res) => {
+    try {
+      const currentUser = (req as any).user;
+      const objectStorageService = new ObjectStorageService();
+      
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        objectFile,
+        userId: currentUser.id,
+        requestedPermission: "read" as any,
+      });
+      
+      if (!canAccess) {
+        return res.sendStatus(401);
+      }
+      
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error: any) {
+      console.error("Error accessing document:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
 
   app.post("/api/transporters", requireAuth, async (req, res) => {
     try {

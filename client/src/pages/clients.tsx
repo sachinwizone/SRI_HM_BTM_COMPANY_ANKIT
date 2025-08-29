@@ -19,6 +19,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, Edit, MapPin, FileText, Building, User, CreditCard, Truck, X, Upload, File, Check, Search, Calendar, Filter, Download, Trash2, Eye, Activity } from "lucide-react";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import type { UploadResult } from "@uppy/core";
 import { Client360View } from "@/components/analytics/client-360-view";
 import { DataTable } from "@/components/ui/data-table";
 import { z } from "zod";
@@ -216,22 +218,35 @@ export default function Clients() {
       const { shippingAddresses, ...clientData } = data;
       
       if (editingClient) {
-        const response = await apiRequest("PUT", `/api/clients/${editingClient.id}`, clientData);
-        return await response.json();
+        const updatedClient = await apiRequest(`/api/clients/${editingClient.id}`, "PUT", clientData);
+        return updatedClient;
       } else {
-        const response = await apiRequest("POST", "/api/clients", clientData);
-        return await response.json();
+        const newClient = await apiRequest("/api/clients", "POST", clientData);
+        return newClient;
       }
     },
-    onSuccess: () => {
+    onSuccess: (client) => {
+      // Set current client ID for document uploads
+      setCurrentClientId(client.id);
+      
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       toast({
         title: "Success",
         description: `Client ${editingClient ? "updated" : "created"} successfully`,
       });
-      setIsFormOpen(false);
-      form.reset();
-      setEditingClient(null);
+      
+      // Don't close form immediately - allow document uploads
+      if (!editingClient) {
+        toast({
+          title: "Next Step",
+          description: "You can now upload documents for this client",
+          variant: "default",
+        });
+      } else {
+        setIsFormOpen(false);
+        form.reset();
+        setEditingClient(null);
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -378,23 +393,88 @@ export default function Clients() {
     },
   });
 
-  const handleFileUpload = (documentType: string, file: File | null) => {
-    setUploadedFiles(prev => ({
-      ...prev,
-      [documentType]: file || undefined
-    }));
-    
-    // Update the form checkbox based on file upload
-    form.setValue(`${documentType}Uploaded` as any, !!file);
+  const [currentClientId, setCurrentClientId] = useState<string | null>(null);
+
+  const handleViewDocument = async (clientId: string, documentType: string) => {
+    try {
+      // Create a temporary link to open the document in a new tab
+      const documentUrl = `/objects/uploads/${clientId}/${documentType}`;
+      window.open(documentUrl, '_blank');
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to view document",
+        variant: "destructive",
+      });
+    }
   };
 
-  const renderFileUpload = (
-    documentType: string,
-    label: string,
-    acceptedTypes: string = ".pdf,.jpg,.jpeg,.png,.doc,.docx"
-  ) => {
-    const file = uploadedFiles[documentType as keyof typeof uploadedFiles];
-    const isUploaded = !!file;
+  const handleGetUploadParameters = async () => {
+    try {
+      const response = await apiRequest("/api/clients/documents/upload", "POST", {});
+      return {
+        method: "PUT" as const,
+        url: response.uploadURL,
+      };
+    } catch (error) {
+      console.error("Failed to get upload parameters:", error);
+      throw error;
+    }
+  };
+
+  const handleDocumentUpload = async (documentType: string, result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    if (!result.successful || result.successful.length === 0) {
+      toast({
+        title: "Error",
+        description: "File upload failed",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const uploadedFile = result.successful[0];
+    if (!uploadedFile.uploadURL || !currentClientId) {
+      toast({
+        title: "Error", 
+        description: "Upload URL or client ID missing",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Convert document type to API format
+      const apiDocumentType = documentType
+        .replace(/([A-Z])/g, '-$1')
+        .toLowerCase()
+        .replace(/^-/, '');
+
+      await apiRequest(`/api/clients/${currentClientId}/documents/${apiDocumentType}`, "PUT", {
+        documentURL: uploadedFile.uploadURL,
+      });
+
+      // Update the form state
+      form.setValue(`${documentType}Uploaded` as any, true);
+
+      toast({
+        title: "Success",
+        description: `${documentType} uploaded successfully`,
+      });
+
+      // Refresh clients data to show updated status
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+    } catch (error: any) {
+      console.error("Failed to update document status:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update document status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const renderFileUpload = (documentType: string, label: string) => {
+    const isUploaded = form.watch(`${documentType}Uploaded` as any);
 
     return (
       <div className="space-y-2">
@@ -409,44 +489,25 @@ export default function Clients() {
         </div>
         
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-gray-400 transition-colors">
-          <input
-            type="file"
-            accept={acceptedTypes}
-            onChange={(e) => {
-              const selectedFile = e.target.files?.[0] || null;
-              handleFileUpload(documentType, selectedFile);
-            }}
-            className="hidden"
-            id={`upload-${documentType}`}
-          />
-          
           {!isUploaded ? (
-            <label
-              htmlFor={`upload-${documentType}`}
-              className="cursor-pointer flex flex-col items-center gap-2 text-gray-500 hover:text-gray-700"
+            <ObjectUploader
+              maxNumberOfFiles={1}
+              maxFileSize={10485760} // 10MB
+              onGetUploadParameters={handleGetUploadParameters}
+              onComplete={(result) => handleDocumentUpload(documentType, result)}
+              buttonClassName="w-full h-24 border-none bg-transparent hover:bg-gray-50"
             >
-              <Upload className="h-8 w-8" />
-              <span className="text-sm">Click to upload {label}</span>
-              <span className="text-xs text-gray-400">PDF, JPG, PNG, DOC (max 10MB)</span>
-            </label>
-          ) : (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <File className="h-5 w-5 text-blue-600" />
-                <span className="text-sm text-gray-700">{file.name}</span>
+              <div className="flex flex-col items-center gap-2 text-gray-500">
+                <Upload className="h-8 w-8" />
+                <span className="text-sm">Click to upload {label}</span>
+                <span className="text-xs text-gray-400">PDF, JPG, PNG, DOC (max 10MB)</span>
               </div>
+            </ObjectUploader>
+          ) : (
+            <div className="flex items-center justify-center py-4">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">
-                  {(file.size / 1024 / 1024).toFixed(2)} MB
-                </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleFileUpload(documentType, null)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                <File className="h-5 w-5 text-green-600" />
+                <span className="text-sm text-gray-700">{label} uploaded successfully</span>
               </div>
             </div>
           )}
@@ -1547,6 +1608,7 @@ export default function Clients() {
                     <TableHead>Contact</TableHead>
                     <TableHead>Sales Person</TableHead>
                     <TableHead>Compliance</TableHead>
+                    <TableHead>Documents</TableHead>
                     <TableHead>Payment Terms</TableHead>
                     <TableHead>Credit Limit</TableHead>
                     <TableHead>Created</TableHead>
@@ -1598,6 +1660,38 @@ export default function Clients() {
                           {client.gstNumber && <div>GST: {client.gstNumber}</div>}
                           {client.panNumber && <div>PAN: {client.panNumber}</div>}
                           {client.msmeNumber && <div>MSME: {client.msmeNumber}</div>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-xs space-y-1">
+                          {[
+                            { key: 'gstCertificateUploaded', label: 'GST', field: client.gstCertificateUploaded, docType: 'gst-certificate' },
+                            { key: 'panCopyUploaded', label: 'PAN', field: client.panCopyUploaded, docType: 'pan-copy' },
+                            { key: 'securityChequeUploaded', label: 'SEC', field: client.securityChequeUploaded, docType: 'security-cheque' },
+                            { key: 'aadharCardUploaded', label: 'ADH', field: client.aadharCardUploaded, docType: 'aadhar-card' },
+                            { key: 'agreementUploaded', label: 'AGR', field: client.agreementUploaded, docType: 'agreement' },
+                            { key: 'poRateContractUploaded', label: 'PO', field: client.poRateContractUploaded, docType: 'po-rate-contract' },
+                          ].map(({ key, label, field, docType }) => (
+                            <div key={key} className="flex items-center gap-1">
+                              {field ? (
+                                <>
+                                  <Check className="h-3 w-3 text-green-600" />
+                                  <button
+                                    onClick={() => handleViewDocument(client.id, docType)}
+                                    className="text-green-600 hover:text-green-800 hover:underline cursor-pointer"
+                                    title={`View ${label} document`}
+                                  >
+                                    {label}
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <X className="h-3 w-3 text-red-500" />
+                                  <span className="text-red-500">{label}</span>
+                                </>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       </TableCell>
                       <TableCell>
