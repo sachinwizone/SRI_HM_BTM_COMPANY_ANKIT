@@ -2302,11 +2302,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const quotationItems = await storage.getQuotationItemsByQuotation(quotationId);
       
+      // Check if the client exists in clients table, if not it might be a lead
+      let actualClientId = quotation.clientId;
+      try {
+        const client = await storage.getClient(quotation.clientId);
+        if (!client) {
+          // If client doesn't exist, check if it's a lead and create a client from it
+          const lead = await storage.getLead(quotation.clientId);
+          if (lead) {
+            // Convert lead to client first
+            const newClient = await storage.createClient({
+              name: lead.companyName || lead.leadSource,
+              contactPersonName: lead.contactPersonName || 'N/A',
+              mobileNumber: lead.mobileNumber,
+              email: lead.email,
+              category: 'DELTA', // Default category for converted leads
+              primarySalesPersonId: quotation.preparedByUserId,
+              paymentTerms: 30,
+              poRequired: false,
+              billingCountry: 'India',
+              invoicingEmails: lead.email ? [lead.email] : [],
+              gstCertificateUploaded: false,
+              panCopyUploaded: false,
+              addressLine1: '',
+              city: '',
+              state: '',
+              pinCode: ''
+            });
+            actualClientId = newClient.id;
+          } else {
+            return res.status(400).json({ message: "Referenced client/lead not found" });
+          }
+        }
+      } catch (error) {
+        console.error("Error checking client:", error);
+        return res.status(400).json({ message: "Invalid client reference" });
+      }
+      
       // Create sales order from quotation data
       const salesOrderData = {
         orderNumber: `SO-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         quotationId: quotation.id,
-        clientId: quotation.clientId,
+        clientId: actualClientId,
         orderDate: new Date(),
         expectedDeliveryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         status: 'DRAFT',
