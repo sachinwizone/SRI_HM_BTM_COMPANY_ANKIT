@@ -7,9 +7,10 @@ interface DragDropUploadProps {
   documentType: string;
   onUploadComplete: (documentType: string, success: boolean) => void;
   disabled?: boolean;
+  isFormMode?: boolean;
 }
 
-export function DragDropUpload({ documentType, onUploadComplete, disabled }: DragDropUploadProps) {
+export function DragDropUpload({ documentType, onUploadComplete, disabled, isFormMode = false }: DragDropUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
@@ -29,10 +30,10 @@ export function DragDropUpload({ documentType, onUploadComplete, disabled }: Dra
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    if (!disabled && !isUploading) {
+    if ((!disabled || isFormMode) && !isUploading) {
       setIsDragOver(true);
     }
-  }, [disabled, isUploading]);
+  }, [disabled, isFormMode, isUploading]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -40,7 +41,7 @@ export function DragDropUpload({ documentType, onUploadComplete, disabled }: Dra
   }, []);
 
   const uploadFile = async (file: File) => {
-    if (disabled) return;
+    if (disabled && !isFormMode) return;
     
     setIsUploading(true);
     try {
@@ -87,7 +88,7 @@ export function DragDropUpload({ documentType, onUploadComplete, disabled }: Dra
     e.preventDefault();
     setIsDragOver(false);
     
-    if (disabled || isUploading) return;
+    if ((disabled && !isFormMode) || isUploading) return;
 
     const files = Array.from(e.dataTransfer.files);
     if (files.length === 0) return;
@@ -118,10 +119,10 @@ export function DragDropUpload({ documentType, onUploadComplete, disabled }: Dra
 
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0 || disabled || isUploading) return;
+    if (!files || files.length === 0 || (disabled && !isFormMode) || isUploading) return;
 
     await uploadFile(files[0]);
-  }, [disabled, isUploading]);
+  }, [disabled, isFormMode, isUploading]);
 
   return (
     <div className="w-full">
@@ -139,7 +140,7 @@ export function DragDropUpload({ documentType, onUploadComplete, disabled }: Dra
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={() => !disabled && !isUploading && document.getElementById(`file-${documentType}`)?.click()}
+        onClick={() => (!disabled || isFormMode) && !isUploading && document.getElementById(`file-${documentType}`)?.click()}
       >
         <input
           id={`file-${documentType}`}
@@ -147,7 +148,7 @@ export function DragDropUpload({ documentType, onUploadComplete, disabled }: Dra
           className="hidden"
           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
           onChange={handleFileSelect}
-          disabled={disabled || isUploading}
+          disabled={(disabled && !isFormMode) || isUploading}
         />
         
         <div className="flex flex-col items-center space-y-2">
@@ -164,7 +165,7 @@ export function DragDropUpload({ documentType, onUploadComplete, disabled }: Dra
             </div>
           ) : (
             <div className="text-sm text-gray-600">
-              {disabled ? (
+              {disabled && !isFormMode ? (
                 <span className="text-gray-400">Complete and save client details to enable document upload</span>
               ) : (
                 <>

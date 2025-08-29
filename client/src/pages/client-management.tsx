@@ -327,26 +327,32 @@ export default function ClientManagement() {
                                 <DragDropUpload
                                   documentType="gstCertificate"
                                   onUploadComplete={handleDocumentUpload}
+                                  isFormMode={true}
                                 />
                                 <DragDropUpload
                                   documentType="panCopy"
                                   onUploadComplete={handleDocumentUpload}
+                                  isFormMode={true}
                                 />
                                 <DragDropUpload
                                   documentType="securityCheque"
                                   onUploadComplete={handleDocumentUpload}
+                                  isFormMode={true}
                                 />
                                 <DragDropUpload
                                   documentType="aadharCard"
                                   onUploadComplete={handleDocumentUpload}
+                                  isFormMode={true}
                                 />
                                 <DragDropUpload
                                   documentType="agreement"
                                   onUploadComplete={handleDocumentUpload}
+                                  isFormMode={true}
                                 />
                                 <DragDropUpload
                                   documentType="poRateContract"
                                   onUploadComplete={handleDocumentUpload}
+                                  isFormMode={true}
                                 />
                               </div>
                               <p className="text-sm text-gray-500 mt-3">
