@@ -1263,6 +1263,10 @@ export const insertLeadFollowUpSchema = createInsertSchema(leadFollowUps).omit({
   followUpDate: z.string().transform((val) => new Date(val)),
   nextFollowUpDate: z.string().optional().transform((val) => val ? new Date(val) : undefined),
   completedAt: z.string().optional().transform((val) => val ? new Date(val) : undefined),
+  // Make old columns optional since they're populated automatically
+  type: z.string().optional(),
+  description: z.string().optional(),
+  priority: z.string().optional().default('MEDIUM'),
 });
 
 export const insertOpportunitySchema = createInsertSchema(opportunities).omit({
