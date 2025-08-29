@@ -17,12 +17,14 @@ import { Search, Plus, Filter, Users, Edit, Eye, Upload, Download, FileText, Shi
 import { useState } from "react";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { DragDropUpload } from "@/components/DragDropUpload";
+import { DocumentViewer } from "@/components/DocumentViewer";
 
 export default function ClientManagement() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [documentUploads, setDocumentUploads] = useState<Record<string, boolean>>({});
+  const [documentUrls, setDocumentUrls] = useState<Record<string, string>>({});
 
   const { data: clients, isLoading } = useQuery({
     queryKey: ['/api/clients'],
@@ -43,6 +45,7 @@ export default function ClientManagement() {
       setIsDialogOpen(false);
       form.reset();
       setDocumentUploads({});
+      setDocumentUrls({});
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to create client", variant: "destructive" });
@@ -63,11 +66,17 @@ export default function ClientManagement() {
     }
   });
 
-  const handleDocumentUpload = (documentType: string, success: boolean) => {
+  const handleDocumentUpload = (documentType: string, success: boolean, documentUrl?: string) => {
     setDocumentUploads(prev => ({
       ...prev,
       [documentType]: success
     }));
+    if (success && documentUrl) {
+      setDocumentUrls(prev => ({
+        ...prev,
+        [documentType]: documentUrl
+      }));
+    }
   };
 
   const onSubmit = (data: any) => {
@@ -81,6 +90,13 @@ export default function ClientManagement() {
       aadharCardUploaded: documentUploads.aadharCard || false,
       agreementUploaded: documentUploads.agreement || false,
       poRateContractUploaded: documentUploads.poRateContract || false,
+      // Add document URLs
+      gstCertificateUrl: documentUrls.gstCertificate || null,
+      panCopyUrl: documentUrls.panCopy || null,
+      securityChequeUrl: documentUrls.securityCheque || null,
+      aadharCardUrl: documentUrls.aadharCard || null,
+      agreementUrl: documentUrls.agreement || null,
+      poRateContractUrl: documentUrls.poRateContract || null,
     });
   };
 
@@ -441,6 +457,24 @@ export default function ClientManagement() {
                             </td>
                             <td className="px-6 py-4">
                               <div className="flex space-x-2">
+                                <DocumentViewer
+                                  clientId={client.id}
+                                  clientName={client.name}
+                                  documents={{
+                                    gstCertificateUrl: client.gstCertificateUrl,
+                                    panCopyUrl: client.panCopyUrl,
+                                    securityChequeUrl: client.securityChequeUrl,
+                                    aadharCardUrl: client.aadharCardUrl,
+                                    agreementUrl: client.agreementUrl,
+                                    poRateContractUrl: client.poRateContractUrl,
+                                    gstCertificateUploaded: client.gstCertificateUploaded,
+                                    panCopyUploaded: client.panCopyUploaded,
+                                    securityChequeUploaded: client.securityChequeUploaded,
+                                    aadharCardUploaded: client.aadharCardUploaded,
+                                    agreementUploaded: client.agreementUploaded,
+                                    poRateContractUploaded: client.poRateContractUploaded,
+                                  }}
+                                />
                                 <Button variant="outline" size="sm">
                                   <Edit size={16} className="mr-1" />
                                   Edit

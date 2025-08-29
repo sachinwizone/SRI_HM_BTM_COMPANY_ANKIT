@@ -5,7 +5,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 interface DragDropUploadProps {
   documentType: string;
-  onUploadComplete: (documentType: string, success: boolean) => void;
+  onUploadComplete: (documentType: string, success: boolean, documentUrl?: string) => void;
   disabled?: boolean;
   isFormMode?: boolean;
 }
@@ -62,7 +62,7 @@ export function DragDropUpload({ documentType, onUploadComplete, disabled, isFor
 
       if (uploadResult.ok) {
         setUploadSuccess(true);
-        onUploadComplete(documentType, true);
+        onUploadComplete(documentType, true, uploadResponse.uploadURL);
         toast({
           title: "Success",
           description: `${getDisplayName(documentType)} uploaded successfully`,

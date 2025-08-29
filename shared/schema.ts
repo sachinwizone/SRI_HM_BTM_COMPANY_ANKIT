@@ -104,6 +104,14 @@ export const clients = pgTable("clients", {
   agreementUploaded: boolean("agreement_uploaded").default(false),
   poRateContractUploaded: boolean("po_rate_contract_uploaded").default(false),
   
+  // Document Storage URLs
+  gstCertificateUrl: text("gst_certificate_url"),
+  panCopyUrl: text("pan_copy_url"),
+  securityChequeUrl: text("security_cheque_url"),
+  aadharCardUrl: text("aadhar_card_url"),
+  agreementUrl: text("agreement_url"),
+  poRateContractUrl: text("po_rate_contract_url"),
+  
   // Sales Assignment Fields
   primarySalesPersonId: varchar("primary_sales_person_id").references(() => users.id),
   lastContactDate: timestamp("last_contact_date"),
@@ -526,6 +534,12 @@ export const insertClientSchema = z.object({
   aadharCardUploaded: z.boolean().default(false),
   agreementUploaded: z.boolean().default(false),
   poRateContractUploaded: z.boolean().default(false),
+  gstCertificateUrl: z.string().optional(),
+  panCopyUrl: z.string().optional(),
+  securityChequeUrl: z.string().optional(),
+  aadharCardUrl: z.string().optional(),
+  agreementUrl: z.string().optional(),
+  poRateContractUrl: z.string().optional(),
   primarySalesPersonId: z.string().optional(),
   lastContactDate: z.union([z.string(), z.date()]).optional().transform(val => {
     if (!val) return undefined;
