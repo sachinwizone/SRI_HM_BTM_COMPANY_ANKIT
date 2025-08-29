@@ -657,10 +657,7 @@ function QuotationSection() {
 
   const createQuotationMutation = useMutation({
     mutationFn: async (quotationData: any) => {
-      return apiRequest("/api/quotations", {
-        method: "POST",
-        body: JSON.stringify(quotationData),
-      });
+      return apiCall("/api/quotations", "POST", quotationData);
     },
     onSuccess: () => {
       toast({
@@ -757,7 +754,7 @@ function QuotationSection() {
       approvalStatus: "PENDING",
       items: quotationItems.filter(item => item.productId && item.quantity > 0).map(item => ({
         productId: item.productId,
-        description: products.find((p: any) => p.id === item.productId)?.name || "Product",
+        description: (products as any[]).find((p: any) => p.id === item.productId)?.name || "Product",
         quantity: item.quantity,
         unit: item.unit,
         unitPrice: item.rate,
@@ -780,11 +777,11 @@ function QuotationSection() {
         <CardDescription>Multi-level approvals, competitive pricing, and quote management</CardDescription>
       </CardHeader>
       <CardContent>
-        {quotations && quotations.length > 0 ? (
+        {(quotations as any[]).length > 0 ? (
           <div>
             <div className="flex justify-between items-center mb-4">
               <div className="text-sm text-muted-foreground">
-                {quotations.length} quotation{quotations.length !== 1 ? 's' : ''} found
+                {(quotations as any[]).length} quotation{(quotations as any[]).length !== 1 ? 's' : ''} found
               </div>
               <Button onClick={handleCreateQuotation} data-testid="button-create-quotation">
                 <Plus className="h-4 w-4 mr-2" />
@@ -793,7 +790,7 @@ function QuotationSection() {
             </div>
             
             <div className="space-y-3">
-              {quotations.map((quotation: any) => (
+              {(quotations as any[]).map((quotation: any) => (
                 <Card key={quotation.id} className="p-4">
                   <div className="flex justify-between items-start">
                     <div className="space-y-1">
@@ -804,7 +801,7 @@ function QuotationSection() {
                         <span className="font-medium">{quotation.quotationNumber}</span>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Client: {clients?.find((c: any) => c.id === quotation.clientId)?.name || 'Unknown'}
+                        Client: {(clients as any[]).find((c: any) => c.id === quotation.clientId)?.name || 'Unknown'}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Date: {new Date(quotation.quotationDate).toLocaleDateString()}
@@ -856,8 +853,8 @@ function QuotationSection() {
                     <SelectValue placeholder="Select client" />
                   </SelectTrigger>
                   <SelectContent>
-                    {clients && clients.length > 0 ? (
-                      clients.map((client: any) => (
+                    {(clients as any[]).length > 0 ? (
+                      (clients as any[]).map((client: any) => (
                         <SelectItem key={client.id} value={client.id}>
                           {client.name}
                         </SelectItem>
@@ -937,8 +934,8 @@ function QuotationSection() {
                         <SelectValue placeholder="Select product" />
                       </SelectTrigger>
                       <SelectContent>
-                        {products && products.length > 0 ? (
-                          products.map((product: any) => (
+                        {(products as any[]).length > 0 ? (
+                          (products as any[]).map((product: any) => (
                             <SelectItem key={product.id} value={product.id}>
                               {product.name}
                             </SelectItem>
