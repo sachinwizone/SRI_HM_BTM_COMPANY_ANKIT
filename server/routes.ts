@@ -2304,22 +2304,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create sales order from quotation data
       const salesOrderData = {
-        clientId: quotation.clientId,
-        salesPersonId: quotation.preparedByUserId,
         orderNumber: `SO-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        quotationId: quotation.id,
+        clientId: quotation.clientId,
+        orderDate: new Date(),
         expectedDeliveryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        status: 'DRAFT',
         totalAmount: quotation.totalAmount,
-        status: 'PENDING',
         creditCheckStatus: 'PENDING',
-        inventoryStatus: 'PENDING',
-        approvalStatus: 'PENDING',
-        discountPercentage: quotation.discountPercentage || 0,
-        discountAmount: quotation.discountAmount || 0,
-        taxAmount: quotation.taxAmount,
-        grandTotal: quotation.grandTotal,
         paymentTerms: quotation.paymentTerms,
-        deliveryTerms: quotation.deliveryTerms,
-        specialInstructions: quotation.specialInstructions
+        specialInstructions: quotation.specialInstructions,
+        salesPersonId: quotation.preparedByUserId
       };
       
       // Create the sales order
@@ -2344,7 +2339,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Sales order generation error:", error);
-      res.status(500).json({ message: "Failed to generate sales order" });
+      console.error("Error details:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      res.status(500).json({ 
+        message: "Failed to generate sales order", 
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
