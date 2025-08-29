@@ -44,6 +44,7 @@ const navigation: NavigationEntry[] = [
     items: [
       { name: "Task Management", href: "/task-management", icon: CheckSquare },
       { name: "Follow-up Hub", href: "/follow-up-hub", icon: Target },
+      { name: "Lead Follow-ups", href: "/lead-follow-up-hub", icon: Clock },
       { name: "Order Workflow", href: "/order-workflow", icon: ShoppingCart },
       { name: "Credit Agreements", href: "/credit-agreements", icon: File },
       { name: "E-Way Bills", href: "/eway-bills", icon: Receipt },

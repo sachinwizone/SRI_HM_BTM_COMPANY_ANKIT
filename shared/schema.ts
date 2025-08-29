@@ -9,6 +9,8 @@ export const companyTypeEnum = pgEnum('company_type', ['PVT_LTD', 'PARTNERSHIP',
 export const communicationPreferenceEnum = pgEnum('communication_preference', ['EMAIL', 'WHATSAPP', 'PHONE', 'SMS']);
 export const unloadingFacilityEnum = pgEnum('unloading_facility', ['PUMP', 'CRANE', 'MANUAL', 'OTHERS']);
 export const followUpStatusEnum = pgEnum("follow_up_status", ["PENDING", "COMPLETED", "CANCELLED"]);
+export const leadFollowUpTypeEnum = pgEnum("lead_follow_up_type", ["CALL", "EMAIL", "MEETING", "DEMO", "PROPOSAL", "FOLLOW_UP"]);
+export const leadFollowUpPriorityEnum = pgEnum("lead_follow_up_priority", ["LOW", "MEDIUM", "HIGH", "URGENT"]);
 export const bankInterestEnum = pgEnum('bank_interest', ['FROM_DAY_1', 'FROM_DUE_DATE']);
 export const taskTypeEnum = pgEnum('task_type', ['ONE_TIME', 'RECURRING']);
 export const taskPriorityEnum = pgEnum('task_priority', ['LOW', 'MEDIUM', 'HIGH', 'URGENT']);
@@ -213,6 +215,22 @@ export const followUps = pgTable("follow_ups", {
   status: followUpStatusEnum("status").notNull().default('PENDING'),
   completedAt: timestamp("completed_at"),
   nextFollowUpDate: timestamp("next_follow_up_date"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Lead Follow-ups table
+export const leadFollowUps = pgTable("lead_follow_ups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id").notNull().references(() => leads.id),
+  assignedUserId: varchar("assigned_user_id").notNull().references(() => users.id),
+  followUpDate: timestamp("follow_up_date").notNull(),
+  followUpType: leadFollowUpTypeEnum("follow_up_type").notNull().default('CALL'),
+  remarks: text("remarks").notNull(),
+  status: followUpStatusEnum("status").notNull().default('PENDING'),
+  completedAt: timestamp("completed_at"),
+  nextFollowUpDate: timestamp("next_follow_up_date"),
+  outcome: text("outcome"), // Result of the follow-up
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -968,6 +986,12 @@ export const leads = pgTable("leads", {
   notes: text("notes"),
   assignedToUserId: varchar("assigned_to_user_id").references(() => users.id),
   clientId: varchar("client_id").references(() => clients.id), // Converted to client when qualified
+  
+  // Follow-up tracking fields
+  lastFollowUpDate: timestamp("last_follow_up_date"),
+  nextFollowUpDate: timestamp("next_follow_up_date"),
+  followUpPriority: leadFollowUpPriorityEnum("follow_up_priority").default('MEDIUM'),
+  
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -1226,6 +1250,16 @@ export const insertLeadSchema = createInsertSchema(leads).omit({
   }),
 });
 
+export const insertLeadFollowUpSchema = createInsertSchema(leadFollowUps).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  followUpDate: z.string().transform((val) => new Date(val)),
+  nextFollowUpDate: z.string().optional().transform((val) => val ? new Date(val) : undefined),
+  completedAt: z.string().optional().transform((val) => val ? new Date(val) : undefined),
+});
+
 export const insertOpportunitySchema = createInsertSchema(opportunities).omit({
   id: true,
   createdAt: true,
@@ -1314,6 +1348,9 @@ export const insertDeliveryChallanSchema = createInsertSchema(deliveryChallans).
 // Sales Operations Types
 export type InsertLead = z.infer<typeof insertLeadSchema>;
 export type Lead = typeof leads.$inferSelect;
+
+export type InsertLeadFollowUp = z.infer<typeof insertLeadFollowUpSchema>;
+export type LeadFollowUp = typeof leadFollowUps.$inferSelect;
 
 export type InsertOpportunity = z.infer<typeof insertOpportunitySchema>;
 export type Opportunity = typeof opportunities.$inferSelect;

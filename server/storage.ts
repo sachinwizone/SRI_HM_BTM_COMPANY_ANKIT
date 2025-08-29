@@ -1,7 +1,7 @@
 import { 
   users, clients, orders, payments, tasks, ewayBills, clientTracking, 
   salesRates, creditAgreements, purchaseOrders, sales, numberSeries,
-  transporters, products, shippingAddresses, followUps, clientAssignments,
+  transporters, products, shippingAddresses, followUps, leadFollowUps, clientAssignments,
   companyProfile, branches, productMaster, suppliers, banks, vehicles,
   leads, opportunities, quotations, quotationItems, salesOrders, salesOrderItems,
   deliveryPlans, dispatches, deliveryChallans,
@@ -13,7 +13,7 @@ import {
   type Sales, type InsertSales, type NumberSeries, type InsertNumberSeries,
   type Transporter, type InsertTransporter, type Product, type InsertProduct,
   type ShippingAddress, type InsertShippingAddress, type FollowUp, type InsertFollowUp,
-  type ClientAssignment, type InsertClientAssignment,
+  type LeadFollowUp, type InsertLeadFollowUp, type ClientAssignment, type InsertClientAssignment,
   type CompanyProfile, type InsertCompanyProfile, type Branch, type InsertBranch,
   type ProductMaster, type InsertProductMaster, type Supplier, type InsertSupplier,
   type Bank, type InsertBank, type Vehicle, type InsertVehicle,
@@ -795,6 +795,60 @@ export class DatabaseStorage implements IStorage {
 
   async deleteFollowUp(id: string): Promise<void> {
     await db.delete(followUps).where(eq(followUps.id, id));
+  }
+
+  // Lead Follow-ups
+  async getLeadFollowUp(id: string): Promise<LeadFollowUp | undefined> {
+    const [leadFollowUp] = await db.select().from(leadFollowUps).where(eq(leadFollowUps.id, id));
+    return leadFollowUp || undefined;
+  }
+
+  async getLeadFollowUpsByLead(leadId: string): Promise<LeadFollowUp[]> {
+    return await db.select().from(leadFollowUps)
+      .where(eq(leadFollowUps.leadId, leadId))
+      .orderBy(desc(leadFollowUps.followUpDate));
+  }
+
+  async getLeadFollowUpsByUser(userId: string): Promise<LeadFollowUp[]> {
+    return await db.select().from(leadFollowUps)
+      .where(eq(leadFollowUps.assignedUserId, userId))
+      .orderBy(desc(leadFollowUps.followUpDate));
+  }
+
+  async getAllLeadFollowUps(): Promise<LeadFollowUp[]> {
+    return await db.select().from(leadFollowUps).orderBy(desc(leadFollowUps.createdAt));
+  }
+
+  async createLeadFollowUp(insertLeadFollowUp: InsertLeadFollowUp): Promise<LeadFollowUp> {
+    const leadFollowUpData = {
+      ...insertLeadFollowUp,
+      followUpDate: new Date(insertLeadFollowUp.followUpDate),
+      nextFollowUpDate: insertLeadFollowUp.nextFollowUpDate ? new Date(insertLeadFollowUp.nextFollowUpDate) : null,
+      completedAt: insertLeadFollowUp.completedAt ? new Date(insertLeadFollowUp.completedAt) : null,
+    } as any;
+    
+    const [leadFollowUp] = await db.insert(leadFollowUps).values(leadFollowUpData).returning();
+    return leadFollowUp;
+  }
+
+  async updateLeadFollowUp(id: string, updateLeadFollowUp: Partial<InsertLeadFollowUp>): Promise<LeadFollowUp> {
+    const leadFollowUpData = {
+      ...updateLeadFollowUp,
+      followUpDate: updateLeadFollowUp.followUpDate ? new Date(updateLeadFollowUp.followUpDate) : undefined,
+      nextFollowUpDate: updateLeadFollowUp.nextFollowUpDate ? new Date(updateLeadFollowUp.nextFollowUpDate) : undefined,
+      completedAt: updateLeadFollowUp.completedAt ? new Date(updateLeadFollowUp.completedAt) : undefined,
+      updatedAt: new Date()
+    } as any;
+    
+    // Remove undefined values
+    Object.keys(leadFollowUpData).forEach(key => (leadFollowUpData as any)[key] === undefined && delete (leadFollowUpData as any)[key]);
+    
+    const [leadFollowUp] = await db.update(leadFollowUps).set(leadFollowUpData).where(eq(leadFollowUps.id, id)).returning();
+    return leadFollowUp;
+  }
+
+  async deleteLeadFollowUp(id: string): Promise<void> {
+    await db.delete(leadFollowUps).where(eq(leadFollowUps.id, id));
   }
 
   // E-way Bills

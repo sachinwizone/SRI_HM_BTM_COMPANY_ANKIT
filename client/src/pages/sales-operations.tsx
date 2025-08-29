@@ -578,7 +578,7 @@ function LeadCRMSection() {
                         </div>
                       )}
                       
-                      <div className="flex justify-between items-center pt-2">
+                      <div className="flex flex-wrap gap-2 pt-2">
                         <Button
                           variant="outline"
                           size="sm"
@@ -590,6 +590,17 @@ function LeadCRMSection() {
                         >
                           <Edit className="h-4 w-4 mr-1" />
                           Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            window.location.href = `/lead-follow-up-hub?leadId=${lead.id}`;
+                          }}
+                          data-testid={`button-follow-up-${lead.id}`}
+                        >
+                          <Clock className="h-4 w-4 mr-1" />
+                          Follow-up
                         </Button>
                         <Button
                           variant="outline"

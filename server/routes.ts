@@ -7,7 +7,7 @@ import {
   insertUserSchema, insertClientSchema, insertOrderSchema, insertPaymentSchema,
   insertTaskSchema, insertEwayBillSchema, insertClientTrackingSchema, insertSalesRateSchema,
   insertCreditAgreementSchema, insertPurchaseOrderSchema, insertSalesSchema,
-  insertShippingAddressSchema, insertFollowUpSchema, insertClientAssignmentSchema,
+  insertShippingAddressSchema, insertFollowUpSchema, insertLeadFollowUpSchema, insertClientAssignmentSchema,
   insertNumberSeriesSchema, insertTransporterSchema, insertProductSchema,
   insertCompanyProfileSchema, insertBranchSchema, insertProductMasterSchema,
   insertSupplierSchema, insertBankSchema, insertVehicleSchema,
@@ -978,6 +978,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Follow-up deletion error:", error);
       res.status(500).json({ message: "Failed to delete follow-up" });
+    }
+  });
+
+  // Lead Follow-ups API
+  app.get("/api/lead-follow-ups", async (req, res) => {
+    try {
+      const { leadId, userId } = req.query;
+      let leadFollowUps;
+      
+      if (leadId) {
+        leadFollowUps = await storage.getLeadFollowUpsByLead(leadId as string);
+      } else if (userId) {
+        leadFollowUps = await storage.getLeadFollowUpsByUser(userId as string);
+      } else {
+        leadFollowUps = await storage.getAllLeadFollowUps();
+      }
+      
+      res.json(leadFollowUps);
+    } catch (error) {
+      console.error("Lead follow-ups fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch lead follow-ups" });
+    }
+  });
+
+  app.post("/api/lead-follow-ups", async (req, res) => {
+    try {
+      const validatedData = insertLeadFollowUpSchema.parse(req.body);
+      
+      const leadFollowUpData = {
+        ...validatedData,
+        followUpDate: new Date(validatedData.followUpDate),
+        nextFollowUpDate: validatedData.nextFollowUpDate ? new Date(validatedData.nextFollowUpDate) : undefined,
+        completedAt: validatedData.completedAt ? new Date(validatedData.completedAt) : undefined,
+      } as any;
+      
+      const leadFollowUp = await storage.createLeadFollowUp(leadFollowUpData);
+      res.status(201).json(leadFollowUp);
+    } catch (error) {
+      console.error("Lead follow-up creation error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid lead follow-up data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create lead follow-up" });
+    }
+  });
+
+  app.put("/api/lead-follow-ups/:id", async (req, res) => {
+    try {
+      const validatedData = insertLeadFollowUpSchema.partial().parse(req.body);
+      
+      const leadFollowUpData = {
+        ...validatedData,
+        followUpDate: validatedData.followUpDate ? new Date(validatedData.followUpDate) : undefined,
+        nextFollowUpDate: validatedData.nextFollowUpDate ? new Date(validatedData.nextFollowUpDate) : undefined,
+        completedAt: validatedData.completedAt ? new Date(validatedData.completedAt) : undefined,
+      } as any;
+      
+      // Remove undefined values
+      Object.keys(leadFollowUpData).forEach(key => (leadFollowUpData as any)[key] === undefined && delete (leadFollowUpData as any)[key]);
+      
+      const leadFollowUp = await storage.updateLeadFollowUp(req.params.id, leadFollowUpData);
+      res.json(leadFollowUp);
+    } catch (error) {
+      console.error("Lead follow-up update error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid lead follow-up data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update lead follow-up" });
+    }
+  });
+
+  app.delete("/api/lead-follow-ups/:id", async (req, res) => {
+    try {
+      await storage.deleteLeadFollowUp(req.params.id);
+      res.json({ message: "Lead follow-up deleted successfully" });
+    } catch (error) {
+      console.error("Lead follow-up deletion error:", error);
+      res.status(500).json({ message: "Failed to delete lead follow-up" });
     }
   });
 
