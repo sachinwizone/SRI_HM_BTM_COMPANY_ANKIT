@@ -631,6 +631,7 @@ function LeadCRMSection() {
 function QuotationSection() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [isQuotationDialogOpen, setIsQuotationDialogOpen] = useState(false);
   const [quotationItems, setQuotationItems] = useState([
     { productId: "", quantity: 0, unit: "", rate: 0, amount: 0 }
