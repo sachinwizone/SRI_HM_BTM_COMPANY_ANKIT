@@ -40,6 +40,7 @@ import type {
   Dispatch
 } from "@shared/schema";
 import { insertLeadSchema } from "@shared/schema";
+import { z } from "zod";
 
 export default function SalesOperationsPage() {
   const [activeTab, setActiveTab] = useState("leads");
@@ -119,7 +120,13 @@ function AddLeadDialog({ open, onOpenChange, lead, onLeadSaved }: AddLeadDialogP
   const queryClient = useQueryClient();
 
   const form = useForm({
-    resolver: zodResolver(insertLeadSchema.omit({ id: true, leadNumber: true, createdAt: true, updatedAt: true })),
+    resolver: zodResolver(
+      insertLeadSchema
+        .omit({ id: true, leadNumber: true, createdAt: true, updatedAt: true })
+        .extend({
+          expectedCloseDate: z.string().optional(),
+        })
+    ),
     defaultValues: {
       companyName: lead?.companyName || "",
       contactPersonName: lead?.contactPersonName || "",
@@ -317,7 +324,13 @@ function AddLeadDialog({ open, onOpenChange, lead, onLeadSaved }: AddLeadDialogP
                   <FormItem>
                     <FormLabel>Expected Close Date</FormLabel>
                     <FormControl>
-                      <Input {...field} type="date" />
+                      <Input 
+                        type="date" 
+                        value={field.value || ""}
+                        onChange={(e) => {
+                          field.onChange(e.target.value);
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
