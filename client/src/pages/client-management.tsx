@@ -16,11 +16,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Search, Plus, Filter, Users, Edit, Eye, Upload, Download, FileText, Shield, CreditCard, Building, FileCheck, ScrollText } from "lucide-react";
 import { useState } from "react";
 import { ObjectUploader } from "@/components/ObjectUploader";
+import { DragDropUpload } from "@/components/DragDropUpload";
 
 export default function ClientManagement() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [documentUploads, setDocumentUploads] = useState<Record<string, boolean>>({});
 
   const { data: clients, isLoading } = useQuery({
     queryKey: ['/api/clients'],
@@ -40,6 +42,7 @@ export default function ClientManagement() {
       toast({ title: "Success", description: "Client created successfully" });
       setIsDialogOpen(false);
       form.reset();
+      setDocumentUploads({});
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to create client", variant: "destructive" });
@@ -60,10 +63,24 @@ export default function ClientManagement() {
     }
   });
 
+  const handleDocumentUpload = (documentType: string, success: boolean) => {
+    setDocumentUploads(prev => ({
+      ...prev,
+      [documentType]: success
+    }));
+  };
+
   const onSubmit = (data: any) => {
     createClientMutation.mutate({
       ...data,
-      creditLimit: data.creditLimit ? parseFloat(data.creditLimit) : null
+      creditLimit: data.creditLimit ? parseFloat(data.creditLimit) : null,
+      // Add document upload status
+      gstCertificateUploaded: documentUploads.gstCertificate || false,
+      panCopyUploaded: documentUploads.panCopy || false,
+      securityChequeUploaded: documentUploads.securityCheque || false,
+      aadharCardUploaded: documentUploads.aadharCard || false,
+      agreementUploaded: documentUploads.agreement || false,
+      poRateContractUploaded: documentUploads.poRateContract || false,
     });
   };
 
@@ -299,6 +316,44 @@ export default function ClientManagement() {
                                 )}
                               />
                             </div>
+                            
+                            {/* Document Upload Section */}
+                            <div className="border-t pt-6 mt-6">
+                              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                <FileText className="h-5 w-5" />
+                                Documents Upload (Checklist)
+                              </h3>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <DragDropUpload
+                                  documentType="gstCertificate"
+                                  onUploadComplete={handleDocumentUpload}
+                                />
+                                <DragDropUpload
+                                  documentType="panCopy"
+                                  onUploadComplete={handleDocumentUpload}
+                                />
+                                <DragDropUpload
+                                  documentType="securityCheque"
+                                  onUploadComplete={handleDocumentUpload}
+                                />
+                                <DragDropUpload
+                                  documentType="aadharCard"
+                                  onUploadComplete={handleDocumentUpload}
+                                />
+                                <DragDropUpload
+                                  documentType="agreement"
+                                  onUploadComplete={handleDocumentUpload}
+                                />
+                                <DragDropUpload
+                                  documentType="poRateContract"
+                                  onUploadComplete={handleDocumentUpload}
+                                />
+                              </div>
+                              <p className="text-sm text-gray-500 mt-3">
+                                You can upload documents now or later after creating the client.
+                              </p>
+                            </div>
+                            
                             <div className="flex justify-end space-x-2">
                               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                                 Cancel
