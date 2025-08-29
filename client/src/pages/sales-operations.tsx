@@ -629,6 +629,13 @@ function LeadCRMSection() {
 
 // Quotation System Component
 function QuotationSection() {
+  const { toast } = useToast();
+  const [isQuotationDialogOpen, setIsQuotationDialogOpen] = useState(false);
+
+  const handleCreateQuotation = () => {
+    setIsQuotationDialogOpen(true);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -645,12 +652,150 @@ function QuotationSection() {
           <p className="text-muted-foreground mb-4">
             Create professional quotes with multi-level approval workflow
           </p>
-          <Button>
+          <Button onClick={handleCreateQuotation} data-testid="button-create-quotation">
             <Plus className="h-4 w-4 mr-2" />
             Create Quotation
           </Button>
         </div>
       </CardContent>
+
+      {/* Quotation Creation Dialog */}
+      <Dialog open={isQuotationDialogOpen} onOpenChange={setIsQuotationDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Create New Quotation</DialogTitle>
+            <DialogDescription>
+              Create a professional quotation with detailed pricing and terms
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Client</label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="client1">Sample Client 1</SelectItem>
+                    <SelectItem value="client2">Sample Client 2</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Quotation Date</label>
+                <Input type="date" defaultValue={new Date().toISOString().split('T')[0]} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Valid Until</label>
+                <Input type="date" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Payment Terms</label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payment terms" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="15">15 Days</SelectItem>
+                    <SelectItem value="30">30 Days</SelectItem>
+                    <SelectItem value="45">45 Days</SelectItem>
+                    <SelectItem value="60">60 Days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Description/Notes</label>
+              <Textarea placeholder="Enter quotation description and special terms..." rows={3} />
+            </div>
+
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium mb-3">Quotation Items</h4>
+              <div className="grid grid-cols-12 gap-2 text-xs font-medium mb-2">
+                <div className="col-span-4">Product/Service</div>
+                <div className="col-span-2">Quantity</div>
+                <div className="col-span-2">Unit</div>
+                <div className="col-span-2">Rate</div>
+                <div className="col-span-2">Amount</div>
+              </div>
+              <div className="grid grid-cols-12 gap-2 mb-2">
+                <div className="col-span-4">
+                  <Select>
+                    <SelectTrigger className="h-8">
+                      <SelectValue placeholder="Select product" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="bitumen-60-70">Bitumen 60/70</SelectItem>
+                      <SelectItem value="bitumen-80-100">Bitumen 80/100</SelectItem>
+                      <SelectItem value="emulsion">Bitumen Emulsion</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2">
+                  <Input className="h-8" placeholder="0" />
+                </div>
+                <div className="col-span-2">
+                  <Select>
+                    <SelectTrigger className="h-8">
+                      <SelectValue placeholder="Unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MT">MT</SelectItem>
+                      <SelectItem value="KG">KG</SelectItem>
+                      <SelectItem value="L">Liters</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2">
+                  <Input className="h-8" placeholder="0.00" />
+                </div>
+                <div className="col-span-2">
+                  <Input className="h-8" placeholder="0.00" readonly />
+                </div>
+              </div>
+              <Button variant="outline" size="sm" className="mt-2">
+                <Plus className="h-3 w-3 mr-1" />
+                Add Item
+              </Button>
+            </div>
+
+            <div className="flex justify-between items-center pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Total items: 1
+              </div>
+              <div className="text-right">
+                <div className="text-sm">Subtotal: ₹0.00</div>
+                <div className="text-sm">Tax (18% GST): ₹0.00</div>
+                <div className="text-lg font-bold">Total: ₹0.00</div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsQuotationDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="outline">
+              Save as Draft
+            </Button>
+            <Button onClick={() => {
+              toast({
+                title: "Success",
+                description: "Quotation created successfully",
+              });
+              setIsQuotationDialogOpen(false);
+            }}>
+              Create Quotation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
