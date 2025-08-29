@@ -496,7 +496,7 @@ export const insertClientSchema = z.object({
     return typeof val === 'string' ? parseFloat(val) || 0 : val;
   }),
   poRequired: z.boolean().default(false),
-  invoicingEmails: z.array(z.string()).optional(),
+  invoicingEmails: z.array(z.string()).optional().nullable().transform(val => val || []),
   gstCertificateUploaded: z.boolean().default(false),
   panCopyUploaded: z.boolean().default(false),
   securityChequeUploaded: z.boolean().default(false),

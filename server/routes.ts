@@ -319,10 +319,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clean up empty strings and convert to appropriate types
       const cleanedData = { ...req.body };
       
-      // Convert ALL empty strings to null for any field
+      // Convert empty strings to null for non-array fields
       Object.keys(cleanedData).forEach(key => {
-        if (cleanedData[key] === '' || (Array.isArray(cleanedData[key]) && cleanedData[key].length === 0)) {
+        if (cleanedData[key] === '') {
           cleanedData[key] = null;
+        }
+        // Keep empty arrays as arrays for fields that expect arrays
+        if (Array.isArray(cleanedData[key]) && cleanedData[key].length === 0) {
+          if (['invoicingEmails', 'communicationPreferences'].includes(key)) {
+            // Keep as empty array for these fields
+            cleanedData[key] = [];
+          } else {
+            cleanedData[key] = null;
+          }
         }
       });
       
@@ -364,7 +373,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      const clientData = insertClientSchema.partial().parse(req.body);
+      // Clean up empty strings and convert to appropriate types
+      const cleanedData = { ...req.body };
+      
+      // Convert empty strings to null for non-array fields
+      Object.keys(cleanedData).forEach(key => {
+        if (cleanedData[key] === '') {
+          cleanedData[key] = null;
+        }
+        // Keep empty arrays as arrays for fields that expect arrays
+        if (Array.isArray(cleanedData[key]) && cleanedData[key].length === 0) {
+          if (['invoicingEmails', 'communicationPreferences'].includes(key)) {
+            // Keep as empty array for these fields
+            cleanedData[key] = [];
+          } else {
+            cleanedData[key] = null;
+          }
+        }
+      });
+      
+      const clientData = insertClientSchema.partial().parse(cleanedData);
       const client = await storage.updateClient(req.params.id, clientData);
       res.json(client);
     } catch (error) {
