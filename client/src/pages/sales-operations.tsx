@@ -38,7 +38,12 @@ import {
   Send,
   ThumbsUp,
   ThumbsDown,
-  AlertCircle
+  AlertCircle,
+  Handshake,
+  Trophy,
+  X,
+  AlertTriangle,
+  Building2
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { 
@@ -1095,6 +1100,7 @@ function LeadCRMSection() {
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [activeFollowUpTab, setActiveFollowUpTab] = useState("create");
   const [followUpFilter, setFollowUpFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const convertToClientMutation = useMutation({
     mutationFn: async (lead: Lead) => {
@@ -1374,10 +1380,16 @@ function LeadCRMSection() {
   };
 
   // Filter and sort leads
-  const filteredLeads = leads?.filter(lead => 
-    lead.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    lead.contactPersonName.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const filteredLeads = leads?.filter(lead => {
+    // Text search filter
+    const matchesSearch = lead.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lead.contactPersonName.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Status filter
+    const matchesStatus = statusFilter === 'all' || lead.leadStatus === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  }) || [];
   
   const filteredAndSortedLeads = getFilteredLeadsByFollowUp(filteredLeads)
   .sort((a, b) => {
@@ -1445,6 +1457,149 @@ function LeadCRMSection() {
       </CardHeader>
 
       <CardContent>
+        {/* Lead Status Cards */}
+        <div className="grid grid-cols-7 gap-4 mb-6">
+          {/* New */}
+          <Card 
+            className={`border-blue-200 bg-blue-50 cursor-pointer hover:shadow-md transition-shadow ${
+              statusFilter === 'NEW' ? 'ring-2 ring-blue-500' : ''
+            }`}
+            onClick={() => setStatusFilter(statusFilter === 'NEW' ? 'all' : 'NEW')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {leads?.filter(lead => lead.leadStatus === 'NEW').length || 0}
+                  </div>
+                  <div className="text-sm text-blue-700">New</div>
+                </div>
+                <User className="h-5 w-5 text-blue-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Contacted */}
+          <Card 
+            className={`border-green-200 bg-green-50 cursor-pointer hover:shadow-md transition-shadow ${
+              statusFilter === 'CONTACTED' ? 'ring-2 ring-green-500' : ''
+            }`}
+            onClick={() => setStatusFilter(statusFilter === 'CONTACTED' ? 'all' : 'CONTACTED')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {leads?.filter(lead => lead.leadStatus === 'CONTACTED').length || 0}
+                  </div>
+                  <div className="text-sm text-green-700">Contacted</div>
+                </div>
+                <Phone className="h-5 w-5 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Qualified */}
+          <Card 
+            className={`border-purple-200 bg-purple-50 cursor-pointer hover:shadow-md transition-shadow ${
+              statusFilter === 'QUALIFIED' ? 'ring-2 ring-purple-500' : ''
+            }`}
+            onClick={() => setStatusFilter(statusFilter === 'QUALIFIED' ? 'all' : 'QUALIFIED')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-purple-600">
+                    {leads?.filter(lead => lead.leadStatus === 'QUALIFIED').length || 0}
+                  </div>
+                  <div className="text-sm text-purple-700">Qualified</div>
+                </div>
+                <CheckCircle className="h-5 w-5 text-purple-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Proposal */}
+          <Card 
+            className={`border-orange-200 bg-orange-50 cursor-pointer hover:shadow-md transition-shadow ${
+              statusFilter === 'PROPOSAL' ? 'ring-2 ring-orange-500' : ''
+            }`}
+            onClick={() => setStatusFilter(statusFilter === 'PROPOSAL' ? 'all' : 'PROPOSAL')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-orange-600">
+                    {leads?.filter(lead => lead.leadStatus === 'PROPOSAL').length || 0}
+                  </div>
+                  <div className="text-sm text-orange-700">Proposal</div>
+                </div>
+                <FileText className="h-5 w-5 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Negotiation */}
+          <Card 
+            className={`border-yellow-200 bg-yellow-50 cursor-pointer hover:shadow-md transition-shadow ${
+              statusFilter === 'NEGOTIATION' ? 'ring-2 ring-yellow-500' : ''
+            }`}
+            onClick={() => setStatusFilter(statusFilter === 'NEGOTIATION' ? 'all' : 'NEGOTIATION')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {leads?.filter(lead => lead.leadStatus === 'NEGOTIATION').length || 0}
+                  </div>
+                  <div className="text-sm text-yellow-700">Negotiation</div>
+                </div>
+                <Handshake className="h-5 w-5 text-yellow-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Closed Won */}
+          <Card 
+            className={`border-emerald-200 bg-emerald-50 cursor-pointer hover:shadow-md transition-shadow ${
+              statusFilter === 'CLOSED_WON' ? 'ring-2 ring-emerald-500' : ''
+            }`}
+            onClick={() => setStatusFilter(statusFilter === 'CLOSED_WON' ? 'all' : 'CLOSED_WON')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-emerald-600">
+                    {leads?.filter(lead => lead.leadStatus === 'CLOSED_WON').length || 0}
+                  </div>
+                  <div className="text-sm text-emerald-700">Won</div>
+                </div>
+                <Trophy className="h-5 w-5 text-emerald-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Closed Lost */}
+          <Card 
+            className={`border-red-200 bg-red-50 cursor-pointer hover:shadow-md transition-shadow ${
+              statusFilter === 'CLOSED_LOST' ? 'ring-2 ring-red-500' : ''
+            }`}
+            onClick={() => setStatusFilter(statusFilter === 'CLOSED_LOST' ? 'all' : 'CLOSED_LOST')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-red-600">
+                    {leads?.filter(lead => lead.leadStatus === 'CLOSED_LOST').length || 0}
+                  </div>
+                  <div className="text-sm text-red-700">Lost</div>
+                </div>
+                <X className="h-5 w-5 text-red-500" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Follow-up Summary Cards */}
         <div className="grid grid-cols-6 gap-4 mb-6">
           {/* Overdue */}
@@ -1608,6 +1763,7 @@ function LeadCRMSection() {
                       )}
                     </div>
                   </TableHead>
+                  <TableHead>Next Follow-up</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1682,6 +1838,38 @@ function LeadCRMSection() {
                             ₹{Number(lead.estimatedValue).toLocaleString()}
                           </div>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          // Get the next follow-up for this lead
+                          const leadFollowUps = allFollowUps.filter(f => f.leadId === lead.id && f.status !== 'COMPLETED');
+                          if (leadFollowUps.length === 0) return <span className="text-muted-foreground text-sm">No follow-up</span>;
+                          
+                          // Find the next follow-up date
+                          const nextFollowUp = leadFollowUps.reduce((earliest, current) => {
+                            const currentDate = new Date(current.nextFollowUpDate || current.followUpDate || current.createdAt);
+                            const earliestDate = new Date(earliest.nextFollowUpDate || earliest.followUpDate || earliest.createdAt);
+                            return currentDate < earliestDate ? current : earliest;
+                          });
+                          
+                          const nextDate = new Date(nextFollowUp.nextFollowUpDate || nextFollowUp.followUpDate || nextFollowUp.createdAt);
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          
+                          const isOverdue = nextDate < today;
+                          const isToday = nextDate.toDateString() === today.toDateString();
+                          
+                          return (
+                            <div className="text-sm">
+                              <div className={`font-medium ${isOverdue ? 'text-red-600' : isToday ? 'text-orange-600' : 'text-blue-600'}`}>
+                                {nextDate.toLocaleDateString()}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {nextFollowUp.followUpType || nextFollowUp.type || 'FOLLOW_UP'}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
