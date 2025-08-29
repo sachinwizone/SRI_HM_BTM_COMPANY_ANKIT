@@ -225,6 +225,11 @@ export const leadFollowUps = pgTable("lead_follow_ups", {
   leadId: varchar("lead_id").notNull().references(() => leads.id),
   assignedUserId: varchar("assigned_user_id").notNull().references(() => users.id),
   followUpDate: timestamp("follow_up_date").notNull(),
+  // Old columns for backward compatibility
+  type: varchar("type").notNull(),
+  description: text("description").notNull(),
+  priority: varchar("priority").notNull().default('MEDIUM'),
+  // New columns
   followUpType: leadFollowUpTypeEnum("follow_up_type").notNull().default('CALL'),
   remarks: text("remarks").notNull(),
   status: followUpStatusEnum("status").notNull().default('PENDING'),
