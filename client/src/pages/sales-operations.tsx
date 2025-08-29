@@ -666,6 +666,11 @@ function QuotationSection() {
     retry: false,
   });
 
+  const { data: users = [] } = useQuery({
+    queryKey: ["/api/users"],
+    retry: false,
+  });
+
   // Status update mutation
   const updateQuotationStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -1207,7 +1212,11 @@ Approval Status: ${quotation.approvalStatus}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Prepared By</label>
-                  <p className="font-medium">{selectedQuotation.preparedByUserId}</p>
+                  <p className="font-medium">
+                    {(users as any[]).find((u: any) => u.id === selectedQuotation.preparedByUserId)?.name || 
+                     (users as any[]).find((u: any) => u.id === selectedQuotation.preparedByUserId)?.username || 
+                     'Unknown User'}
+                  </p>
                 </div>
               </div>
 
