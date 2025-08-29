@@ -1298,32 +1298,39 @@ function LeadCRMSection() {
     
     return {
       overdue: allFollowUps.filter(f => {
-        const followUpDate = new Date(f.followUpDate || f.createdAt);
+        // Use nextFollowUpDate if available, otherwise use followUpDate
+        const dateToCheck = f.nextFollowUpDate || f.followUpDate || f.createdAt;
+        const followUpDate = new Date(dateToCheck);
         return followUpDate < ranges.today && f.status !== 'COMPLETED';
       }).length,
       
       today: allFollowUps.filter(f => {
-        const followUpDate = new Date(f.followUpDate || f.createdAt);
+        const dateToCheck = f.nextFollowUpDate || f.followUpDate || f.createdAt;
+        const followUpDate = new Date(dateToCheck);
         return followUpDate >= ranges.today && followUpDate < ranges.tomorrow && f.status !== 'COMPLETED';
       }).length,
       
       tomorrow: allFollowUps.filter(f => {
-        const followUpDate = new Date(f.followUpDate || f.createdAt);
+        const dateToCheck = f.nextFollowUpDate || f.followUpDate || f.createdAt;
+        const followUpDate = new Date(dateToCheck);
         return followUpDate >= ranges.tomorrow && followUpDate < ranges.tomorrowEnd && f.status !== 'COMPLETED';
       }).length,
       
       thisWeek: allFollowUps.filter(f => {
-        const followUpDate = new Date(f.followUpDate || f.createdAt);
+        const dateToCheck = f.nextFollowUpDate || f.followUpDate || f.createdAt;
+        const followUpDate = new Date(dateToCheck);
         return followUpDate >= ranges.today && followUpDate <= ranges.endOfWeek && f.status !== 'COMPLETED';
       }).length,
       
       nextWeek: allFollowUps.filter(f => {
-        const followUpDate = new Date(f.followUpDate || f.createdAt);
+        const dateToCheck = f.nextFollowUpDate || f.followUpDate || f.createdAt;
+        const followUpDate = new Date(dateToCheck);
         return followUpDate >= ranges.startOfNextWeek && followUpDate <= ranges.endOfNextWeek && f.status !== 'COMPLETED';
       }).length,
       
       thisMonth: allFollowUps.filter(f => {
-        const followUpDate = new Date(f.followUpDate || f.createdAt);
+        const dateToCheck = f.nextFollowUpDate || f.followUpDate || f.createdAt;
+        const followUpDate = new Date(dateToCheck);
         return followUpDate >= ranges.startOfMonth && followUpDate <= ranges.endOfMonth && f.status !== 'COMPLETED';
       }).length
     };
@@ -1340,7 +1347,9 @@ function LeadCRMSection() {
       const leadFollowUps = allFollowUps.filter(f => f.leadId === lead.id && f.status !== 'COMPLETED');
       
       return leadFollowUps.some(f => {
-        const followUpDate = new Date(f.followUpDate || f.createdAt);
+        // Use nextFollowUpDate if available, otherwise use followUpDate
+        const dateToCheck = f.nextFollowUpDate || f.followUpDate || f.createdAt;
+        const followUpDate = new Date(dateToCheck);
         
         switch (followUpFilter) {
           case 'overdue':
