@@ -610,7 +610,7 @@ function FollowUpDashboard() {
   };
 
 
-  // Filter follow-ups
+  // Filter and sort follow-ups by date/time (most recent first)
   const filteredFollowUps = leadFollowUps.filter(followUp => {
     if (selectedFilter === "all") return true;
     if (selectedFilter === "pending") return followUp.status === "PENDING";
@@ -629,6 +629,11 @@ function FollowUpDashboard() {
     }
     
     return true;
+  }).sort((a, b) => {
+    // Sort by follow-up date/time (most recent first)
+    const dateA = new Date(a.followUpDate);
+    const dateB = new Date(b.followUpDate);
+    return dateB.getTime() - dateA.getTime();
   });
 
   if (isLoading) {
@@ -905,13 +910,32 @@ function FollowUpDashboard() {
                         <div className="flex items-center space-x-4 text-sm text-gray-600">
                           <div className="flex items-center space-x-1">
                             <Calendar className="h-3 w-3" />
-                            <span>{new Date(followUp.followUpDate).toLocaleDateString()}</span>
+                            <span>
+                              {new Date(followUp.followUpDate).toLocaleDateString()} at {new Date(followUp.followUpDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
                           </div>
                           
                           {assignedUser && (
                             <div>
                               <strong>Assigned:</strong> {assignedUser.firstName} {assignedUser.lastName}
                             </div>
+                          )}
+                        </div>
+                        
+                        {/* Additional follow-up details */}
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-500">
+                          <span className="bg-gray-100 px-2 py-1 rounded">
+                            Type: {followUp.followUpType || followUp.type}
+                          </span>
+                          {followUp.outcome && (
+                            <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                              Outcome: {followUp.outcome}
+                            </span>
+                          )}
+                          {followUp.nextFollowUpDate && (
+                            <span className="bg-green-100 text-green-700 px-2 py-1 rounded">
+                              Next: {new Date(followUp.nextFollowUpDate).toLocaleDateString()}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -993,10 +1017,10 @@ function FollowUpDashboard() {
                               </div>
                             </div>
                             <div className="text-right text-sm text-gray-600">
-                              <div>Scheduled: {new Date(followUp.followUpDate).toLocaleDateString()}</div>
-                              <div>Created: {new Date(followUp.createdAt).toLocaleDateString()}</div>
+                              <div>Scheduled: {new Date(followUp.followUpDate).toLocaleDateString()} at {new Date(followUp.followUpDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                              <div>Created: {new Date(followUp.createdAt).toLocaleDateString()} at {new Date(followUp.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                               {followUp.completedAt && (
-                                <div>Completed: {new Date(followUp.completedAt).toLocaleDateString()}</div>
+                                <div>Completed: {new Date(followUp.completedAt).toLocaleDateString()} at {new Date(followUp.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                               )}
                             </div>
                           </div>
