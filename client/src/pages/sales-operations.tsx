@@ -1158,7 +1158,9 @@ function LeadCRMSection() {
       leadFollowUpForm.reset();
       setActiveFollowUpTab("history");
       queryClient.invalidateQueries({ queryKey: ["/api/lead-follow-ups"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/lead-follow-ups", selectedLead?.id] });
+      if (selectedLead?.id) {
+        queryClient.invalidateQueries({ queryKey: ["/api/lead-follow-ups", selectedLead.id] });
+      }
     },
     onError: (error: any) => {
       toast({
@@ -1177,6 +1179,10 @@ function LeadCRMSection() {
   // Query for lead follow-up history
   const { data: leadFollowUps = [], isLoading: isLoadingFollowUps } = useQuery<any[]>({
     queryKey: ["/api/lead-follow-ups", selectedLead?.id],
+    queryFn: () => {
+      if (!selectedLead?.id) return Promise.resolve([]);
+      return apiCall(`/api/lead-follow-ups?leadId=${selectedLead.id}`, "GET");
+    },
     enabled: !!selectedLead?.id && isFollowUpDialogOpen,
     retry: false,
   });
@@ -1544,7 +1550,7 @@ function LeadCRMSection() {
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="create">Create Follow-up</TabsTrigger>
                   <TabsTrigger value="history">
-                    History ({leadFollowUps.filter(f => f.leadId === selectedLead.id).length})
+                    History ({leadFollowUps.length})
                   </TabsTrigger>
                 </TabsList>
 
@@ -1662,7 +1668,7 @@ function LeadCRMSection() {
                     <div className="text-center py-4">Loading follow-up history...</div>
                   ) : (
                     <div className="space-y-3">
-                      {leadFollowUps.filter(f => f.leadId === selectedLead.id).length === 0 ? (
+                      {leadFollowUps.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">
                           <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                           <p className="text-lg font-medium">No follow-ups yet</p>
@@ -1670,7 +1676,6 @@ function LeadCRMSection() {
                         </div>
                       ) : (
                         leadFollowUps
-                          .filter(f => f.leadId === selectedLead.id)
                           .sort((a, b) => new Date(b.followUpDate || b.createdAt).getTime() - new Date(a.followUpDate || a.createdAt).getTime())
                           .map((followUp) => (
                             <Card key={followUp.id} className="p-4">
