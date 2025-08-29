@@ -9,7 +9,7 @@ export default function ClientCategories() {
 
   const categories = [
     {
-      name: "Alfa",
+      name: "Alpha",
       count: stats?.clientCategories?.ALFA || 0,
       description: "Premium clients",
       color: "bg-green-500"

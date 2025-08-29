@@ -87,7 +87,7 @@ export default function ClientManagement() {
 
   const categoryStats = [
     {
-      name: "Alfa",
+      name: "Alpha",
       count: stats?.clientCategories?.ALFA || 0,
       description: "Premium clients",
       color: "bg-green-500"
@@ -155,7 +155,7 @@ export default function ClientManagement() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Categories</SelectItem>
-                        <SelectItem value="ALFA">Alfa</SelectItem>
+                        <SelectItem value="ALFA">Alpha</SelectItem>
                         <SelectItem value="BETA">Beta</SelectItem>
                         <SelectItem value="GAMMA">Gamma</SelectItem>
                         <SelectItem value="DELTA">Delta</SelectItem>
@@ -205,7 +205,7 @@ export default function ClientManagement() {
                                         </SelectTrigger>
                                       </FormControl>
                                       <SelectContent>
-                                        <SelectItem value="ALFA">Alfa - Premium</SelectItem>
+                                        <SelectItem value="ALFA">Alpha - Premium</SelectItem>
                                         <SelectItem value="BETA">Beta - Standard</SelectItem>
                                         <SelectItem value="GAMMA">Gamma - Regular</SelectItem>
                                         <SelectItem value="DELTA">Delta - New</SelectItem>

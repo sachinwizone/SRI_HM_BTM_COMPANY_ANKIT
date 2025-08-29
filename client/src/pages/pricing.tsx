@@ -13,7 +13,7 @@ const features = [
     premium: true
   },
   {
-    name: "Client Categorization (Alfa, Beta, Gamma, Delta)",
+    name: "Client Categorization (Alpha, Beta, Gamma, Delta)",
     description: "Smart client classification system with custom categories",
     basic: true,
     advanced: true,

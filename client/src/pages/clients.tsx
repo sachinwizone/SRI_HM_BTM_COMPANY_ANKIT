@@ -54,7 +54,7 @@ const categoryColors = {
 };
 
 const categoryLabels = {
-  ALFA: "Alfa",
+  ALFA: "Alpha",
   BETA: "Beta", 
   GAMMA: "Gamma",
   DELTA: "Delta",
@@ -674,7 +674,7 @@ export default function Clients() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="ALFA">Alfa</SelectItem>
+                                <SelectItem value="ALFA">Alpha</SelectItem>
                                 <SelectItem value="BETA">Beta</SelectItem>
                                 <SelectItem value="GAMMA">Gamma</SelectItem>
                                 <SelectItem value="DELTA">Delta</SelectItem>
@@ -1457,7 +1457,7 @@ export default function Clients() {
           </CardContent>
         </Card>
 
-        {/* Alfa Category Card - Green */}
+        {/* Alpha Category Card - Green */}
         <Card 
           className={`cursor-pointer transition-all duration-200 hover:shadow-lg transform hover:scale-105 ${
             selectedCategory === 'ALFA' 
@@ -1467,7 +1467,7 @@ export default function Clients() {
           onClick={() => handleCategoryFilter('ALFA')}
         >
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-medium">Alfa</CardTitle>
+            <CardTitle className="text-lg font-medium">Alpha</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{clientStats.ALFA}</div>
