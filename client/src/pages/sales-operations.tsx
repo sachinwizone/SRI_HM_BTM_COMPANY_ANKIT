@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiCall } from "@/lib/queryClient";
 import { 
   Plus, 
   Edit, 
@@ -143,7 +143,7 @@ function AddLeadDialog({ open, onOpenChange, lead, onLeadSaved }: AddLeadDialogP
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("/api/leads", "POST", data),
+    mutationFn: (data: any) => apiCall("/api/leads", "POST", data),
     onSuccess: () => {
       toast({ title: "Success", description: "Lead created successfully" });
       onLeadSaved();
@@ -159,7 +159,7 @@ function AddLeadDialog({ open, onOpenChange, lead, onLeadSaved }: AddLeadDialogP
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: any) => apiRequest(`/api/leads/${lead?.id}`, "PUT", data),
+    mutationFn: (data: any) => apiCall(`/api/leads/${lead?.id}`, "PUT", data),
     onSuccess: () => {
       toast({ title: "Success", description: "Lead updated successfully" });
       onLeadSaved();
@@ -186,6 +186,9 @@ function AddLeadDialog({ open, onOpenChange, lead, onLeadSaved }: AddLeadDialogP
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{lead ? "Edit Lead" : "Add New Lead"}</DialogTitle>
+          <DialogDescription>
+            {lead ? "Update the lead information below." : "Fill in the details to create a new lead in the system."}
+          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

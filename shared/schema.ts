@@ -1199,6 +1199,8 @@ export const insertLeadSchema = createInsertSchema(leads).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  expectedCloseDate: z.string().optional().transform((val) => val ? new Date(val) : undefined),
 });
 
 export const insertOpportunitySchema = createInsertSchema(opportunities).omit({
