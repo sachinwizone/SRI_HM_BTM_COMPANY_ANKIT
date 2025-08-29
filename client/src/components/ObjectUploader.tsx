@@ -60,6 +60,7 @@ export function ObjectUploader({
       })
       .on("complete", (result) => {
         onComplete?.(result);
+        setShowModal(false);
       })
   );
 
@@ -74,6 +75,15 @@ export function ObjectUploader({
         open={showModal}
         onRequestClose={() => setShowModal(false)}
         proudlyDisplayPoweredByUppy={false}
+        plugins={[]}
+        disableThumbnailGenerator={true}
+        hidePauseResumeButton={true}
+        hideCancelButton={false}
+        hideRetryButton={false}
+        hideUploadButton={false}
+        showSelectedFiles={true}
+        showRemoveButtonAfterComplete={true}
+        note="Click 'Browse files' to select documents from your computer"
       />
     </div>
   );

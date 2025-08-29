@@ -138,6 +138,8 @@ export default function Clients() {
     agreement?: File;
     poRateContract?: File;
   }>({});
+  const [isDocumentViewerOpen, setIsDocumentViewerOpen] = useState(false);
+  const [currentDocument, setCurrentDocument] = useState<{clientId: string, docType: string, label: string} | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -395,15 +397,57 @@ export default function Clients() {
 
   const [currentClientId, setCurrentClientId] = useState<string | null>(null);
 
-  const handleViewDocument = async (clientId: string, documentType: string) => {
+  const handleViewDocument = async (clientId: string, documentType: string, label: string) => {
+    setCurrentDocument({ clientId, docType: documentType, label });
+    setIsDocumentViewerOpen(true);
+  };
+
+  const handleDownloadDocument = async () => {
+    if (!currentDocument) return;
+    
     try {
-      // Create a temporary link to open the document in a new tab
-      const documentUrl = `/objects/uploads/${clientId}/${documentType}`;
-      window.open(documentUrl, '_blank');
-    } catch (error: any) {
+      const documentUrl = `/objects/uploads/${currentDocument.clientId}/${currentDocument.docType}`;
+      const response = await fetch(documentUrl);
+      if (!response.ok) throw new Error('Failed to fetch document');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${currentDocument.label}-${currentDocument.clientId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Success",
+        description: "Document downloaded successfully",
+      });
+    } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to view document",
+        description: "Failed to download document",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePrintDocument = async () => {
+    if (!currentDocument) return;
+    
+    try {
+      const documentUrl = `/objects/uploads/${currentDocument.clientId}/${currentDocument.docType}`;
+      const printWindow = window.open(documentUrl, '_blank');
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to print document",
         variant: "destructive",
       });
     }
@@ -1677,7 +1721,7 @@ export default function Clients() {
                                 <>
                                   <Check className="h-3 w-3 text-green-600" />
                                   <button
-                                    onClick={() => handleViewDocument(client.id, docType)}
+                                    onClick={() => handleViewDocument(client.id, docType, label)}
                                     className="text-green-600 hover:text-green-800 hover:underline cursor-pointer"
                                     title={`View ${label} document`}
                                   >
@@ -1762,6 +1806,55 @@ export default function Clients() {
           )}
         </CardContent>
       </Card>
+
+      {/* Document Viewer Modal */}
+      <Dialog open={isDocumentViewerOpen} onOpenChange={setIsDocumentViewerOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Document Viewer - {currentDocument?.label}</DialogTitle>
+          </DialogHeader>
+          
+          {currentDocument && (
+            <div className="space-y-4">
+              {/* Document Display */}
+              <div className="border rounded-lg overflow-hidden bg-gray-50" style={{ height: '500px' }}>
+                <iframe
+                  src={`/objects/uploads/${currentDocument.clientId}/${currentDocument.docType}`}
+                  className="w-full h-full"
+                  title={`${currentDocument.label} Document`}
+                  onError={() => {
+                    toast({
+                      title: "Error",
+                      description: "Failed to load document",
+                      variant: "destructive",
+                    });
+                  }}
+                />
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex justify-between items-center">
+                <div className="text-sm text-muted-foreground">
+                  {currentDocument.label} Document for Client ID: {currentDocument.clientId}
+                </div>
+                <div className="flex gap-3">
+                  <Button variant="outline" onClick={handleDownloadDocument} data-testid="button-download-document">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </Button>
+                  <Button variant="outline" onClick={handlePrintDocument} data-testid="button-print-document">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Print
+                  </Button>
+                  <Button onClick={() => setIsDocumentViewerOpen(false)} data-testid="button-close-viewer">
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
