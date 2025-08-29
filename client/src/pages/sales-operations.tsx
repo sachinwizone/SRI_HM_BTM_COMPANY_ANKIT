@@ -2431,9 +2431,31 @@ function QuotationSection() {
     const { jsPDF } = await import('jspdf');
     const doc = new jsPDF();
     
+    // Page setup for professional printing
+    const margin = 15;
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
+    const contentWidth = pageWidth - (margin * 2);
+    
     const clientName = getQuotationClientName(quotation);
     const preparedBy = (users as any[])?.find((u: any) => u.id === quotation.preparedByUserId);
     const preparedByName = preparedBy ? `${preparedBy.firstName} ${preparedBy.lastName}` : 'System Administrator';
+    
+    // Professional page border
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(1);
+    doc.rect(margin - 5, margin - 5, contentWidth + 10, pageHeight - (margin * 2) + 10);
+    
+    // Calculate totals from items
+    let subtotal = 0;
+    const validItems = quotation.items || [];
+    validItems.forEach((item: any) => {
+      subtotal += parseFloat(item.amount || item.totalPrice || 0);
+    });
+    
+    const taxRate = 18;
+    const taxAmount = subtotal * (taxRate / 100);
+    const grandTotal = subtotal + taxAmount;
     
     // Calculate totals from items
     let subtotal = 0;
