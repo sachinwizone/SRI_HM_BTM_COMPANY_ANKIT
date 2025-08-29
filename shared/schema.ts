@@ -1201,7 +1201,10 @@ export const insertLeadSchema = createInsertSchema(leads).omit({
   updatedAt: true,
 }).extend({
   expectedCloseDate: z.string().optional().transform((val) => val ? new Date(val) : undefined),
-  estimatedValue: z.string().optional().transform((val) => val && val !== "" ? parseFloat(val) : undefined),
+  estimatedValue: z.union([z.string(), z.number()]).optional().transform((val) => {
+    if (val === "" || val === null || val === undefined) return undefined;
+    return typeof val === "string" ? parseFloat(val) : val;
+  }),
 });
 
 export const insertOpportunitySchema = createInsertSchema(opportunities).omit({

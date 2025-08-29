@@ -120,8 +120,8 @@ export default function Sales() {
   const generateNumbers = async () => {
     try {
       const [soResponse, invResponse] = await Promise.all([
-        apiRequest("POST", "/api/number-series/next/SALES_ORDER"),
-        apiRequest("POST", "/api/number-series/next/INVOICE")
+        apiRequest("/api/number-series/next/SALES_ORDER", "POST"),
+        apiRequest("/api/number-series/next/INVOICE", "POST")
       ]);
       
       const soData = await soResponse.json();
