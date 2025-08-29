@@ -2244,6 +2244,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/quotations/:id", async (req, res) => {
+    try {
+      // Delete quotation items first (cascading delete)
+      const quotationItems = await storage.getQuotationItemsByQuotation(req.params.id);
+      for (const item of quotationItems) {
+        await storage.deleteQuotationItem(item.id);
+      }
+      
+      // Delete the quotation
+      await storage.deleteQuotation(req.params.id);
+      res.json({ message: "Quotation deleted successfully" });
+    } catch (error) {
+      console.error("Quotation deletion error:", error);
+      res.status(500).json({ message: "Failed to delete quotation" });
+    }
+  });
+
   // Sales Orders API
   app.get("/api/sales-orders", async (req, res) => {
     try {

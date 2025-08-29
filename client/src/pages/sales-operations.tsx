@@ -43,7 +43,8 @@ import {
   Trophy,
   X,
   AlertTriangle,
-  Building2
+  Building2,
+  Trash2
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { 
@@ -2229,6 +2230,7 @@ function QuotationSection() {
   const [isQuotationDialogOpen, setIsQuotationDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
+  const [editingQuotationId, setEditingQuotationId] = useState<string | null>(null);
   const [quotationItems, setQuotationItems] = useState([
     { productId: "", quantity: 0, unit: "", rate: 0, amount: 0 }
   ]);
@@ -2297,11 +2299,40 @@ function QuotationSection() {
       setValidUntil("");
       setPaymentTerms("");
       setDescription("");
+      setEditingQuotationId(null);
     },
     onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message || "Failed to create quotation",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateQuotationMutation = useMutation({
+    mutationFn: async ({ id, ...quotationData }: any) => {
+      return apiCall(`/api/quotations/${id}`, "PUT", quotationData);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Quotation updated successfully",
+      });
+      setIsQuotationDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+      // Reset form
+      setQuotationItems([{ productId: "", quantity: 0, unit: "", rate: 0, amount: 0 }]);
+      setSelectedClient("");
+      setValidUntil("");
+      setPaymentTerms("");
+      setDescription("");
+      setEditingQuotationId(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update quotation",
         variant: "destructive",
       });
     },
@@ -2349,6 +2380,7 @@ function QuotationSection() {
     setPaymentTerms("");
     setDescription("");
     setQuotationItems([{ productId: "", quantity: 0, unit: "", rate: 0, amount: 0 }]);
+    setEditingQuotationId(null); // Reset editing mode
     setIsQuotationDialogOpen(true);
   };
 
@@ -2398,7 +2430,13 @@ function QuotationSection() {
       }))
     };
 
-    createQuotationMutation.mutate(quotationData);
+    if (editingQuotationId) {
+      // Update existing quotation
+      updateQuotationMutation.mutate({ id: editingQuotationId, ...quotationData });
+    } else {
+      // Create new quotation
+      createQuotationMutation.mutate(quotationData);
+    }
   };
 
   const handleViewDetails = (quotation: any) => {
@@ -2408,6 +2446,53 @@ function QuotationSection() {
 
   const handleUpdateStatus = (quotationId: string, status: string) => {
     updateQuotationStatusMutation.mutate({ id: quotationId, status });
+  };
+
+  const handleEditQuotation = (quotation: any) => {
+    // Set up editing mode - populate form with existing quotation data
+    setSelectedClient(quotation.clientId);
+    setClientType(quotation.clientType);
+    setPaymentTerms(quotation.paymentTerms.toString());
+    setDescription(quotation.specialInstructions || "");
+    setQuotationDate(quotation.quotationDate.split('T')[0]);
+    setValidUntil(quotation.validUntil ? quotation.validUntil.split('T')[0] : "");
+    
+    // Load existing quotation items
+    const existingItems = quotation.items?.map((item: any) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      unit: item.unit || "Nos",
+      rate: item.unitPrice,
+      amount: item.totalPrice
+    })) || [];
+    
+    setQuotationItems(existingItems);
+    setEditingQuotationId(quotation.id);
+    setIsQuotationDialogOpen(true);
+  };
+
+  const handleDeleteQuotation = async (quotationId: string) => {
+    if (window.confirm("Are you sure you want to delete this quotation? This action cannot be undone.")) {
+      try {
+        await apiCall(`/api/quotations/${quotationId}`, {
+          method: 'DELETE'
+        });
+        
+        // Refresh quotations list
+        queryClient.invalidateQueries({ queryKey: ['/api/quotations'] });
+        
+        toast({
+          title: "Success",
+          description: "Quotation deleted successfully",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to delete quotation",
+          variant: "destructive"
+        });
+      }
+    }
   };
 
   // Helper function to get client/lead name for quotation display
@@ -2451,17 +2536,6 @@ function QuotationSection() {
     const validItems = quotation.items || [];
     validItems.forEach((item: any) => {
       subtotal += parseFloat(item.amount || item.totalPrice || 0);
-    });
-    
-    const taxRate = 18;
-    const taxAmount = subtotal * (taxRate / 100);
-    const grandTotal = subtotal + taxAmount;
-    
-    // Calculate totals from items
-    let subtotal = 0;
-    const validItems = quotation.items || [];
-    validItems.forEach((item: any) => {
-      subtotal += parseFloat(item.totalPrice || item.amount || 0);
     });
     
     const taxRate = 18;
@@ -2658,8 +2732,7 @@ function QuotationSection() {
       doc.text(quotation.specialInstructions, 20, currentY);
     }
     
-    // Footer
-    const pageHeight = doc.internal.pageSize.height;
+    // Footer (using existing pageHeight variable)
     doc.setFontSize(10);
     doc.setFont(undefined, 'italic');
     doc.text('Thank you for your business! We look forward to serving you.', 105, pageHeight - 15, { align: 'center' });
@@ -2775,6 +2848,11 @@ function QuotationSection() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleEditQuotation(quotation)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit Quotation
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             {quotation.status === 'DRAFT' && (
                               <DropdownMenuItem onClick={() => handleUpdateStatus(quotation.id, 'SENT')}>
                                 <Send className="h-4 w-4 mr-2" />
@@ -2793,6 +2871,14 @@ function QuotationSection() {
                                 </DropdownMenuItem>
                               </>
                             )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteQuotation(quotation.id)} 
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete Quotation
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -2821,9 +2907,9 @@ function QuotationSection() {
       <Dialog open={isQuotationDialogOpen} onOpenChange={setIsQuotationDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Create New Quotation</DialogTitle>
+            <DialogTitle>{editingQuotationId ? 'Edit Quotation' : 'Create New Quotation'}</DialogTitle>
             <DialogDescription>
-              Create a professional quotation with detailed pricing and terms
+              {editingQuotationId ? 'Update quotation details and pricing' : 'Create a professional quotation with detailed pricing and terms'}
             </DialogDescription>
           </DialogHeader>
           
@@ -3068,9 +3154,12 @@ function QuotationSection() {
             </Button>
             <Button 
               onClick={handleSaveQuotation}
-              disabled={createQuotationMutation.isPending}
+              disabled={createQuotationMutation.isPending || updateQuotationMutation.isPending}
             >
-              {createQuotationMutation.isPending ? "Creating..." : "Create Quotation"}
+              {editingQuotationId 
+                ? (updateQuotationMutation.isPending ? "Updating..." : "Update Quotation")
+                : (createQuotationMutation.isPending ? "Creating..." : "Create Quotation")
+              }
             </Button>
           </DialogFooter>
         </DialogContent>

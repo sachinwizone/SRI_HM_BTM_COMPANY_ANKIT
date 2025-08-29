@@ -245,6 +245,7 @@ export interface IStorage {
   getQuotationsCount(): Promise<number>;
   createQuotation(quotation: InsertQuotation): Promise<Quotation>;
   updateQuotation(id: string, quotation: Partial<InsertQuotation>): Promise<Quotation>;
+  deleteQuotation(id: string): Promise<void>;
   
   // Quotation Items
   getQuotationItem(id: string): Promise<QuotationItem | undefined>;
@@ -1570,6 +1571,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(quotations.id, id))
       .returning();
     return quotation;
+  }
+
+  async deleteQuotation(id: string): Promise<void> {
+    await db.delete(quotations).where(eq(quotations.id, id));
   }
   
   // Quotation Items
