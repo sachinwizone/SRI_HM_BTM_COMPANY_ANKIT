@@ -2519,6 +2519,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Object Storage API routes
+  app.get("/objects/:objectPath(*)", async (req, res) => {
+    const { ObjectStorageService, ObjectNotFoundError } = await import("./objectStorage");
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error accessing object:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
+
+  app.post("/api/objects/upload", async (req, res) => {
+    const { ObjectStorageService } = await import("./objectStorage");
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error generating upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  app.put("/api/clients/:id/attachments", async (req, res) => {
+    const { ObjectStorageService } = await import("./objectStorage");
+    try {
+      const { attachmentType, fileURL } = req.body;
+      
+      if (!attachmentType || !fileURL) {
+        return res.status(400).json({ error: "attachmentType and fileURL are required" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = objectStorageService.normalizeObjectEntityPath(fileURL);
+      
+      // Update the client's attachment status
+      const updateData = { [`${attachmentType}Uploaded`]: true };
+      const client = await storage.updateClient(req.params.id, updateData);
+      
+      res.json({ objectPath, client });
+    } catch (error) {
+      console.error("Error updating client attachment:", error);
+      res.status(500).json({ error: "Failed to update client attachment" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

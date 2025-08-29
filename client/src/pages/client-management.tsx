@@ -13,8 +13,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertClientSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Plus, Filter, Users, Edit, Eye } from "lucide-react";
+import { Search, Plus, Filter, Users, Edit, Eye, Upload, Download, FileText, Shield, CreditCard, Building, FileCheck, ScrollText } from "lucide-react";
 import { useState } from "react";
+import { ObjectUploader } from "@/components/ObjectUploader";
 
 export default function ClientManagement() {
   const { toast } = useToast();
@@ -83,30 +84,30 @@ export default function ClientManagement() {
 
   const filteredClients = selectedCategory === "all" 
     ? clients 
-    : clients?.filter(client => client.category === selectedCategory);
+    : (clients as any[])?.filter((client: any) => client.category === selectedCategory);
 
   const categoryStats = [
     {
       name: "Alpha",
-      count: stats?.clientCategories?.ALFA || 0,
+      count: (stats as any)?.clientCategories?.ALFA || 0,
       description: "Premium clients",
       color: "bg-green-500"
     },
     {
       name: "Beta", 
-      count: stats?.clientCategories?.BETA || 0,
+      count: (stats as any)?.clientCategories?.BETA || 0,
       description: "Standard clients",
       color: "bg-blue-500"
     },
     {
       name: "Gamma",
-      count: stats?.clientCategories?.GAMMA || 0,
+      count: (stats as any)?.clientCategories?.GAMMA || 0,
       description: "Regular clients", 
       color: "bg-yellow-500"
     },
     {
       name: "Delta",
-      count: stats?.clientCategories?.DELTA || 0,
+      count: (stats as any)?.clientCategories?.DELTA || 0,
       description: "New clients",
       color: "bg-red-500"
     }
@@ -350,7 +351,7 @@ export default function ClientManagement() {
                           </td>
                         </tr>
                       ) : (
-                        filteredClients.map((client, index) => (
+                        (filteredClients as any[]).map((client: any, index: number) => (
                           <tr key={index} className="hover:bg-gray-50">
                             <td className="px-6 py-4">
                               <div>
@@ -397,6 +398,206 @@ export default function ClientManagement() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Client Attachments Section */}
+            <ClientAttachmentsSection />
     </div>
+  );
+}
+
+// Client Attachments Component
+function ClientAttachmentsSection() {
+  const { toast } = useToast();
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
+  
+  const { data: clients } = useQuery({
+    queryKey: ['/api/clients'],
+  });
+
+  const handleGetUploadParameters = async () => {
+    const response = await apiRequest('POST', '/api/objects/upload', {}) as any;
+    return {
+      method: 'PUT' as const,
+      url: response.uploadURL,
+    };
+  };
+
+  const handleUploadComplete = async (attachmentType: string, result: any) => {
+    if (!selectedClientId) {
+      toast({
+        title: "Error",
+        description: "Please select a client first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const uploadURL = result.successful[0]?.uploadURL;
+      if (!uploadURL) {
+        throw new Error("No upload URL found");
+      }
+
+      await apiRequest('PUT', `/api/clients/${selectedClientId}/attachments`, {
+        attachmentType,
+        fileURL: uploadURL
+      });
+
+      toast({
+        title: "Success",
+        description: `${getAttachmentDisplayName(attachmentType)} uploaded successfully`,
+      });
+
+      // Refresh clients data
+      queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
+    } catch (error) {
+      console.error("Upload completion error:", error);
+      toast({
+        title: "Error", 
+        description: "Failed to save attachment",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const getAttachmentDisplayName = (type: string) => {
+    const names: Record<string, string> = {
+      'gstCertificate': 'GST Certificate',
+      'panCopy': 'PAN Copy',
+      'securityCheque': 'Security Cheque',
+      'aadharCard': 'Aadhar Card',
+      'agreement': 'Agreement',
+      'poRateContract': 'PO Rate Contract'
+    };
+    return names[type] || type;
+  };
+
+  const getAttachmentIcon = (type: string) => {
+    const icons: Record<string, any> = {
+      'gstCertificate': FileText,
+      'panCopy': CreditCard,
+      'securityCheque': Shield,
+      'aadharCard': Building,
+      'agreement': FileCheck,
+      'poRateContract': ScrollText
+    };
+    return icons[type] || FileText;
+  };
+
+  const attachmentTypes = [
+    'gstCertificate',
+    'panCopy', 
+    'securityCheque',
+    'aadharCard',
+    'agreement',
+    'poRateContract'
+  ];
+
+  const selectedClient = (clients as any[])?.find((c: any) => c.id === selectedClientId);
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <Upload className="h-5 w-5" />
+          Client Document Attachments
+        </h3>
+        <p className="text-gray-600">Upload and manage client documents (PDF, Word, Images)</p>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-6">
+          {/* Client Selection */}
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium text-gray-700">Select Client:</label>
+            <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+              <SelectTrigger className="w-64">
+                <SelectValue placeholder="Choose client to upload documents" />
+              </SelectTrigger>
+              <SelectContent>
+                {(clients as any[])?.map((client: any) => (
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Attachment Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {attachmentTypes.map((type) => {
+              const Icon = getAttachmentIcon(type);
+              const isUploaded = selectedClient?.[`${type}Uploaded`];
+              
+              return (
+                <Card key={type} className={`p-4 ${isUploaded ? 'border-green-200 bg-green-50' : 'border-gray-200'}`}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <Icon className={`h-5 w-5 ${isUploaded ? 'text-green-600' : 'text-gray-400'}`} />
+                    <h4 className="font-medium text-gray-900">{getAttachmentDisplayName(type)}</h4>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {isUploaded ? (
+                      <div className="space-y-2">
+                        <Badge className="bg-green-100 text-green-800">Uploaded</Badge>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => {
+                              // View file in browser
+                              window.open(`/objects/uploads/${selectedClient.id}/${type}`, '_blank');
+                            }}
+                            data-testid={`button-view-${type}`}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => {
+                              // Download file
+                              const link = document.createElement('a');
+                              link.href = `/objects/uploads/${selectedClient.id}/${type}`;
+                              link.download = `${getAttachmentDisplayName(type)}_${selectedClient.name}`;
+                              link.click();
+                            }}
+                            data-testid={`button-download-${type}`}
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            Download
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <ObjectUploader
+                        maxNumberOfFiles={1}
+                        maxFileSize={10485760} // 10MB
+                        onGetUploadParameters={handleGetUploadParameters}
+                        onComplete={(result) => handleUploadComplete(type, result)}
+                        buttonClassName="w-full"
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload {getAttachmentDisplayName(type)}
+                      </ObjectUploader>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+
+          {!selectedClientId && (
+            <div className="text-center py-8 text-gray-500">
+              <Upload className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+              <p>Select a client above to upload documents</p>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
