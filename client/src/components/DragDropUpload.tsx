@@ -115,7 +115,7 @@ export function DragDropUpload({ documentType, onUploadComplete, disabled, isFor
     }
 
     await uploadFile(file);
-  }, [disabled, isUploading, documentType, onUploadComplete, toast]);
+  }, [disabled, isFormMode, isUploading, documentType, onUploadComplete, toast]);
 
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -132,9 +132,9 @@ export function DragDropUpload({ documentType, onUploadComplete, disabled, isFor
       <div
         className={`
           relative border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors
-          ${isDragOver && !disabled ? 'border-blue-400 bg-blue-50' : 'border-gray-300'}
+          ${isDragOver && (!disabled || isFormMode) ? 'border-blue-400 bg-blue-50' : 'border-gray-300'}
           ${uploadSuccess ? 'border-green-400 bg-green-50' : ''}
-          ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400 hover:bg-gray-50'}
+          ${(disabled && !isFormMode) ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400 hover:bg-gray-50'}
           ${isUploading ? 'border-blue-400 bg-blue-50' : ''}
         `}
         onDragOver={handleDragOver}
