@@ -46,45 +46,69 @@ export function ObjectUploader({
   children,
 }: ObjectUploaderProps) {
   const [showModal, setShowModal] = useState(false);
-  const [uppy] = useState(() =>
-    new Uppy({
+  const [uppy] = useState(() => {
+    const uppyInstance = new Uppy({
       restrictions: {
         maxNumberOfFiles,
         maxFileSize,
+        allowedFileTypes: ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.gif']
       },
       autoProceed: false,
-    })
-      .use(AwsS3, {
-        shouldUseMultipart: false,
-        getUploadParameters: onGetUploadParameters,
-      })
-      .on("complete", (result) => {
-        onComplete?.(result);
-        setShowModal(false);
-      })
-  );
+      debug: true
+    });
+
+    uppyInstance.use(AwsS3, {
+      shouldUseMultipart: false,
+      getUploadParameters: onGetUploadParameters,
+    });
+
+    uppyInstance.on("complete", (result) => {
+      console.log("Upload complete:", result);
+      onComplete?.(result);
+      setShowModal(false);
+    });
+
+    uppyInstance.on("error", (error) => {
+      console.error("Upload error:", error);
+    });
+
+    return uppyInstance;
+  });
+
+  const handleButtonClick = () => {
+    console.log("Upload button clicked");
+    setShowModal(true);
+  };
 
   return (
     <div>
-      <Button onClick={() => setShowModal(true)} className={buttonClassName}>
+      <Button 
+        onClick={handleButtonClick} 
+        className={buttonClassName}
+        type="button"
+      >
         {children}
       </Button>
 
-      <DashboardModal
-        uppy={uppy}
-        open={showModal}
-        onRequestClose={() => setShowModal(false)}
-        proudlyDisplayPoweredByUppy={false}
-        plugins={[]}
-        disableThumbnailGenerator={true}
-        hidePauseResumeButton={true}
-        hideCancelButton={false}
-        hideRetryButton={false}
-        hideUploadButton={false}
-        showSelectedFiles={true}
-        showRemoveButtonAfterComplete={true}
-        note="Click 'Browse files' to select documents from your computer"
-      />
+      {showModal && (
+        <DashboardModal
+          uppy={uppy}
+          open={showModal}
+          onRequestClose={() => {
+            console.log("Modal close requested");
+            setShowModal(false);
+          }}
+          proudlyDisplayPoweredByUppy={false}
+          disableThumbnailGenerator={false}
+          showLinkToFileUploadResult={false}
+          showProgressDetails={true}
+          hideUploadButton={false}
+          hideCancelButton={false}
+          hideRetryButton={false}
+          hidePauseResumeButton={false}
+          note="Select documents to upload (PDF, Word, Images)"
+        />
+      )}
     </div>
   );
 }
