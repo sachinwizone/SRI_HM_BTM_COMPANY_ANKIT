@@ -2413,133 +2413,248 @@ function QuotationSection() {
   // Helper function to get client/lead name for quotation display
   const getQuotationClientName = (quotation: any) => {
     if (quotation.clientType === "lead") {
-      const lead = leads?.find((l: any) => l.id === quotation.clientId);
+      const lead = (leads as any[])?.find((l: any) => l.id === quotation.clientId);
       return lead ? `${lead.companyName} - ${lead.contactPersonName}` : 'Unknown Lead';
     } else {
-      const client = (clients as any[]).find((c: any) => c.id === quotation.clientId);
+      const client = (clients as any[])?.find((c: any) => c.id === quotation.clientId);
       return client?.name || 'Unknown Client';
     }
   };
 
-  const handleDownloadPDF = async (quotation: any) => {
+  const generatePDFFormat = async (quotation: any, format: 'corporate' | 'professional' | 'advanced') => {
     const { jsPDF } = await import('jspdf');
     const doc = new jsPDF();
     
-    // Company Header
-    doc.setFontSize(20);
-    doc.setFont(undefined, 'bold');
-    doc.text('QUOTATION', 105, 25, { align: 'center' });
-    
-    // Quotation details header
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Quotation No: ${quotation.quotationNumber}`, 20, 45);
-    doc.text(`Date: ${new Date(quotation.quotationDate).toLocaleDateString()}`, 20, 52);
-    doc.text(`Valid Until: ${new Date(quotation.validUntil).toLocaleDateString()}`, 20, 59);
-    
-    // Client Details
-    doc.setFont(undefined, 'bold');
-    doc.text('Bill To:', 20, 75);
-    doc.setFont(undefined, 'normal');
     const clientName = getQuotationClientName(quotation);
-    doc.text(clientName, 20, 82);
+    const preparedBy = (users as any[])?.find((u: any) => u.id === quotation.preparedByUserId);
+    const preparedByName = preparedBy ? `${preparedBy.firstName} ${preparedBy.lastName}` : 'System Administrator';
     
-    // Prepared by
-    doc.setFont(undefined, 'bold');
-    doc.text('Prepared By:', 130, 75);
-    doc.setFont(undefined, 'normal');
-    const preparedBy = (users as any[]).find((u: any) => u.id === quotation.preparedByUserId);
-    doc.text(preparedBy ? `${preparedBy.firstName} ${preparedBy.lastName}` : 'Admin', 130, 82);
-    
-    // Table Header
-    const startY = 100;
-    doc.setFont(undefined, 'bold');
-    doc.text('Description', 20, startY);
-    doc.text('Qty', 95, startY);
-    doc.text('Unit', 115, startY);
-    doc.text('Rate', 135, startY);
-    doc.text('Amount', 165, startY);
-    
-    // Table line
-    doc.line(20, startY + 2, 190, startY + 2);
-    
-    // Items
-    doc.setFont(undefined, 'normal');
-    let currentY = startY + 10;
+    // Calculate totals from items
     let subtotal = 0;
-    
-    if (quotation.items && quotation.items.length > 0) {
-      quotation.items.forEach((item: any) => {
-        const description = item.description || (products as any[]).find((p: any) => p.id === item.productId)?.name || 'Unknown Product';
-        const quantity = item.quantity || 0;
-        const unit = item.unit || 'Nos';
-        const rate = parseFloat(item.unitPrice || item.rate || 0);
-        const amount = parseFloat(item.totalPrice || item.amount || 0);
-        
-        // Handle long descriptions
-        const descLines = doc.splitTextToSize(description, 70);
-        doc.text(descLines, 20, currentY);
-        doc.text(quantity.toString(), 95, currentY);
-        doc.text(unit, 115, currentY);
-        doc.text(`₹${rate.toFixed(2)}`, 135, currentY);
-        doc.text(`₹${amount.toFixed(2)}`, 165, currentY);
-        
-        subtotal += amount;
-        currentY += Math.max(descLines.length * 5, 8);
-      });
-    } else {
-      doc.text('No items found', 20, currentY);
-      currentY += 10;
-    }
-    
-    // Totals section
-    currentY += 10;
-    doc.line(20, currentY, 190, currentY);
-    currentY += 10;
+    const validItems = quotation.items || [];
+    validItems.forEach((item: any) => {
+      subtotal += parseFloat(item.totalPrice || item.amount || 0);
+    });
     
     const taxRate = 18;
     const taxAmount = subtotal * (taxRate / 100);
     const grandTotal = subtotal + taxAmount;
     
-    doc.text('Subtotal:', 130, currentY);
-    doc.text(`₹${subtotal.toFixed(2)}`, 165, currentY);
-    currentY += 7;
+    if (format === 'corporate') {
+      // Corporate Format - Elegant and Minimal
+      doc.setFillColor(0, 51, 102); // Dark blue header
+      doc.rect(0, 0, 210, 40, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
+      doc.setFont(undefined, 'bold');
+      doc.text('QUOTATION', 105, 25, { align: 'center' });
+      
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'normal');
+      
+      // Company info box
+      doc.setFillColor(245, 245, 245);
+      doc.rect(15, 50, 180, 25, 'F');
+      doc.text('Your Company Name', 20, 62);
+      doc.text('Address Line 1, City, State, ZIP', 20, 68);
+      doc.text('Phone: +91-XXXXXXXXXX | Email: info@company.com', 20, 74);
+      
+    } else if (format === 'professional') {
+      // Professional Format - Clean and Structured
+      doc.setFillColor(41, 128, 185); // Blue header
+      doc.rect(0, 0, 210, 35, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(20);
+      doc.setFont(undefined, 'bold');
+      doc.text('BUSINESS QUOTATION', 105, 22, { align: 'center' });
+      
+      doc.setTextColor(0, 0, 0);
+      
+      // Two-column layout for company and quotation details
+      doc.setFillColor(250, 250, 250);
+      doc.rect(15, 45, 85, 30, 'F');
+      doc.rect(110, 45, 85, 30, 'F');
+      
+    } else {
+      // Advanced Format - Feature Rich with Graphics
+      doc.setFillColor(76, 175, 80); // Green header
+      doc.rect(0, 0, 210, 45, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(26);
+      doc.setFont(undefined, 'bold');
+      doc.text('QUOTATION', 105, 25, { align: 'center' });
+      doc.setFontSize(12);
+      doc.text('Professional Business Solutions', 105, 35, { align: 'center' });
+      
+      doc.setTextColor(0, 0, 0);
+      
+      // Decorative border
+      doc.setDrawColor(76, 175, 80);
+      doc.setLineWidth(2);
+      doc.rect(10, 10, 190, 277, 'S');
+    }
     
-    doc.text(`Tax (${taxRate}% GST):`, 130, currentY);
-    doc.text(`₹${taxAmount.toFixed(2)}`, 165, currentY);
-    currentY += 7;
+    // Common content positioning based on format
+    let startY = format === 'advanced' ? 55 : format === 'professional' ? 45 : 50;
+    
+    // Quotation details
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text('Quotation Details:', 20, startY + 30);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Quotation No: ${quotation.quotationNumber}`, 20, startY + 40);
+    doc.text(`Date: ${new Date(quotation.quotationDate).toLocaleDateString('en-IN')}`, 20, startY + 47);
+    doc.text(`Valid Until: ${new Date(quotation.validUntil).toLocaleDateString('en-IN')}`, 20, startY + 54);
+    
+    // Client and prepared by
+    doc.setFont(undefined, 'bold');
+    doc.text('Bill To:', 20, startY + 70);
+    doc.setFont(undefined, 'normal');
+    doc.text(clientName, 20, startY + 78);
     
     doc.setFont(undefined, 'bold');
-    doc.text('Grand Total:', 130, currentY);
-    doc.text(`₹${grandTotal.toFixed(2)}`, 165, currentY);
+    doc.text('Prepared By:', 110, startY + 70);
+    doc.setFont(undefined, 'normal');
+    doc.text(preparedByName, 110, startY + 78);
+    
+    // Items table
+    const tableStartY = startY + 95;
+    
+    // Table header with background
+    doc.setFillColor(format === 'corporate' ? 230 : format === 'professional' ? 240 : 220, 
+                     format === 'corporate' ? 230 : format === 'professional' ? 240 : 255, 
+                     format === 'corporate' ? 230 : format === 'professional' ? 240 : 220);
+    doc.rect(15, tableStartY - 5, 180, 10, 'F');
+    
+    doc.setFont(undefined, 'bold');
+    doc.text('Description', 20, tableStartY);
+    doc.text('Qty', 95, tableStartY);
+    doc.text('Unit', 115, tableStartY);
+    doc.text('Rate (₹)', 135, tableStartY);
+    doc.text('Amount (₹)', 165, tableStartY);
+    
+    // Table border
+    doc.line(15, tableStartY + 2, 195, tableStartY + 2);
+    
+    // Items
+    doc.setFont(undefined, 'normal');
+    let currentY = tableStartY + 12;
+    
+    if (validItems.length > 0) {
+      validItems.forEach((item: any, index: number) => {
+        const description = item.description || (products as any[])?.find((p: any) => p.id === item.productId)?.name || 'Product Item';
+        const quantity = item.quantity || 1;
+        const unit = item.unit || 'Nos';
+        const rate = parseFloat(item.unitPrice || item.rate || 0);
+        const amount = parseFloat(item.totalPrice || item.amount || 0);
+        
+        // Alternating row colors for advanced format
+        if (format === 'advanced' && index % 2 === 0) {
+          doc.setFillColor(248, 248, 248);
+          doc.rect(15, currentY - 3, 180, 8, 'F');
+        }
+        
+        const descLines = doc.splitTextToSize(description, 70);
+        doc.text(descLines, 20, currentY);
+        doc.text(quantity.toString(), 95, currentY);
+        doc.text(unit, 115, currentY);
+        doc.text(rate.toFixed(2), 135, currentY);
+        doc.text(amount.toFixed(2), 165, currentY);
+        
+        currentY += Math.max(descLines.length * 5, 10);
+      });
+    } else {
+      doc.setFont(undefined, 'italic');
+      doc.text('No items found in this quotation', 20, currentY);
+      currentY += 15;
+    }
+    
+    // Totals section with styling
+    currentY += 10;
+    doc.line(135, currentY, 195, currentY);
+    currentY += 10;
+    
+    doc.setFont(undefined, 'normal');
+    doc.text('Subtotal:', 135, currentY);
+    doc.text(`₹${subtotal.toFixed(2)}`, 170, currentY);
+    currentY += 8;
+    
+    doc.text(`Tax (${taxRate}% GST):`, 135, currentY);
+    doc.text(`₹${taxAmount.toFixed(2)}`, 170, currentY);
+    currentY += 8;
+    
+    // Grand total with highlight
+    if (format === 'advanced') {
+      doc.setFillColor(76, 175, 80);
+      doc.rect(133, currentY - 3, 62, 10, 'F');
+      doc.setTextColor(255, 255, 255);
+    }
+    
+    doc.setFont(undefined, 'bold');
+    doc.text('Grand Total:', 135, currentY);
+    doc.text(`₹${grandTotal.toFixed(2)}`, 170, currentY);
+    
+    if (format === 'advanced') {
+      doc.setTextColor(0, 0, 0);
+    }
     
     // Terms and conditions
-    currentY += 20;
+    currentY += 25;
     doc.setFont(undefined, 'bold');
     doc.text('Terms & Conditions:', 20, currentY);
     doc.setFont(undefined, 'normal');
-    currentY += 7;
-    doc.text(`Payment Terms: ${quotation.paymentTerms || 30} days`, 20, currentY);
-    currentY += 5;
-    doc.text(`Delivery Terms: ${quotation.deliveryTerms || 'Standard delivery terms'}`, 20, currentY);
+    currentY += 8;
+    
+    const terms = [
+      `Payment Terms: ${quotation.paymentTerms || 30} days`,
+      `Delivery Terms: ${quotation.deliveryTerms || 'Standard delivery terms'}`,
+      'Prices are subject to change without prior notice',
+      'This quotation is valid for the period mentioned above'
+    ];
+    
+    terms.forEach(term => {
+      doc.text(`• ${term}`, 22, currentY);
+      currentY += 6;
+    });
     
     if (quotation.specialInstructions) {
       currentY += 5;
-      doc.text(`Special Instructions: ${quotation.specialInstructions}`, 20, currentY);
+      doc.setFont(undefined, 'bold');
+      doc.text('Special Instructions:', 20, currentY);
+      doc.setFont(undefined, 'normal');
+      currentY += 6;
+      doc.text(quotation.specialInstructions, 20, currentY);
     }
     
     // Footer
     const pageHeight = doc.internal.pageSize.height;
     doc.setFontSize(10);
-    doc.text('Thank you for your business!', 105, pageHeight - 20, { align: 'center' });
+    doc.setFont(undefined, 'italic');
+    doc.text('Thank you for your business! We look forward to serving you.', 105, pageHeight - 15, { align: 'center' });
     
-    // Save the PDF
-    doc.save(`${quotation.quotationNumber}.pdf`);
+    return doc;
+  };
 
-    toast({
-      title: "Success",
-      description: "Quotation downloaded successfully",
-    });
+  const handleDownloadPDF = async (quotation: any, format: 'corporate' | 'professional' | 'advanced' = 'professional') => {
+    try {
+      const doc = await generatePDFFormat(quotation, format);
+      doc.save(`${quotation.quotationNumber}_${format}.pdf`);
+      
+      toast({
+        title: "Success",
+        description: "Quotation downloaded successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -2601,14 +2716,28 @@ function QuotationSection() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDownloadPDF(quotation)}
-                          data-testid={`button-download-${quotation.id}`}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              data-testid={`button-download-${quotation.id}`}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => handleDownloadPDF(quotation, 'corporate')}>
+                              📋 Corporate Format
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDownloadPDF(quotation, 'professional')}>
+                              💼 Professional Format
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDownloadPDF(quotation, 'advanced')}>
+                              ⭐ Advanced Format
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button size="sm" variant="outline" data-testid={`button-actions-${quotation.id}`}>
@@ -3035,10 +3164,25 @@ function QuotationSection() {
             </Button>
             {selectedQuotation && (
               <>
-                <Button variant="outline" onClick={() => handleDownloadPDF(selectedQuotation)}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Download PDF
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download PDF
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => handleDownloadPDF(selectedQuotation, 'corporate')}>
+                      📋 Corporate Format
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDownloadPDF(selectedQuotation, 'professional')}>
+                      💼 Professional Format
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDownloadPDF(selectedQuotation, 'advanced')}>
+                      ⭐ Advanced Format
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 {selectedQuotation.status === 'DRAFT' && (
                   <Button onClick={() => {
                     handleUpdateStatus(selectedQuotation.id, 'SENT');
