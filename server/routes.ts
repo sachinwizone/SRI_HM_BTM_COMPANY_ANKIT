@@ -2135,7 +2135,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         quotations = await storage.getAllQuotations();
       }
-      res.json(quotations);
+      
+      // Fetch items for each quotation and determine client type
+      const quotationsWithItems = await Promise.all(
+        quotations.map(async (quotation) => {
+          const items = await storage.getQuotationItemsByQuotation(quotation.id);
+          
+          // Determine if this is a lead or client
+          let clientName = 'Unknown';
+          let clientType = 'client';
+          
+          try {
+            const client = await storage.getClient(quotation.clientId);
+            if (client) {
+              clientName = client.name;
+              clientType = 'client';
+            } else {
+              const lead = await storage.getLead(quotation.clientId);
+              if (lead) {
+                clientName = lead.companyName;
+                clientType = 'lead';
+              }
+            }
+          } catch (e) {
+            // If lookup fails, try to find in leads
+            try {
+              const lead = await storage.getLead(quotation.clientId);
+              if (lead) {
+                clientName = lead.companyName;
+                clientType = 'lead';
+              }
+            } catch (e2) {
+              console.error('Failed to find client/lead:', quotation.clientId);
+            }
+          }
+          
+          return {
+            ...quotation,
+            items,
+            clientType,
+            clientName
+          };
+        })
+      );
+      
+      res.json(quotationsWithItems);
     } catch (error) {
       console.error("Quotations fetch error:", error);
       res.status(500).json({ message: "Failed to fetch quotations" });

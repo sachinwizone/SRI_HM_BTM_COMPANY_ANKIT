@@ -2412,6 +2412,12 @@ function QuotationSection() {
 
   // Helper function to get client/lead name for quotation display
   const getQuotationClientName = (quotation: any) => {
+    // Use the clientName field from API if available, otherwise fallback to lookup
+    if (quotation.clientName && quotation.clientName !== 'Unknown') {
+      return quotation.clientName;
+    }
+    
+    // Fallback to lookup for older quotations
     if (quotation.clientType === "lead") {
       const lead = (leads as any[])?.find((l: any) => l.id === quotation.clientId);
       return lead ? `${lead.companyName} - ${lead.contactPersonName}` : 'Unknown Lead';
