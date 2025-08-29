@@ -2177,6 +2177,12 @@ function QuotationSection() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  
+  // Fetch leads data for quotation creation
+  const { data: leads } = useQuery({
+    queryKey: ["/api/leads"],
+    enabled: true,
+  });
   const [isQuotationDialogOpen, setIsQuotationDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
@@ -2184,6 +2190,7 @@ function QuotationSection() {
     { productId: "", quantity: 0, unit: "", rate: 0, amount: 0 }
   ]);
   const [selectedClient, setSelectedClient] = useState("");
+  const [clientType, setClientType] = useState<"lead" | "client">("client");
   const [quotationDate, setQuotationDate] = useState(new Date().toISOString().split('T')[0]);
   const [validUntil, setValidUntil] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
@@ -2291,6 +2298,14 @@ function QuotationSection() {
   const totals = calculateTotals();
 
   const handleCreateQuotation = () => {
+    // Reset form when opening dialog
+    setSelectedClient("");
+    setClientType("client");
+    setQuotationDate(new Date().toISOString().split('T')[0]);
+    setValidUntil("");
+    setPaymentTerms("");
+    setDescription("");
+    setQuotationItems([{ productId: "", quantity: 0, unit: "", rate: 0, amount: 0 }]);
     setIsQuotationDialogOpen(true);
   };
 
@@ -2298,7 +2313,7 @@ function QuotationSection() {
     if (!selectedClient) {
       toast({
         title: "Error",
-        description: "Please select a client",
+        description: `Please select a ${clientType === "client" ? "client" : "lead"}`,
         variant: "destructive",
       });
       return;
@@ -2315,6 +2330,7 @@ function QuotationSection() {
 
     const quotationData = {
       clientId: selectedClient,
+      clientType: clientType, // Add client type to identify if it's lead or client
       quotationDate: new Date(quotationDate).toISOString(),
       validUntil: validUntil ? new Date(validUntil).toISOString() : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       totalAmount: totals.total,
@@ -2351,12 +2367,23 @@ function QuotationSection() {
     updateQuotationStatusMutation.mutate({ id: quotationId, status });
   };
 
+  // Helper function to get client/lead name for quotation display
+  const getQuotationClientName = (quotation: any) => {
+    if (quotation.clientType === "lead") {
+      const lead = leads?.find((l: any) => l.id === quotation.clientId);
+      return lead ? `${lead.companyName} - ${lead.contactPersonName}` : 'Unknown Lead';
+    } else {
+      const client = (clients as any[]).find((c: any) => c.id === quotation.clientId);
+      return client?.name || 'Unknown Client';
+    }
+  };
+
   const handleDownloadPDF = (quotation: any) => {
     // Generate PDF content
     const pdfContent = `
 QUOTATION: ${quotation.quotationNumber}
 
-Client: ${(clients as any[]).find((c: any) => c.id === quotation.clientId)?.name || 'Unknown'}
+Client: ${getQuotationClientName(quotation)}
 Date: ${new Date(quotation.quotationDate).toLocaleDateString()}
 Valid Until: ${new Date(quotation.validUntil).toLocaleDateString()}
 
@@ -2422,7 +2449,7 @@ Approval Status: ${quotation.approvalStatus}
                         <span className="font-medium">{quotation.quotationNumber}</span>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Client: {(clients as any[]).find((c: any) => c.id === quotation.clientId)?.name || 'Unknown'}
+                        Client: {getQuotationClientName(quotation)}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Date: {new Date(quotation.quotationDate).toLocaleDateString()}
@@ -2517,24 +2544,75 @@ Approval Status: ${quotation.approvalStatus}
           </DialogHeader>
           
           <div className="space-y-4">
+            {/* Client Type Selection */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Client Type</label>
+              <div className="flex gap-4">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    value="client"
+                    checked={clientType === "client"}
+                    onChange={(e) => {
+                      setClientType(e.target.value as "lead" | "client");
+                      setSelectedClient(""); // Reset selection when type changes
+                    }}
+                    className="text-blue-600"
+                  />
+                  <span className="text-sm">Existing Client</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    value="lead"
+                    checked={clientType === "lead"}
+                    onChange={(e) => {
+                      setClientType(e.target.value as "lead" | "client");
+                      setSelectedClient(""); // Reset selection when type changes
+                    }}
+                    className="text-blue-600"
+                  />
+                  <span className="text-sm">New Client (from Leads)</span>
+                </label>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">Client</label>
+                <label className="text-sm font-medium">
+                  {clientType === "client" ? "Select Client" : "Select Lead"}
+                </label>
                 <Select value={selectedClient} onValueChange={setSelectedClient}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select client" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(clients as any[]).length > 0 ? (
-                      (clients as any[]).map((client: any) => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.name}
+                    {clientType === "client" ? (
+                      // Show existing clients from client management
+                      (clients as any[]).length > 0 ? (
+                        (clients as any[]).map((client: any) => (
+                          <SelectItem key={client.id} value={client.id}>
+                            {client.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-clients" disabled>
+                          No clients available
                         </SelectItem>
-                      ))
+                      )
                     ) : (
-                      <SelectItem value="no-clients" disabled>
-                        No clients available
-                      </SelectItem>
+                      // Show leads from Lead & CRM management
+                      leads && leads.length > 0 ? (
+                        leads.map((lead: any) => (
+                          <SelectItem key={lead.id} value={lead.id}>
+                            {lead.companyName} - {lead.contactPersonName}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-leads" disabled>
+                          No leads available
+                        </SelectItem>
+                      )
                     )}
                   </SelectContent>
                 </Select>
