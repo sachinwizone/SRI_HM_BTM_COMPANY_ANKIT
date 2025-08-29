@@ -2421,36 +2421,120 @@ function QuotationSection() {
     }
   };
 
-  const handleDownloadPDF = (quotation: any) => {
-    // Generate PDF content
-    const pdfContent = `
-QUOTATION: ${quotation.quotationNumber}
-
-Client: ${getQuotationClientName(quotation)}
-Date: ${new Date(quotation.quotationDate).toLocaleDateString()}
-Valid Until: ${new Date(quotation.validUntil).toLocaleDateString()}
-
-Total Amount: ₹${parseFloat(quotation.totalAmount).toFixed(2)}
-Tax Amount: ₹${parseFloat(quotation.taxAmount || 0).toFixed(2)}
-Grand Total: ₹${parseFloat(quotation.grandTotal).toFixed(2)}
-
-Payment Terms: ${quotation.paymentTerms} days
-Delivery Terms: ${quotation.deliveryTerms || 'Standard'}
-
-Status: ${quotation.status}
-Approval Status: ${quotation.approvalStatus}
-    `;
-
-    // Create and download file
-    const blob = new Blob([pdfContent], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${quotation.quotationNumber}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+  const handleDownloadPDF = async (quotation: any) => {
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF();
+    
+    // Company Header
+    doc.setFontSize(20);
+    doc.setFont(undefined, 'bold');
+    doc.text('QUOTATION', 105, 25, { align: 'center' });
+    
+    // Quotation details header
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Quotation No: ${quotation.quotationNumber}`, 20, 45);
+    doc.text(`Date: ${new Date(quotation.quotationDate).toLocaleDateString()}`, 20, 52);
+    doc.text(`Valid Until: ${new Date(quotation.validUntil).toLocaleDateString()}`, 20, 59);
+    
+    // Client Details
+    doc.setFont(undefined, 'bold');
+    doc.text('Bill To:', 20, 75);
+    doc.setFont(undefined, 'normal');
+    const clientName = getQuotationClientName(quotation);
+    doc.text(clientName, 20, 82);
+    
+    // Prepared by
+    doc.setFont(undefined, 'bold');
+    doc.text('Prepared By:', 130, 75);
+    doc.setFont(undefined, 'normal');
+    const preparedBy = (users as any[]).find((u: any) => u.id === quotation.preparedByUserId);
+    doc.text(preparedBy ? `${preparedBy.firstName} ${preparedBy.lastName}` : 'Admin', 130, 82);
+    
+    // Table Header
+    const startY = 100;
+    doc.setFont(undefined, 'bold');
+    doc.text('Description', 20, startY);
+    doc.text('Qty', 95, startY);
+    doc.text('Unit', 115, startY);
+    doc.text('Rate', 135, startY);
+    doc.text('Amount', 165, startY);
+    
+    // Table line
+    doc.line(20, startY + 2, 190, startY + 2);
+    
+    // Items
+    doc.setFont(undefined, 'normal');
+    let currentY = startY + 10;
+    let subtotal = 0;
+    
+    if (quotation.items && quotation.items.length > 0) {
+      quotation.items.forEach((item: any) => {
+        const description = item.description || (products as any[]).find((p: any) => p.id === item.productId)?.name || 'Unknown Product';
+        const quantity = item.quantity || 0;
+        const unit = item.unit || 'Nos';
+        const rate = parseFloat(item.unitPrice || item.rate || 0);
+        const amount = parseFloat(item.totalPrice || item.amount || 0);
+        
+        // Handle long descriptions
+        const descLines = doc.splitTextToSize(description, 70);
+        doc.text(descLines, 20, currentY);
+        doc.text(quantity.toString(), 95, currentY);
+        doc.text(unit, 115, currentY);
+        doc.text(`₹${rate.toFixed(2)}`, 135, currentY);
+        doc.text(`₹${amount.toFixed(2)}`, 165, currentY);
+        
+        subtotal += amount;
+        currentY += Math.max(descLines.length * 5, 8);
+      });
+    } else {
+      doc.text('No items found', 20, currentY);
+      currentY += 10;
+    }
+    
+    // Totals section
+    currentY += 10;
+    doc.line(20, currentY, 190, currentY);
+    currentY += 10;
+    
+    const taxRate = 18;
+    const taxAmount = subtotal * (taxRate / 100);
+    const grandTotal = subtotal + taxAmount;
+    
+    doc.text('Subtotal:', 130, currentY);
+    doc.text(`₹${subtotal.toFixed(2)}`, 165, currentY);
+    currentY += 7;
+    
+    doc.text(`Tax (${taxRate}% GST):`, 130, currentY);
+    doc.text(`₹${taxAmount.toFixed(2)}`, 165, currentY);
+    currentY += 7;
+    
+    doc.setFont(undefined, 'bold');
+    doc.text('Grand Total:', 130, currentY);
+    doc.text(`₹${grandTotal.toFixed(2)}`, 165, currentY);
+    
+    // Terms and conditions
+    currentY += 20;
+    doc.setFont(undefined, 'bold');
+    doc.text('Terms & Conditions:', 20, currentY);
+    doc.setFont(undefined, 'normal');
+    currentY += 7;
+    doc.text(`Payment Terms: ${quotation.paymentTerms || 30} days`, 20, currentY);
+    currentY += 5;
+    doc.text(`Delivery Terms: ${quotation.deliveryTerms || 'Standard delivery terms'}`, 20, currentY);
+    
+    if (quotation.specialInstructions) {
+      currentY += 5;
+      doc.text(`Special Instructions: ${quotation.specialInstructions}`, 20, currentY);
+    }
+    
+    // Footer
+    const pageHeight = doc.internal.pageSize.height;
+    doc.setFontSize(10);
+    doc.text('Thank you for your business!', 105, pageHeight - 20, { align: 'center' });
+    
+    // Save the PDF
+    doc.save(`${quotation.quotationNumber}.pdf`);
 
     toast({
       title: "Success",
@@ -2866,7 +2950,7 @@ Approval Status: ${quotation.approvalStatus}
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Client</label>
                   <p className="font-medium">
-                    {(clients as any[]).find((c: any) => c.id === selectedQuotation.clientId)?.name || 'Unknown'}
+                    {getQuotationClientName(selectedQuotation)}
                   </p>
                 </div>
                 <div>
@@ -2907,11 +2991,11 @@ Approval Status: ${quotation.approvalStatus}
                   </div>
                   {(selectedQuotation.items || []).map((item: any, index: number) => (
                     <div key={index} className="grid grid-cols-5 gap-2 p-3 border-t text-sm">
-                      <div>{(products as any[]).find((p: any) => p.id === item.productId)?.name || 'Unknown Product'}</div>
+                      <div>{item.description || (products as any[]).find((p: any) => p.id === item.productId)?.name || 'Unknown Product'}</div>
                       <div>{item.quantity}</div>
                       <div>{item.unit}</div>
-                      <div>₹{parseFloat(item.rate).toFixed(2)}</div>
-                      <div>₹{parseFloat(item.amount).toFixed(2)}</div>
+                      <div>₹{parseFloat(item.unitPrice || item.rate || 0).toFixed(2)}</div>
+                      <div>₹{parseFloat(item.totalPrice || item.amount || 0).toFixed(2)}</div>
                     </div>
                   ))}
                 </div>
