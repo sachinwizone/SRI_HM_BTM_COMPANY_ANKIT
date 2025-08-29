@@ -420,31 +420,27 @@ function AddLeadDialog({ open, onOpenChange, lead, onLeadSaved }: AddLeadDialogP
 interface FollowUpData {
   id: string;
   leadId: string;
-  type: "PHONE_CALL" | "EMAIL" | "ONLINE_MEETING" | "PHYSICAL_MEETING";
-  description: string;
+  followUpType: "CALL" | "EMAIL" | "MEETING" | "DEMO" | "PROPOSAL" | "FOLLOW_UP";
+  remarks: string;
   followUpDate: string;
   status: "PENDING" | "COMPLETED" | "CANCELLED";
-  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   outcome?: string;
   nextFollowUpDate?: string;
   completedAt?: string;
-  assignedUserId?: string;
+  assignedUserId: string;
   createdAt: string;
   lead?: any;
 }
 
 const followUpFormSchema = z.object({
   leadId: z.string().min(1, "Lead selection is required"),
-  type: z.enum(["PHONE_CALL", "EMAIL", "ONLINE_MEETING", "PHYSICAL_MEETING"], {
+  followUpType: z.enum(["CALL", "EMAIL", "MEETING", "DEMO", "PROPOSAL", "FOLLOW_UP"], {
     required_error: "Follow-up type is required",
   }),
-  description: z.string().min(1, "Description is required"),
+  remarks: z.string().min(1, "Remarks are required"),
   followUpDate: z.string().min(1, "Follow-up date is required"),
-  priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"], {
-    required_error: "Priority is required",
-  }),
   nextFollowUpDate: z.string().optional(),
-  assignedUserId: z.string().optional(),
+  assignedUserId: z.string().min(1, "Assigned user is required"),
 });
 
 type FollowUpFormData = z.infer<typeof followUpFormSchema>;
@@ -476,10 +472,7 @@ function FollowUpDashboard() {
   // Create mutation
   const createFollowUpMutation = useMutation({
     mutationFn: async (data: FollowUpFormData) => {
-      return apiCall("/api/lead-follow-ups", "POST", {
-        ...data,
-        assignedUserId: data.assignedUserId === "unassigned" ? null : data.assignedUserId,
-      });
+      return apiCall("/api/lead-follow-ups", "POST", data);
     },
     onSuccess: () => {
       toast({ title: "Success", description: "Follow-up created successfully" });
@@ -517,9 +510,9 @@ function FollowUpDashboard() {
   const form = useForm<FollowUpFormData>({
     resolver: zodResolver(followUpFormSchema),
     defaultValues: {
-      type: "PHONE_CALL",
-      priority: "MEDIUM",
+      followUpType: "CALL",
       followUpDate: new Date().toISOString().split("T")[0],
+      assignedUserId: "",
     },
   });
 
@@ -597,10 +590,12 @@ function FollowUpDashboard() {
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case "PHONE_CALL": return <Phone className="h-4 w-4" />;
+      case "CALL": return <Phone className="h-4 w-4" />;
       case "EMAIL": return <Mail className="h-4 w-4" />;
-      case "ONLINE_MEETING": return <Users className="h-4 w-4" />;
-      case "PHYSICAL_MEETING": return <Users className="h-4 w-4" />;
+      case "MEETING": return <Users className="h-4 w-4" />;
+      case "DEMO": return <Users className="h-4 w-4" />;
+      case "PROPOSAL": return <FileText className="h-4 w-4" />;
+      case "FOLLOW_UP": return <Clock className="h-4 w-4" />;
       default: return <Clock className="h-4 w-4" />;
     }
   };
@@ -614,15 +609,6 @@ function FollowUpDashboard() {
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "LOW": return "bg-blue-100 text-blue-800 border-blue-200";
-      case "MEDIUM": return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "HIGH": return "bg-orange-100 text-orange-800 border-orange-200";
-      case "URGENT": return "bg-red-100 text-red-800 border-red-200";
-      default: return "bg-gray-100 text-gray-800 border-gray-200";
-    }
-  };
 
   // Filter follow-ups
   const filteredFollowUps = leadFollowUps.filter(followUp => {
@@ -702,7 +688,7 @@ function FollowUpDashboard() {
 
                 <FormField
                   control={form.control}
-                  name="type"
+                  name="followUpType"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Follow-up Type</FormLabel>
@@ -713,34 +699,12 @@ function FollowUpDashboard() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="PHONE_CALL">📞 Phone Call</SelectItem>
+                          <SelectItem value="CALL">📞 Call</SelectItem>
                           <SelectItem value="EMAIL">📧 Email</SelectItem>
-                          <SelectItem value="ONLINE_MEETING">💻 Online Meeting</SelectItem>
-                          <SelectItem value="PHYSICAL_MEETING">🤝 Physical Meeting</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="priority"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Priority</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-priority">
-                            <SelectValue placeholder="Select priority" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="LOW">🟢 Low</SelectItem>
-                          <SelectItem value="MEDIUM">🟡 Medium</SelectItem>
-                          <SelectItem value="HIGH">🟠 High</SelectItem>
-                          <SelectItem value="URGENT">🔴 Urgent</SelectItem>
+                          <SelectItem value="MEETING">🤝 Meeting</SelectItem>
+                          <SelectItem value="DEMO">💻 Demo</SelectItem>
+                          <SelectItem value="PROPOSAL">📋 Proposal</SelectItem>
+                          <SelectItem value="FOLLOW_UP">👥 Follow Up</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -767,7 +731,7 @@ function FollowUpDashboard() {
                   name="assignedUserId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Assign To (Optional)</FormLabel>
+                      <FormLabel>Assign To</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value || ""}>
                         <FormControl>
                           <SelectTrigger data-testid="select-assigned-user">
@@ -775,7 +739,6 @@ function FollowUpDashboard() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="unassigned">Unassigned</SelectItem>
                           {users.map((user) => (
                             <SelectItem key={user.id} value={user.id}>
                               {user.firstName} {user.lastName} ({user.role})
@@ -790,14 +753,14 @@ function FollowUpDashboard() {
 
                 <FormField
                   control={form.control}
-                  name="description"
+                  name="remarks"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Description</FormLabel>
+                      <FormLabel>Remarks</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Describe the follow-up activity..."
-                          data-testid="textarea-description"
+                          placeholder="Enter follow-up remarks..."
+                          data-testid="textarea-remarks"
                           {...field}
                         />
                       </FormControl>
@@ -924,7 +887,7 @@ function FollowUpDashboard() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-3 flex-1">
                       <div className="flex-shrink-0">
-                        {getTypeIcon(followUp.type)}
+                        {getTypeIcon(followUp.followUpType)}
                       </div>
                       
                       <div className="flex-1 min-w-0">
@@ -935,12 +898,9 @@ function FollowUpDashboard() {
                           <Badge className={getStatusColor(followUp.status)}>
                             {followUp.status}
                           </Badge>
-                          <Badge className={getPriorityColor(followUp.priority)}>
-                            {followUp.priority}
-                          </Badge>
                         </div>
                         
-                        <p className="text-gray-700 mb-2">{followUp.description}</p>
+                        <p className="text-gray-700 mb-2">{followUp.remarks || followUp.description}</p>
                         
                         <div className="flex items-center space-x-4 text-sm text-gray-600">
                           <div className="flex items-center space-x-1">
@@ -1020,17 +980,14 @@ function FollowUpDashboard() {
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center space-x-3">
-                              {getTypeIcon(followUp.type)}
+                              {getTypeIcon(followUp.followUpType)}
                               <div>
                                 <h4 className="font-medium text-gray-900">
-                                  {followUp.type.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                                  {followUp.followUpType.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
                                 </h4>
                                 <div className="flex items-center space-x-2 mt-1">
                                   <Badge className={getStatusColor(followUp.status)}>
                                     {followUp.status}
-                                  </Badge>
-                                  <Badge className={getPriorityColor(followUp.priority)}>
-                                    {followUp.priority}
                                   </Badge>
                                 </div>
                               </div>
@@ -1044,7 +1001,7 @@ function FollowUpDashboard() {
                             </div>
                           </div>
                           
-                          <p className="text-gray-700 mb-3">{followUp.description}</p>
+                          <p className="text-gray-700 mb-3">{followUp.remarks || followUp.description}</p>
                           
                           {followUp.outcome && (
                             <div className="p-3 bg-green-50 border border-green-200 rounded-lg mb-3">
