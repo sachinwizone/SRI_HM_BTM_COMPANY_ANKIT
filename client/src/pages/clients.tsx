@@ -245,9 +245,10 @@ export default function Clients() {
       // Set current client ID for document uploads
       setCurrentClientId(client.id);
       
-      // Associate any temporarily uploaded documents with the new client
-      if (!editingClient && Object.keys(uploadedFiles).length > 0) {
+      // Associate any temporarily uploaded documents with the client (both new and updated)
+      if (Object.keys(uploadedFiles).length > 0) {
         try {
+          let associatedCount = 0;
           for (const [documentType, fileData] of Object.entries(uploadedFiles)) {
             if (fileData && fileData.url) {
               const apiDocumentType = documentType
@@ -258,6 +259,7 @@ export default function Clients() {
               await apiCall(`/api/clients/${client.id}/documents/${apiDocumentType}`, "PUT", {
                 documentURL: fileData.url,
               });
+              associatedCount++;
             }
           }
           
@@ -266,13 +268,13 @@ export default function Clients() {
           
           toast({
             title: "Success",
-            description: `Client created successfully with ${Object.keys(uploadedFiles).length} documents uploaded`,
+            description: `Client ${editingClient ? "updated" : "created"} successfully${associatedCount > 0 ? ` with ${associatedCount} documents uploaded` : ''}`,
           });
         } catch (error: any) {
           console.error("Failed to associate documents with client:", error);
           toast({
             title: "Warning",
-            description: "Client created but some documents failed to associate. Please re-upload if needed.",
+            description: `Client ${editingClient ? "updated" : "created"} but some documents failed to associate. Please re-upload if needed.`,
             variant: "destructive",
           });
         }
@@ -290,6 +292,15 @@ export default function Clients() {
       form.reset();
       setEditingClient(null);
       setUploadedFiles({}); // Clear any remaining temporary uploads
+      // Reset uploading states
+      setUploadingStates({
+        gstCertificate: false,
+        panCopy: false,
+        securityCheque: false,
+        aadharCard: false,
+        agreement: false,
+        poRateContract: false,
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -302,6 +313,8 @@ export default function Clients() {
 
   const handleEdit = (client: Client) => {
     setEditingClient(client);
+    setCurrentClientId(client.id);
+    
     form.reset({
       ...client,
       incorporationDate: client.incorporationDate ? new Date(client.incorporationDate) : null,
@@ -328,12 +341,33 @@ export default function Clients() {
       interestPercent: client.interestPercent || "",
       poRequired: client.poRequired || false,
       primarySalesPersonId: client.primarySalesPersonId || null,
+      // Load existing document upload status
+      gstCertificateUploaded: client.gstCertificateUploaded || false,
+      panCopyUploaded: client.panCopyUploaded || false,
+      securityChequeUploaded: client.securityChequeUploaded || false,
+      aadharCardUploaded: client.aadharCardUploaded || false,
+      agreementUploaded: client.agreementUploaded || false,
+      poRateContractUploaded: client.poRateContractUploaded || false,
     });
+    
+    // Clear any temporary uploads when editing an existing client
+    setUploadedFiles({});
+    setUploadingStates({
+      gstCertificate: false,
+      panCopy: false,
+      securityCheque: false,
+      aadharCard: false,
+      agreement: false,
+      poRateContract: false,
+    });
+    
     setIsFormOpen(true);
   };
 
   const handleAddNew = () => {
     setEditingClient(null);
+    setCurrentClientId(null);
+    
     form.reset({
       name: "",
       category: "ALFA",
@@ -367,7 +401,18 @@ export default function Clients() {
       poRateContractUploaded: false,
       shippingAddresses: [],
     });
+    
+    // Reset all upload states
     setUploadedFiles({});
+    setUploadingStates({
+      gstCertificate: false,
+      panCopy: false,
+      securityCheque: false,
+      aadharCard: false,
+      agreement: false,
+      poRateContract: false,
+    });
+    
     setIsFormOpen(true);
   };
 
