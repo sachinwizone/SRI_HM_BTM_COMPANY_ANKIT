@@ -104,14 +104,6 @@ export const clients = pgTable("clients", {
   agreementUploaded: boolean("agreement_uploaded").default(false),
   poRateContractUploaded: boolean("po_rate_contract_uploaded").default(false),
   
-  // Documents Path Storage
-  gstCertificatePath: text("gst_certificate_path"),
-  panCopyPath: text("pan_copy_path"),
-  securityChequePath: text("security_cheque_path"),
-  aadharCardPath: text("aadhar_card_path"),
-  agreementPath: text("agreement_path"),
-  poRateContractPath: text("po_rate_contract_path"),
-  
   // Sales Assignment Fields
   primarySalesPersonId: varchar("primary_sales_person_id").references(() => users.id),
   lastContactDate: timestamp("last_contact_date"),

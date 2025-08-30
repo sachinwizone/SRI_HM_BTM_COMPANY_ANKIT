@@ -1377,32 +1377,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       );
 
-      // Update client document status and path in database
+      // Update client document status in database
       const updateData: any = {};
       switch (documentType) {
         case 'gst-certificate':
           updateData.gstCertificateUploaded = true;
-          updateData.gstCertificatePath = objectPath;
           break;
         case 'pan-copy':
           updateData.panCopyUploaded = true;
-          updateData.panCopyPath = objectPath;
           break;
         case 'security-cheque':
           updateData.securityChequeUploaded = true;
-          updateData.securityChequePath = objectPath;
           break;
         case 'aadhar-card':
           updateData.aadharCardUploaded = true;
-          updateData.aadharCardPath = objectPath;
           break;
         case 'agreement':
           updateData.agreementUploaded = true;
-          updateData.agreementPath = objectPath;
           break;
         case 'po-rate-contract':
           updateData.poRateContractUploaded = true;
-          updateData.poRateContractPath = objectPath;
           break;
         default:
           return res.status(400).json({ error: "Invalid document type" });
