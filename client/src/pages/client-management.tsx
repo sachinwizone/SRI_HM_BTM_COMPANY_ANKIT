@@ -398,7 +398,7 @@ export default function ClientManagement() {
                             <td className="px-6 py-4"><div className="h-8 bg-gray-200 rounded w-20"></div></td>
                           </tr>
                         ))
-                      ) : !filteredClients || filteredClients.length === 0 ? (
+                      ) : !filteredClients || (Array.isArray(filteredClients) && filteredClients.length === 0) ? (
                         <tr>
                           <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                             <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
