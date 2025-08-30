@@ -1349,8 +1349,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get upload URL for client documents  
   app.post("/api/clients/documents/upload", requireAuth, async (req, res) => {
     try {
+      const { clientId, documentType } = req.body;
+      if (!clientId || !documentType) {
+        return res.status(400).json({ error: "clientId and documentType are required" });
+      }
+
       const objectStorageService = new ObjectStorageService();
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      const uploadURL = await objectStorageService.getClientDocumentUploadURL(clientId, documentType);
       res.json({ uploadURL });
     } catch (error: any) {
       console.error("Get upload URL error:", error);

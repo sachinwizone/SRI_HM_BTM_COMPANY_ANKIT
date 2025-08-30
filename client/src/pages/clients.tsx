@@ -557,9 +557,12 @@ export default function Clients() {
     }
   };
 
-  const handleGetUploadParameters = async () => {
+  const handleGetUploadParameters = async (clientId: string, documentType: string) => {
     try {
-      const response = await apiCall("/api/clients/documents/upload", "POST", {});
+      const response = await apiCall("/api/clients/documents/upload", "POST", {
+        clientId,
+        documentType
+      });
       return {
         method: "PUT" as const,
         url: response.uploadURL,
@@ -575,8 +578,14 @@ export default function Clients() {
     setUploadingStates(prev => ({ ...prev, [documentType]: true }));
     
     try {
+      // Need clientId for upload - use currentClientId or editingClient.id
+      const clientId = currentClientId || editingClient?.id;
+      if (!clientId) {
+        throw new Error('Client ID is required for document upload');
+      }
+
       // Get upload URL
-      const uploadParams = await handleGetUploadParameters();
+      const uploadParams = await handleGetUploadParameters(clientId, documentType);
       
       // Upload file directly
       const uploadResponse = await fetch(uploadParams.url, {
