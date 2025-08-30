@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Upload } from "lucide-react";
+import { Upload, FileCheck } from "lucide-react";
 
 interface BasicFileInputProps {
   label: string;
@@ -9,31 +9,59 @@ interface BasicFileInputProps {
 }
 
 export function BasicFileInput({ label, documentType, onFileSelected }: BasicFileInputProps) {
-  const [selectedFileName, setSelectedFileName] = useState<string>("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleClick = () => {
+    fileInputRef.current?.click();
+  };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setSelectedFileName(file.name);
+      setSelectedFile(file);
       onFileSelected?.(file, documentType);
     }
   };
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
         {label}
       </label>
-      <div className="flex items-center space-x-2">
+      <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
         <input
+          ref={fileInputRef}
           type="file"
           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
           onChange={handleFileChange}
-          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 file:cursor-pointer"
+          className="hidden"
+          data-testid={`file-input-${documentType}`}
         />
+        <Button 
+          type="button"
+          variant="outline" 
+          className="w-full" 
+          onClick={handleClick}
+          data-testid={`upload-button-${documentType}`}
+        >
+          {selectedFile ? (
+            <>
+              <FileCheck className="w-4 h-4 mr-2 text-green-600" />
+              {selectedFile.name}
+            </>
+          ) : (
+            <>
+              <Upload className="w-4 h-4 mr-2" />
+              Click to upload {label.toLowerCase()}
+            </>
+          )}
+        </Button>
       </div>
-      {selectedFileName && (
-        <p className="text-sm text-green-600">Selected: {selectedFileName}</p>
+      {selectedFile && (
+        <p className="text-sm text-green-600 dark:text-green-400">
+          ✓ File selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+        </p>
       )}
     </div>
   );
