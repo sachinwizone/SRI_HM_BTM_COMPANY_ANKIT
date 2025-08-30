@@ -56,13 +56,35 @@ export default function ClientManagement() {
     resolver: zodResolver(insertClientSchema),
     defaultValues: {
       name: "",
-      category: "BETA",
-      email: "",
-      phone: "",
-      address: "",
+      category: "BETA" as const,
+      billingAddressLine: "",
+      billingCity: "",
+      billingPincode: "",
+      billingState: "",
+      billingCountry: "India",
       gstNumber: "",
+      panNumber: "",
+      msmeNumber: "",
+      incorporationCertNumber: "",
+      incorporationDate: null,
+      companyType: "PVT_LTD" as const,
+      contactPersonName: "",
+      mobileNumber: "",
+      email: "",
+      communicationPreferences: [],
+      paymentTerms: 30,
       creditLimit: "",
-      paymentTerms: 30
+      interestPercent: "",
+      bankInterestApplicable: "FROM_DUE_DATE" as const,
+      poRequired: false,
+      invoicingEmails: [],
+      primarySalesPersonId: null,
+      gstCertificateUploaded: false,
+      panCopyUploaded: false,
+      securityChequeUploaded: false,
+      aadharCardUploaded: false,
+      agreementUploaded: false,
+      poRateContractUploaded: false,
     }
   });
 
@@ -80,9 +102,8 @@ export default function ClientManagement() {
   };
 
   const onSubmit = (data: any) => {
-    createClientMutation.mutate({
+    const submissionData = {
       ...data,
-      creditLimit: data.creditLimit ? parseFloat(data.creditLimit) : null,
       // Add document upload status
       gstCertificateUploaded: documentUploads.gstCertificate || false,
       panCopyUploaded: documentUploads.panCopy || false,
@@ -97,7 +118,9 @@ export default function ClientManagement() {
       aadharCardUrl: documentUrls.aadharCard || null,
       agreementUrl: documentUrls.agreement || null,
       poRateContractUrl: documentUrls.poRateContract || null,
-    });
+    };
+    
+    createClientMutation.mutate(submissionData);
   };
 
   const getCategoryColor = (category: string) => {
@@ -116,8 +139,8 @@ export default function ClientManagement() {
   };
 
   const filteredClients = selectedCategory === "all" 
-    ? clients 
-    : (clients as any[])?.filter((client: any) => client.category === selectedCategory);
+    ? clients || []
+    : (clients as any[])?.filter((client: any) => client.category === selectedCategory) || [];
 
   const categoryStats = [
     {
@@ -266,10 +289,10 @@ export default function ClientManagement() {
                               />
                               <FormField
                                 control={form.control}
-                                name="phone"
+                                name="mobileNumber"
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel>Phone</FormLabel>
+                                    <FormLabel>Mobile Number</FormLabel>
                                     <FormControl>
                                       <Input placeholder="+91 98765 43210" {...field} />
                                     </FormControl>
@@ -278,19 +301,99 @@ export default function ClientManagement() {
                                 )}
                               />
                             </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <FormField
+                                control={form.control}
+                                name="contactPersonName"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Contact Person Name</FormLabel>
+                                    <FormControl>
+                                      <Input placeholder="Enter contact person name" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name="companyType"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Company Type</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select company type" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        <SelectItem value="PVT_LTD">Private Limited</SelectItem>
+                                        <SelectItem value="PARTNERSHIP">Partnership</SelectItem>
+                                        <SelectItem value="PROPRIETOR">Proprietorship</SelectItem>
+                                        <SelectItem value="GOVT">Government</SelectItem>
+                                        <SelectItem value="OTHERS">Others</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
                             <FormField
                               control={form.control}
-                              name="address"
+                              name="billingAddressLine"
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Address</FormLabel>
+                                  <FormLabel>Billing Address</FormLabel>
                                   <FormControl>
-                                    <Textarea placeholder="Enter client address" {...field} />
+                                    <Textarea placeholder="Enter billing address" {...field} />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
                               )}
                             />
+                            <div className="grid grid-cols-3 gap-4">
+                              <FormField
+                                control={form.control}
+                                name="billingCity"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>City</FormLabel>
+                                    <FormControl>
+                                      <Input placeholder="City" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name="billingState"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>State</FormLabel>
+                                    <FormControl>
+                                      <Input placeholder="State" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name="billingPincode"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Pincode</FormLabel>
+                                    <FormControl>
+                                      <Input placeholder="Pincode" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
                             <div className="grid grid-cols-3 gap-4">
                               <FormField
                                 control={form.control}
