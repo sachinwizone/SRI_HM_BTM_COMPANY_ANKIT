@@ -19,8 +19,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, Edit, MapPin, FileText, Building, User, CreditCard, Truck, X, Upload, File, Check, Search, Calendar, Filter, Download, Trash2, Eye, Activity } from "lucide-react";
-import { ObjectUploader } from "@/components/ObjectUploader";
-import type { UploadResult } from "@uppy/core";
 import { Client360View } from "@/components/analytics/client-360-view";
 import { DataTable } from "@/components/ui/data-table";
 import { z } from "zod";
@@ -493,67 +491,82 @@ export default function Clients() {
     }
   };
 
-  const handleDocumentUpload = async (documentType: string, result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    if (!result.successful || result.successful.length === 0) {
-      toast({
-        title: "Error",
-        description: "File upload failed",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const uploadedFile = result.successful[0];
-    if (!uploadedFile.uploadURL) {
-      toast({
-        title: "Error", 
-        description: "Upload URL missing",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Store the uploaded file temporarily
-    setUploadedFiles(prev => ({
-      ...prev,
-      [documentType]: {
-        name: uploadedFile.name || 'Uploaded file',
-        url: uploadedFile.uploadURL,
-        size: uploadedFile.size
-      } as any
-    }));
-
-    // Update the form state to show as uploaded
-    form.setValue(`${documentType}Uploaded` as any, true);
-
-    toast({
-      title: "Success",
-      description: `${uploadedFile.name || documentType} uploaded successfully`,
-    });
-
-    // If we have a current client ID, immediately associate the document
-    if (currentClientId) {
-      try {
-        const apiDocumentType = documentType
-          .replace(/([A-Z])/g, '-$1')
-          .toLowerCase()
-          .replace(/^-/, '');
-
-        await apiCall(`/api/clients/${currentClientId}/documents/${apiDocumentType}`, "PUT", {
-          documentURL: uploadedFile.uploadURL,
-        });
-
-        // Refresh clients data to show updated status
-        queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
-      } catch (error: any) {
-        console.error("Failed to update document status:", error);
-        // Don't show error toast here as the file is still uploaded temporarily
-      }
-    }
-  };
 
   const renderFileUpload = (documentType: string, label: string) => {
     const isUploaded = form.watch(`${documentType}Uploaded` as any) || uploadedFiles[documentType as keyof typeof uploadedFiles];
+    const [isUploading, setIsUploading] = useState(false);
+
+    const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      setIsUploading(true);
+      
+      try {
+        // Get upload URL
+        const uploadParams = await handleGetUploadParameters();
+        
+        // Upload file directly
+        const uploadResponse = await fetch(uploadParams.url, {
+          method: uploadParams.method,
+          body: file,
+          headers: {
+            'Content-Type': file.type,
+          },
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Upload failed');
+        }
+
+        // Store file info temporarily
+        setUploadedFiles(prev => ({
+          ...prev,
+          [documentType]: {
+            name: file.name,
+            url: uploadParams.url,
+            size: file.size
+          } as any
+        }));
+
+        // Update form state
+        form.setValue(`${documentType}Uploaded` as any, true);
+
+        toast({
+          title: "Success",
+          description: `${file.name} uploaded successfully`,
+        });
+
+        // If we have a current client ID, immediately associate the document
+        if (currentClientId) {
+          try {
+            const apiDocumentType = documentType
+              .replace(/([A-Z])/g, '-$1')
+              .toLowerCase()
+              .replace(/^-/, '');
+
+            await apiCall(`/api/clients/${currentClientId}/documents/${apiDocumentType}`, "PUT", {
+              documentURL: uploadParams.url,
+            });
+
+            queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+          } catch (error: any) {
+            console.error("Failed to update document status:", error);
+          }
+        }
+      } catch (error: any) {
+        console.error('File upload error:', error);
+        toast({
+          title: "Error",
+          description: `Failed to upload ${file.name}`,
+          variant: "destructive"
+        });
+      } finally {
+        setIsUploading(false);
+        // Reset input so same file can be selected again
+        event.target.value = '';
+      }
+    };
 
     return (
       <div className="space-y-2">
@@ -569,19 +582,30 @@ export default function Clients() {
         
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-gray-400 transition-colors">
           {!isUploaded ? (
-            <ObjectUploader
-              maxNumberOfFiles={1}
-              maxFileSize={10485760} // 10MB
-              onGetUploadParameters={handleGetUploadParameters}
-              onComplete={(result) => handleDocumentUpload(documentType, result)}
-              buttonClassName="w-full h-24 border-none bg-transparent hover:bg-gray-50"
-            >
-              <div className="flex flex-col items-center gap-2 text-gray-500">
-                <Upload className="h-8 w-8" />
-                <span className="text-sm">Click to upload {label}</span>
-                <span className="text-xs text-gray-400">PDF, JPG, PNG, DOC (max 10MB)</span>
+            <div className="relative">
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+                onChange={handleFileSelect}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                disabled={isUploading}
+                data-testid={`file-input-${documentType}`}
+              />
+              <div className="flex flex-col items-center gap-2 text-gray-500 py-8">
+                {isUploading ? (
+                  <>
+                    <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                    <span className="text-sm">Uploading...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-8 w-8" />
+                    <span className="text-sm">Click to upload {label}</span>
+                    <span className="text-xs text-gray-400">PDF, JPG, PNG, DOC (max 10MB)</span>
+                  </>
+                )}
               </div>
-            </ObjectUploader>
+            </div>
           ) : (
             <div className="flex items-center justify-center py-4">
               <div className="flex items-center gap-2">
