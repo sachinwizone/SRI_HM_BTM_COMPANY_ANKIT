@@ -55,10 +55,10 @@ export default function ClientManagement() {
       name: "",
       category: "BETA",
       email: "",
-      phone: "",
-      address: "",
+      mobileNumber: "",
+      billingAddressLine: "",
       gstNumber: "",
-      creditLimit: "",
+      creditLimit: 0,
       paymentTerms: 30
     }
   });
@@ -72,9 +72,15 @@ export default function ClientManagement() {
   };
 
   const onSubmit = (data: any) => {
+    // Ensure creditLimit is within database bounds (max 13 digits before decimal)
+    let creditLimit = data.creditLimit;
+    if (creditLimit && creditLimit > 9999999999999) {
+      creditLimit = 9999999999999; // Max safe value for precision 15,2
+    }
+    
     createClientMutation.mutate({
       ...data,
-      creditLimit: data.creditLimit ? parseFloat(data.creditLimit) : null,
+      creditLimit: creditLimit || null,
       // Add document upload status
       gstCertificateUploaded: documentUploads.gstCertificate || false,
       panCopyUploaded: documentUploads.panCopy || false,
@@ -251,7 +257,7 @@ export default function ClientManagement() {
                               />
                               <FormField
                                 control={form.control}
-                                name="phone"
+                                name="mobileNumber"
                                 render={({ field }) => (
                                   <FormItem>
                                     <FormLabel>Phone</FormLabel>
@@ -265,7 +271,7 @@ export default function ClientManagement() {
                             </div>
                             <FormField
                               control={form.control}
-                              name="address"
+                              name="billingAddressLine"
                               render={({ field }) => (
                                 <FormItem>
                                   <FormLabel>Address</FormLabel>
