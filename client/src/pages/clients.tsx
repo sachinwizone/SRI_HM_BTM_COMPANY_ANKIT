@@ -227,28 +227,55 @@ export default function Clients() {
         return newClient;
       }
     },
-    onSuccess: (client) => {
+    onSuccess: async (client) => {
       // Set current client ID for document uploads
       setCurrentClientId(client.id);
       
-      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
-      toast({
-        title: "Success",
-        description: `Client ${editingClient ? "updated" : "created"} successfully`,
-      });
-      
-      // Don't close form immediately - allow document uploads
-      if (!editingClient) {
-        toast({
-          title: "Next Step",
-          description: "You can now upload documents for this client",
-          variant: "default",
-        });
+      // Associate any temporarily uploaded documents with the new client
+      if (!editingClient && Object.keys(uploadedFiles).length > 0) {
+        try {
+          for (const [documentType, fileData] of Object.entries(uploadedFiles)) {
+            if (fileData && fileData.url) {
+              const apiDocumentType = documentType
+                .replace(/([A-Z])/g, '-$1')
+                .toLowerCase()
+                .replace(/^-/, '');
+
+              await apiCall(`/api/clients/${client.id}/documents/${apiDocumentType}`, "PUT", {
+                documentURL: fileData.url,
+              });
+            }
+          }
+          
+          // Clear temporary uploads after associating with client
+          setUploadedFiles({});
+          
+          toast({
+            title: "Success",
+            description: `Client created successfully with ${Object.keys(uploadedFiles).length} documents uploaded`,
+          });
+        } catch (error: any) {
+          console.error("Failed to associate documents with client:", error);
+          toast({
+            title: "Warning",
+            description: "Client created but some documents failed to associate. Please re-upload if needed.",
+            variant: "destructive",
+          });
+        }
       } else {
-        setIsFormOpen(false);
-        form.reset();
-        setEditingClient(null);
+        toast({
+          title: "Success",
+          description: `Client ${editingClient ? "updated" : "created"} successfully`,
+        });
       }
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      
+      // Close form and reset after successful creation/update
+      setIsFormOpen(false);
+      form.reset();
+      setEditingClient(null);
+      setUploadedFiles({}); // Clear any remaining temporary uploads
     },
     onError: (error: Error) => {
       toast({
@@ -486,48 +513,47 @@ export default function Clients() {
       return;
     }
 
-    if (!currentClientId) {
-      toast({
-        title: "Client Must Be Saved First", 
-        description: "Please save the client details before uploading documents",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Store the uploaded file temporarily
+    setUploadedFiles(prev => ({
+      ...prev,
+      [documentType]: {
+        name: uploadedFile.name || 'Uploaded file',
+        url: uploadedFile.uploadURL,
+        size: uploadedFile.size
+      } as any
+    }));
 
-    try {
-      // Convert document type to API format
-      const apiDocumentType = documentType
-        .replace(/([A-Z])/g, '-$1')
-        .toLowerCase()
-        .replace(/^-/, '');
+    // Update the form state to show as uploaded
+    form.setValue(`${documentType}Uploaded` as any, true);
 
-      await apiCall(`/api/clients/${currentClientId}/documents/${apiDocumentType}`, "PUT", {
-        documentURL: uploadedFile.uploadURL,
-      });
+    toast({
+      title: "Success",
+      description: `${uploadedFile.name || documentType} uploaded successfully`,
+    });
 
-      // Update the form state
-      form.setValue(`${documentType}Uploaded` as any, true);
+    // If we have a current client ID, immediately associate the document
+    if (currentClientId) {
+      try {
+        const apiDocumentType = documentType
+          .replace(/([A-Z])/g, '-$1')
+          .toLowerCase()
+          .replace(/^-/, '');
 
-      toast({
-        title: "Success",
-        description: `${documentType} uploaded successfully`,
-      });
+        await apiCall(`/api/clients/${currentClientId}/documents/${apiDocumentType}`, "PUT", {
+          documentURL: uploadedFile.uploadURL,
+        });
 
-      // Refresh clients data to show updated status
-      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
-    } catch (error: any) {
-      console.error("Failed to update document status:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update document status",
-        variant: "destructive",
-      });
+        // Refresh clients data to show updated status
+        queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      } catch (error: any) {
+        console.error("Failed to update document status:", error);
+        // Don't show error toast here as the file is still uploaded temporarily
+      }
     }
   };
 
   const renderFileUpload = (documentType: string, label: string) => {
-    const isUploaded = form.watch(`${documentType}Uploaded` as any);
+    const isUploaded = form.watch(`${documentType}Uploaded` as any) || uploadedFiles[documentType as keyof typeof uploadedFiles];
 
     return (
       <div className="space-y-2">
@@ -543,32 +569,26 @@ export default function Clients() {
         
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-gray-400 transition-colors">
           {!isUploaded ? (
-            currentClientId ? (
-              <ObjectUploader
-                maxNumberOfFiles={1}
-                maxFileSize={10485760} // 10MB
-                onGetUploadParameters={handleGetUploadParameters}
-                onComplete={(result) => handleDocumentUpload(documentType, result)}
-                buttonClassName="w-full h-24 border-none bg-transparent hover:bg-gray-50"
-              >
-                <div className="flex flex-col items-center gap-2 text-gray-500">
-                  <Upload className="h-8 w-8" />
-                  <span className="text-sm">Click to upload {label}</span>
-                  <span className="text-xs text-gray-400">PDF, JPG, PNG, DOC (max 10MB)</span>
-                </div>
-              </ObjectUploader>
-            ) : (
-              <div className="flex flex-col items-center gap-2 text-gray-400 py-6">
+            <ObjectUploader
+              maxNumberOfFiles={1}
+              maxFileSize={10485760} // 10MB
+              onGetUploadParameters={handleGetUploadParameters}
+              onComplete={(result) => handleDocumentUpload(documentType, result)}
+              buttonClassName="w-full h-24 border-none bg-transparent hover:bg-gray-50"
+            >
+              <div className="flex flex-col items-center gap-2 text-gray-500">
                 <Upload className="h-8 w-8" />
-                <span className="text-sm">Save client first to upload {label}</span>
-                <span className="text-xs">Complete and save client details to enable document upload</span>
+                <span className="text-sm">Click to upload {label}</span>
+                <span className="text-xs text-gray-400">PDF, JPG, PNG, DOC (max 10MB)</span>
               </div>
-            )
+            </ObjectUploader>
           ) : (
             <div className="flex items-center justify-center py-4">
               <div className="flex items-center gap-2">
                 <File className="h-5 w-5 text-green-600" />
-                <span className="text-sm text-gray-700">{label} uploaded successfully</span>
+                <span className="text-sm text-gray-700">
+                  {uploadedFiles[documentType as keyof typeof uploadedFiles]?.name || `${label} uploaded successfully`}
+                </span>
               </div>
             </div>
           )}
@@ -617,7 +637,14 @@ export default function Clients() {
           <h1 className="text-3xl font-bold text-gray-900">Client Management</h1>
           <p className="text-gray-600 mt-1">Manage your clients and their information</p>
         </div>
-        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <Dialog open={isFormOpen} onOpenChange={(open) => {
+          if (!open) {
+            // Clear temporary uploads when dialog is closed
+            setUploadedFiles({});
+            setCurrentClientId(null);
+          }
+          setIsFormOpen(open);
+        }}>
           <DialogTrigger asChild>
             <Button onClick={handleAddNew} className="bg-blue-600 hover:bg-blue-700">
               <Plus className="h-4 w-4 mr-2" />
