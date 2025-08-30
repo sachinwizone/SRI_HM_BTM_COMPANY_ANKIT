@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Search, Plus, Filter, Users, Edit, Eye, Upload, Download, FileText, Shield, CreditCard, Building, FileCheck, ScrollText } from "lucide-react";
 import { useState } from "react";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import { BasicFileInput } from "@/components/BasicFileInput";
+import { FileUploadButton } from "@/components/FileUploadButton";
 
 export default function ClientManagement() {
   const { toast } = useToast();
@@ -331,32 +331,32 @@ export default function ClientManagement() {
                                 Documents Upload (Checklist)
                               </h3>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <BasicFileInput
+                                <FileUploadButton
                                   label="GST Certificate"
                                   documentType="gstCertificate"
                                   onFileSelected={handleFileSelected}
                                 />
-                                <BasicFileInput
+                                <FileUploadButton
                                   label="PAN Copy"
                                   documentType="panCopy"
                                   onFileSelected={handleFileSelected}
                                 />
-                                <BasicFileInput
+                                <FileUploadButton
                                   label="Security Cheque"
                                   documentType="securityCheque"
                                   onFileSelected={handleFileSelected}
                                 />
-                                <BasicFileInput
+                                <FileUploadButton
                                   label="Aadhar Card"
                                   documentType="aadharCard"
                                   onFileSelected={handleFileSelected}
                                 />
-                                <BasicFileInput
+                                <FileUploadButton
                                   label="Agreement"
                                   documentType="agreement"
                                   onFileSelected={handleFileSelected}
                                 />
-                                <BasicFileInput
+                                <FileUploadButton
                                   label="PO / Rate Contract"
                                   documentType="poRateContract"
                                   onFileSelected={handleFileSelected}
