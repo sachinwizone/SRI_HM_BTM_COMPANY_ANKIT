@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Search, Plus, Filter, Users, Edit, Eye, Upload, Download, FileText, Shield, CreditCard, Building, FileCheck, ScrollText } from "lucide-react";
 import { useState } from "react";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import { SimpleFileUpload } from "@/components/SimpleFileUpload";
+import { BasicFileInput } from "@/components/BasicFileInput";
 
 export default function ClientManagement() {
   const { toast } = useToast();
@@ -63,10 +63,11 @@ export default function ClientManagement() {
     }
   });
 
-  const handleDocumentUpload = (documentType: string, success: boolean) => {
+  const handleFileSelected = (file: File, documentType: string) => {
+    console.log(`File selected for ${documentType}:`, file.name);
     setDocumentUploads(prev => ({
       ...prev,
-      [documentType]: success
+      [documentType]: true
     }));
   };
 
@@ -323,30 +324,36 @@ export default function ClientManagement() {
                                 <FileText className="h-5 w-5" />
                                 Documents Upload (Checklist)
                               </h3>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <SimpleFileUpload
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <BasicFileInput
+                                  label="GST Certificate"
                                   documentType="gstCertificate"
-                                  onUploadComplete={handleDocumentUpload}
+                                  onFileSelected={handleFileSelected}
                                 />
-                                <SimpleFileUpload
+                                <BasicFileInput
+                                  label="PAN Copy"
                                   documentType="panCopy"
-                                  onUploadComplete={handleDocumentUpload}
+                                  onFileSelected={handleFileSelected}
                                 />
-                                <SimpleFileUpload
+                                <BasicFileInput
+                                  label="Security Cheque"
                                   documentType="securityCheque"
-                                  onUploadComplete={handleDocumentUpload}
+                                  onFileSelected={handleFileSelected}
                                 />
-                                <SimpleFileUpload
+                                <BasicFileInput
+                                  label="Aadhar Card"
                                   documentType="aadharCard"
-                                  onUploadComplete={handleDocumentUpload}
+                                  onFileSelected={handleFileSelected}
                                 />
-                                <SimpleFileUpload
+                                <BasicFileInput
+                                  label="Agreement"
                                   documentType="agreement"
-                                  onUploadComplete={handleDocumentUpload}
+                                  onFileSelected={handleFileSelected}
                                 />
-                                <SimpleFileUpload
+                                <BasicFileInput
+                                  label="PO / Rate Contract"
                                   documentType="poRateContract"
-                                  onUploadComplete={handleDocumentUpload}
+                                  onFileSelected={handleFileSelected}
                                 />
                               </div>
                               
