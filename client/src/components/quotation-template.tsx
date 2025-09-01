@@ -154,8 +154,7 @@ export const generateBitumenQuotationPDF = (quotationData: QuotationData) => {
 
   // Items Table Header
   const tableStartY = currentY;
-  const colWidths = [25, 20, 15, 30, 25, 25, 35];
-  const colPositions = [margin, margin + 25, margin + 45, margin + 60, margin + 90, margin + 115, margin + 140];
+  const colPositions = [margin, margin + 50, margin + 70, margin + 90, margin + 120, margin + 150, margin + 175];
 
   // Table headers
   doc.setFillColor(240, 240, 240);
@@ -165,8 +164,8 @@ export const generateBitumenQuotationPDF = (quotationData: QuotationData) => {
   addBoldText('Qty', colPositions[1], currentY);
   addBoldText('Unit', colPositions[2], currentY);
   addBoldText('Ex Factory Rate', colPositions[3], currentY);
-  addBoldText('Amount GST@18%', colPositions[4], currentY);
-  addBoldText('(₹)', colPositions[5], currentY);
+  addBoldText('Amount', colPositions[4], currentY);
+  addBoldText('GST@18%', colPositions[5], currentY);
   addBoldText('Total Amount(₹)', colPositions[6], currentY);
   currentY += 8;
 
@@ -175,10 +174,10 @@ export const generateBitumenQuotationPDF = (quotationData: QuotationData) => {
     addText(item.description, colPositions[0], currentY);
     addText(item.quantity.toString(), colPositions[1], currentY);
     addText(item.unit, colPositions[2], currentY);
-    addText(item.rate.toString(), colPositions[3], currentY);
-    addText(item.amount.toString(), colPositions[4], currentY);
-    addText(item.gstAmount?.toString() || '', colPositions[5], currentY);
-    addText(item.totalAmount.toString(), colPositions[6], currentY);
+    addText('₹' + item.rate.toFixed(2), colPositions[3], currentY);
+    addText('₹' + item.amount.toFixed(2), colPositions[4], currentY);
+    addText('₹' + (item.amount * 0.18).toFixed(2), colPositions[5], currentY);
+    addText('₹' + (item.amount * 1.18).toFixed(2), colPositions[6], currentY);
     currentY += 7;
   });
 
@@ -212,17 +211,26 @@ export const generateBitumenQuotationPDF = (quotationData: QuotationData) => {
   }
 
   // Totals section (right aligned)
-  const totalsX = pageWidth - 80;
+  const totalsX = pageWidth - 100;
+  const totalsValueX = pageWidth - 30;
+  
   addBoldText('SubTotal', totalsX, currentY);
-  addText(quotationData.subtotal.toString(), totalsX + 30, currentY);
+  addText('₹' + quotationData.subtotal.toFixed(2), totalsValueX, currentY, { align: 'right' });
+  currentY += 6;
+
+  addBoldText('GST (18%)', totalsX, currentY);
+  addText('₹' + (quotationData.subtotal * 0.18).toFixed(2), totalsValueX, currentY, { align: 'right' });
   currentY += 6;
 
   addBoldText('Freight', totalsX, currentY);
-  addText(quotationData.freight.toString(), totalsX + 30, currentY);
+  addText('₹' + quotationData.freight.toFixed(2), totalsValueX, currentY, { align: 'right' });
   currentY += 6;
 
+  doc.setLineWidth(0.5);
+  doc.line(totalsX, currentY - 2, pageWidth - margin, currentY - 2);
+  
   addBoldText('Total', totalsX, currentY);
-  addText(quotationData.total.toString(), totalsX + 30, currentY);
+  addBoldText('₹' + (quotationData.subtotal * 1.18 + quotationData.freight).toFixed(2), totalsValueX, currentY, { align: 'right' });
   currentY += 15;
 
   // Terms and Conditions (Left side)
