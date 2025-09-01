@@ -2432,9 +2432,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create sales order items from quotation items
       for (const item of quotationItems) {
+        // Check if the product exists before creating the sales order item
+        let actualProductId = item.productId;
+        try {
+          if (item.productId) {
+            const product = await storage.getProduct(item.productId);
+            if (!product) {
+              // Product doesn't exist, set to null to avoid foreign key constraint
+              actualProductId = null;
+              console.warn(`Product ${item.productId} not found, creating sales order item with description only`);
+            }
+          }
+        } catch (error) {
+          console.warn(`Error checking product ${item.productId}:`, error);
+          actualProductId = null;
+        }
+        
         await storage.createSalesOrderItem({
           salesOrderId: salesOrder.id,
-          productId: item.productId,
+          productId: actualProductId,
           description: item.description,
           quantity: item.quantity,
           unit: item.unit,
