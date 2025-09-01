@@ -3658,7 +3658,7 @@ M/S SRI HM BITUMEN CO
     setIsViewDialogOpen(true);
   };
 
-  // Email functionality - Send PDF to client email
+  // Email functionality - Open default email client with pre-filled details
   const handleSendToEmail = async (salesOrder: any) => {
     try {
       // Get client details and email
@@ -3674,33 +3674,59 @@ M/S SRI HM BITUMEN CO
         return;
       }
       
-      // Generate PDF and send via email
+      // Get quotation items for email content
       const quotation = (quotations as any[])?.find((q: any) => q.id === salesOrder.quotationId);
+      const itemsText = quotation?.items?.map((item: any) => 
+        `• ${item.description || 'Product'}: ${item.quantity} ${item.unit} @ ₹${parseFloat(item.unitPrice || item.rate || 0).toFixed(2)} = ₹${parseFloat(item.totalPrice || item.amount || 0).toFixed(2)}`
+      ).join('\n') || '';
       
-      const response = await fetch('/api/send-sales-order-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          salesOrder,
-          client,
-          quotation,
-          toEmail: clientEmail
-        })
+      // Create email content
+      const subject = `Sales Order ${salesOrder.orderNumber} - M/S SRI HM BITUMEN CO`;
+      const body = `Dear ${client.name},
+
+Thank you for your business! Please find your sales order details below:
+
+ORDER DETAILS:
+Order Number: ${salesOrder.orderNumber}
+Order Date: ${new Date(salesOrder.orderDate || salesOrder.createdAt).toLocaleDateString()}
+Status: ${salesOrder.status}
+Expected Delivery: ${salesOrder.expectedDeliveryDate ? new Date(salesOrder.expectedDeliveryDate).toLocaleDateString() : 'TBD'}
+
+ITEMS:
+${itemsText}
+
+AMOUNT SUMMARY:
+Subtotal: ₹${parseFloat(salesOrder.totalAmount || 0).toFixed(2)}
+GST (18%): ₹${(parseFloat(salesOrder.totalAmount || 0) * 0.18).toFixed(2)}
+Total Amount: ₹${(parseFloat(salesOrder.totalAmount || 0) * 1.18).toFixed(2)}
+
+If you have any questions or concerns, please don't hesitate to contact us.
+
+Best regards,
+M/S SRI HM BITUMEN CO
+Dag No: 1071, Patta No: 264, Mkirpara
+Chakardaigaon, Mouza - Ramcharani
+Guwahati, Assam - 781035
+
+Phone: +91 8453059698
+Email: info.srihmbitumen@gmail.com
+GST: 18CGMPP6536N2ZG`;
+
+      // Create mailto link
+      const mailtoLink = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      
+      // Open default email client
+      window.open(mailtoLink, '_blank');
+      
+      toast({
+        title: "Email Client Opened",
+        description: `Default email client opened with pre-filled order details for ${client.name}.`
       });
-      
-      if (response.ok) {
-        toast({
-          title: "Email Sent",
-          description: `Sales order PDF sent to ${clientEmail} successfully.`
-        });
-      } else {
-        throw new Error('Failed to send email');
-      }
       
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to send email. Please try again.",
+        description: "Failed to open email client. Please try again.",
         variant: "destructive"
       });
     }
