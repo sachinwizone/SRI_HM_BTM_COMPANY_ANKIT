@@ -3658,7 +3658,7 @@ M/S SRI HM BITUMEN CO
     setIsViewDialogOpen(true);
   };
 
-  // Email functionality - Generate PDF and open Gmail compose
+  // Email functionality - Generate PDF and create email with attachment-ready workflow
   const handleSendToEmail = async (salesOrder: any) => {
     try {
       // Get client details and email
@@ -3674,17 +3674,30 @@ M/S SRI HM BITUMEN CO
         return;
       }
       
-      // Generate and download PDF first
+      // Generate PDF and prepare for email
       const quotation = (quotations as any[])?.find((q: any) => q.id === salesOrder.quotationId);
       
+      toast({
+        title: "Preparing Email",
+        description: "Generating PDF and opening Gmail...",
+      });
+      
       try {
-        await handleDownloadSalesOrderPDF(salesOrder);
+        // Generate PDF data in memory
+        const pdfData = await generateBitumenSalesOrderPDF({
+          salesOrder,
+          client,
+          quotation,
+          user: user || { fullName: 'Sales Team' }
+        });
         
-        // Short delay to ensure PDF download starts
-        setTimeout(() => {
-          // Create Gmail compose URL with pre-filled data
-          const subject = `Sales Order ${salesOrder.orderNumber} - M/S SRI HM BITUMEN CO`;
-          const body = `Dear ${client.name},
+        // Create a blob URL for the PDF
+        const blob = new Blob([pdfData], { type: 'application/pdf' });
+        const pdfUrl = URL.createObjectURL(blob);
+        
+        // Create Gmail compose URL with pre-filled data
+        const subject = `Sales Order ${salesOrder.orderNumber} - M/S SRI HM BITUMEN CO`;
+        const body = `Dear ${client.name},
 
 Thank you for your business! Please find the attached sales order PDF for the following:
 
@@ -3693,7 +3706,7 @@ Order Date: ${new Date(salesOrder.orderDate || salesOrder.createdAt).toLocaleDat
 Total Amount: ₹${parseFloat(salesOrder.totalAmount || 0).toFixed(2)}
 Status: ${salesOrder.status}
 
-The detailed sales order document is attached to this email.
+The detailed sales order document should be attached to this email.
 
 If you have any questions or concerns, please don't hesitate to contact us.
 
@@ -3705,8 +3718,21 @@ Guwahati, Assam - 781035
 
 Phone: +91 8453059698
 Email: info.srihmbitumen@gmail.com
-GST: 18CGMPP6536N2ZG`;
+GST: 18CGMPP6536N2ZG
 
+---
+NOTE: The PDF file has been prepared. Please attach the downloaded PDF file (Sales-Order-${salesOrder.orderNumber}.pdf) to this email before sending.`;
+
+        // Download the PDF with a specific filename
+        const link = document.createElement('a');
+        link.href = pdfUrl;
+        link.download = `Sales-Order-${salesOrder.orderNumber}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Small delay then open Gmail
+        setTimeout(() => {
           // Gmail compose URL
           const gmailComposeUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(clientEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
           
@@ -3714,13 +3740,23 @@ GST: 18CGMPP6536N2ZG`;
           window.open(gmailComposeUrl, '_blank');
           
           toast({
-            title: "Gmail Opened",
-            description: `Gmail compose opened for ${client.name}. Please attach the downloaded PDF file to the email.`,
+            title: "Ready to Send!",
+            description: `📧 Gmail opened for ${client.name}
+📎 PDF downloaded: Sales-Order-${salesOrder.orderNumber}.pdf
+👆 Please attach the PDF file and send the email.`,
+            duration: 8000,
           });
-        }, 1000);
+        }, 500);
+        
+        // Clean up the blob URL after a delay
+        setTimeout(() => {
+          URL.revokeObjectURL(pdfUrl);
+        }, 30000);
         
       } catch (pdfError) {
         // If PDF generation fails, still open Gmail
+        console.error('PDF generation error:', pdfError);
+        
         const subject = `Sales Order ${salesOrder.orderNumber} - M/S SRI HM BITUMEN CO`;
         const body = `Dear ${client.name},
 
@@ -3731,23 +3767,28 @@ Order Date: ${new Date(salesOrder.orderDate || salesOrder.createdAt).toLocaleDat
 Total Amount: ₹${parseFloat(salesOrder.totalAmount || 0).toFixed(2)}
 Status: ${salesOrder.status}
 
+Please find the order details above. The PDF attachment will be added separately.
+
 Best regards,
-M/S SRI HM BITUMEN CO`;
+M/S SRI HM BITUMEN CO
+Phone: +91 8453059698
+Email: info.srihmbitumen@gmail.com`;
 
         const gmailComposeUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(clientEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
         window.open(gmailComposeUrl, '_blank');
         
         toast({
           title: "Gmail Opened",
-          description: `Gmail compose opened for ${client.name}. PDF generation failed - please create manually if needed.`,
+          description: `Gmail compose opened for ${client.name}. PDF generation failed - please create attachment manually.`,
           variant: "destructive"
         });
       }
       
     } catch (error) {
+      console.error('Email preparation error:', error);
       toast({
         title: "Error",
-        description: "Failed to open Gmail. Please try again.",
+        description: "Failed to prepare email. Please try again.",
         variant: "destructive"
       });
     }
