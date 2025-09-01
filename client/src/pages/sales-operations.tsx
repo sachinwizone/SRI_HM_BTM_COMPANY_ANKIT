@@ -57,6 +57,8 @@ import type {
 } from "@shared/schema";
 import { insertLeadSchema } from "@shared/schema";
 import { z } from "zod";
+import { generateBitumenQuotationPDF } from "@/components/quotation-template";
+import { generateBitumenSalesOrderPDF } from "@/components/sales-order-template";
 
 export default function SalesOperationsPage() {
   const [activeTab, setActiveTab] = useState("leads");
@@ -2760,9 +2762,98 @@ function QuotationSection() {
     return doc;
   };
 
-  const handleDownloadPDF = async (quotation: any, format: 'corporate' | 'professional' | 'advanced' = 'professional') => {
+  const handleDownloadPDF = async (quotation: any, format: 'bitumen' | 'professional' | 'advanced' = 'bitumen') => {
     try {
-      const doc = await generatePDFFormat(quotation, format);
+      let doc;
+      
+      if (format === 'bitumen') {
+        // Use the new bitumen template format
+        const clientName = getQuotationClientName(quotation);
+        const preparedBy = (users as any[])?.find((u: any) => u.id === quotation.preparedByUserId);
+        const preparedByName = preparedBy ? `${preparedBy.firstName} ${preparedBy.lastName}` : 'System Administrator';
+        
+        // Get client details
+        let clientDetails = { name: clientName, gstNumber: '', address: '', state: '', pinCode: '', mobileNumber: '', email: '' };
+        if (quotation.clientType === "client") {
+          const client = (clients as any[])?.find((c: any) => c.id === quotation.clientId);
+          if (client) {
+            clientDetails = {
+              name: client.name,
+              gstNumber: client.gstNumber || '',
+              address: `${client.addressLine1 || ''} ${client.billingAddressLine || ''}`,
+              state: client.state || client.billingState || '',
+              pinCode: client.pinCode || client.billingPincode || '',
+              mobileNumber: client.mobileNumber || '',
+              email: client.email || ''
+            };
+          }
+        } else {
+          const lead = (leads as any[])?.find((l: any) => l.id === quotation.clientId);
+          if (lead) {
+            clientDetails = {
+              name: `${lead.companyName} - ${lead.contactPersonName}`,
+              gstNumber: '',
+              address: '',
+              state: '',
+              pinCode: '',
+              mobileNumber: lead.mobileNumber || '',
+              email: lead.email || ''
+            };
+          }
+        }
+
+        // Transform items for the new template
+        const items = (quotation.items || []).map((item: any) => ({
+          description: item.description || (products as any[])?.find((p: any) => p.id === item.productId)?.name || 'Product Item',
+          quantity: parseFloat(item.quantity || 1),
+          unit: item.unit || 'Nos',
+          rate: parseFloat(item.unitPrice || item.rate || 0),
+          amount: parseFloat(item.totalPrice || item.amount || 0),
+          gstRate: 18,
+          gstAmount: parseFloat(item.totalPrice || item.amount || 0) * 0.18,
+          totalAmount: parseFloat(item.totalPrice || item.amount || 0) * 1.18
+        }));
+
+        const subtotal = items.reduce((sum: number, item: any) => sum + item.amount, 0);
+        const total = subtotal * 1.18; // Including 18% GST
+
+        const quotationData = {
+          quotationNumber: quotation.quotationNumber,
+          quotationDate: new Date(quotation.quotationDate),
+          validUntil: new Date(quotation.validUntil),
+          deliveryTerms: quotation.deliveryTerms || 'With In 10 to 12 Days',
+          paymentTerms: `${quotation.paymentTerms || 30} Days Credit. Interest will be charged Day 1st Of Billing @18%P.A`,
+          destination: quotation.destination || '',
+          loadingFrom: quotation.loadingFrom || 'Kandla',
+          client: clientDetails,
+          items: items,
+          salesPersonName: preparedByName,
+          description: quotation.description || quotation.specialInstructions || '',
+          note: quotation.note || '',
+          subtotal: subtotal,
+          freight: 0,
+          total: total,
+          companyDetails: {
+            name: 'Your Company Name',
+            address: 'Address Line 1\nCity, State, ZIP',
+            gstNumber: 'GST_NUMBER_HERE',
+            mobile: '+91-XXXXXXXXXX',
+            email: 'info@company.com',
+            bankDetails: {
+              bankName: 'Your Bank Name',
+              accountNumber: 'ACCOUNT_NUMBER',
+              branch: 'Branch Name',
+              ifscCode: 'IFSC_CODE'
+            }
+          }
+        };
+
+        doc = generateBitumenQuotationPDF(quotationData);
+      } else {
+        // Use legacy format for other options
+        doc = await generatePDFFormat(quotation, format);
+      }
+      
       doc.save(`${quotation.quotationNumber}_${format}.pdf`);
       
       toast({
@@ -2863,8 +2954,8 @@ function QuotationSection() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent>
-                              <DropdownMenuItem onClick={() => handleDownloadPDF(quotation, 'corporate')}>
-                                📋 Corporate Format
+                              <DropdownMenuItem onClick={() => handleDownloadPDF(quotation, 'bitumen')}>
+                                🏭 Bitumen Industry Format
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleDownloadPDF(quotation, 'professional')}>
                                 💼 Professional Format
@@ -3333,8 +3424,8 @@ function QuotationSection() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => handleDownloadPDF(selectedQuotation, 'corporate')}>
-                      📋 Corporate Format
+                    <DropdownMenuItem onClick={() => handleDownloadPDF(selectedQuotation, 'bitumen')}>
+                      🏭 Bitumen Industry Format
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleDownloadPDF(selectedQuotation, 'professional')}>
                       💼 Professional Format
@@ -3372,9 +3463,105 @@ function SalesOrderSection() {
     queryKey: ['/api/clients'],
   });
 
+  const { data: users } = useQuery({
+    queryKey: ['/api/users'],
+  });
+
+  const { data: quotations } = useQuery({
+    queryKey: ['/api/quotations'],
+  });
+
+  const { toast } = useToast();
+
   const getSalesOrderClientName = (salesOrder: any) => {
     const client = (clients as any[])?.find((c: any) => c.id === salesOrder.clientId);
     return client ? client.name : 'Unknown Client';
+  };
+
+  const handleDownloadSalesOrderPDF = async (salesOrder: any) => {
+    try {
+      // Get related quotation for items
+      const quotation = (quotations as any[])?.find((q: any) => q.id === salesOrder.quotationId);
+      
+      // Get client details
+      const client = (clients as any[])?.find((c: any) => c.id === salesOrder.clientId);
+      const clientDetails = client ? {
+        name: client.name,
+        gstNumber: client.gstNumber || '',
+        address: `${client.addressLine1 || ''} ${client.billingAddressLine || ''}`,
+        state: client.state || client.billingState || '',
+        pinCode: client.pinCode || client.billingPincode || '',
+        mobileNumber: client.mobileNumber || '',
+        email: client.email || ''
+      } : {
+        name: getSalesOrderClientName(salesOrder),
+        gstNumber: '',
+        address: '',
+        state: '',
+        pinCode: '',
+        mobileNumber: '',
+        email: ''
+      };
+
+      // Transform items from quotation
+      const items = (quotation?.items || []).map((item: any) => ({
+        description: item.description || 'Product Item',
+        quantity: parseFloat(item.quantity || 1),
+        unit: item.unit || 'Nos',
+        rate: parseFloat(item.unitPrice || item.rate || 0),
+        amount: parseFloat(item.totalPrice || item.amount || 0),
+        gstRate: 18,
+        gstAmount: parseFloat(item.totalPrice || item.amount || 0) * 0.18,
+        totalAmount: parseFloat(item.totalPrice || item.amount || 0) * 1.18
+      }));
+
+      const subtotal = items.reduce((sum: number, item: any) => sum + item.amount, 0);
+      const total = subtotal * 1.18; // Including 18% GST
+
+      const salesOrderData = {
+        orderNumber: salesOrder.orderNumber,
+        orderDate: new Date(salesOrder.orderDate || salesOrder.createdAt),
+        deliveryTerms: 'With In 10 to 12 Days',
+        paymentTerms: '30 Days Credit. Interest will be charged Day 1st Of Billing @18%P.A',
+        destination: '',
+        loadingFrom: 'Kandla',
+        client: clientDetails,
+        items: items,
+        salesPersonName: 'Sales Representative',
+        description: '',
+        note: '',
+        subtotal: subtotal,
+        freight: 0,
+        total: total,
+        companyDetails: {
+          name: 'Your Company Name',
+          address: 'Address Line 1\nCity, State, ZIP',
+          gstNumber: 'GST_NUMBER_HERE',
+          mobile: '+91-XXXXXXXXXX',
+          email: 'info@company.com',
+          bankDetails: {
+            bankName: 'Your Bank Name',
+            accountNumber: 'ACCOUNT_NUMBER',
+            branch: 'Branch Name',
+            ifscCode: 'IFSC_CODE'
+          }
+        }
+      };
+
+      const doc = generateBitumenSalesOrderPDF(salesOrderData);
+      doc.save(`sales-order-${salesOrder.orderNumber}.pdf`);
+      
+      toast({
+        title: "Success",
+        description: "Sales Order PDF downloaded successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate Sales Order PDF",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {
@@ -3463,6 +3650,14 @@ function SalesOrderSection() {
                           data-testid={`button-view-sales-order-${salesOrder.id}`}
                         >
                           <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownloadSalesOrderPDF(salesOrder)}
+                          data-testid={`button-download-sales-order-${salesOrder.id}`}
+                        >
+                          <Download className="h-4 w-4" />
                         </Button>
                         <Button
                           size="sm"
