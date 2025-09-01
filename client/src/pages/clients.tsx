@@ -2103,6 +2103,40 @@ export default function Clients() {
                       });
                     }}
                   />
+                ) : documentContentType?.includes('wordprocessingml') || 
+                     documentContentType?.includes('msword') ||
+                     documentContentType?.includes('officedocument') ? (
+                  /* Office Document - Enhanced Download Interface */
+                  <div className="flex flex-col items-center justify-center h-full space-y-6 text-center p-8">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full p-6">
+                      <FileText className="h-16 w-16 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                        Word Document Ready
+                      </h3>
+                      <p className="text-gray-600 dark:text-gray-300">
+                        {documentContentType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+                          ? 'Microsoft Word Document (.docx)' 
+                          : 'Microsoft Word Document (.doc)'}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 max-w-md">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        Word documents need to be downloaded to view properly. Click the button below to download and open in Microsoft Word or your preferred document viewer.
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                        <Button onClick={handleDownloadDocument} className="bg-blue-600 hover:bg-blue-700">
+                          <Download className="h-4 w-4 mr-2" />
+                          Download Document
+                        </Button>
+                        <Button variant="outline" onClick={() => window.open(documentBlobUrl, '_blank')}>
+                          <FileText className="h-4 w-4 mr-2" />
+                          Open in New Tab
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   /* Other file types - show info and download option */
                   <div className="flex flex-col items-center justify-center h-full space-y-4 text-center p-8">
@@ -2110,11 +2144,17 @@ export default function Clients() {
                     <div>
                       <h3 className="font-medium">Document Ready</h3>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {documentContentType ? `File type: ${documentContentType}` : 'Document file'}
+                        {documentContentType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ? 'Word Document (.docx)' :
+                         documentContentType === 'application/msword' ? 'Word Document (.doc)' :
+                         documentContentType ? `File type: ${documentContentType}` : 'Document file'}
                       </p>
-                      <p className="text-sm text-muted-foreground">
-                        Click download to view this document
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Click download to save this document to your device
                       </p>
+                      <Button onClick={handleDownloadDocument} className="mt-2">
+                        <Download className="h-4 w-4 mr-2" />
+                        Download Document
+                      </Button>
                     </div>
                   </div>
                 )}
