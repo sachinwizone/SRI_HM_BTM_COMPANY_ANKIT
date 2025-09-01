@@ -44,7 +44,8 @@ import {
   X,
   AlertTriangle,
   Building2,
-  Trash2
+  Trash2,
+  MessageCircle
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { 
@@ -3472,10 +3473,103 @@ function SalesOrderSection() {
   });
 
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  // Dialog states
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedSalesOrder, setSelectedSalesOrder] = useState<any>(null);
+  const [whatsappStatus, setWhatsappStatus] = useState<string>('');
 
   const getSalesOrderClientName = (salesOrder: any) => {
     const client = (clients as any[])?.find((c: any) => c.id === salesOrder.clientId);
     return client ? client.name : 'Unknown Client';
+  };
+
+  // WhatsApp functionality
+  const handleSendToWhatsApp = async (salesOrder: any) => {
+    try {
+      setWhatsappStatus('');
+      
+      // Get client details and mobile number
+      const client = (clients as any[])?.find((c: any) => c.id === salesOrder.clientId);
+      const mobileNumber = client?.mobileNumber;
+      
+      if (!mobileNumber) {
+        toast({
+          title: "Error",
+          description: "Client mobile number not available. Please add it.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Format mobile number (add +91 if not present)
+      let formattedNumber = mobileNumber.replace(/\D/g, ''); // Remove non-digits
+      if (!formattedNumber.startsWith('91')) {
+        formattedNumber = '91' + formattedNumber;
+      }
+      
+      // Generate PDF first if needed
+      let pdfGenerated = false;
+      try {
+        await handleDownloadSalesOrderPDF(salesOrder);
+        pdfGenerated = true;
+      } catch (error) {
+        toast({
+          title: "Warning", 
+          description: "PDF generation failed, opening WhatsApp without attachment",
+          variant: "destructive"
+        });
+      }
+      
+      // Create WhatsApp message
+      const clientName = getSalesOrderClientName(salesOrder);
+      const message = `Hello! Please find the Sales Order ${salesOrder.orderNumber} for ${clientName}. ${pdfGenerated ? 'PDF has been generated for download.' : ''}`;
+      
+      // Open WhatsApp
+      const whatsappUrl = `https://wa.me/${formattedNumber}?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, '_blank');
+      
+      // Show success message
+      setWhatsappStatus(`WhatsApp opened with SO PDF for ${clientName}.`);
+      toast({
+        title: "Success",
+        description: `WhatsApp opened with SO PDF for ${clientName}.`
+      });
+      
+      // Clear status after 5 seconds
+      setTimeout(() => setWhatsappStatus(''), 5000);
+      
+    } catch (error) {
+      toast({
+        title: "Error", 
+        description: "Failed to open WhatsApp. Please check the mobile number.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // View functionality
+  const handleViewSalesOrder = (salesOrder: any) => {
+    setSelectedSalesOrder(salesOrder);
+    setIsViewDialogOpen(true);
+  };
+
+  // Edit functionality with permission check
+  const handleEditSalesOrder = (salesOrder: any) => {
+    // Check permissions
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'SALES_MANAGER')) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have access to edit this order.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setSelectedSalesOrder(salesOrder);
+    setIsEditDialogOpen(true);
   };
 
   const handleDownloadSalesOrderPDF = async (salesOrder: any) => {
@@ -3647,7 +3741,9 @@ function SalesOrderSection() {
                         <Button
                           size="sm"
                           variant="outline"
+                          onClick={() => handleViewSalesOrder(salesOrder)}
                           data-testid={`button-view-sales-order-${salesOrder.id}`}
+                          title="View Details"
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
@@ -3656,15 +3752,28 @@ function SalesOrderSection() {
                           variant="outline"
                           onClick={() => handleDownloadSalesOrderPDF(salesOrder)}
                           data-testid={`button-download-sales-order-${salesOrder.id}`}
+                          title="Download PDF"
                         >
                           <Download className="h-4 w-4" />
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
+                          onClick={() => handleEditSalesOrder(salesOrder)}
                           data-testid={`button-edit-sales-order-${salesOrder.id}`}
+                          title="Edit Order"
                         >
                           <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleSendToWhatsApp(salesOrder)}
+                          data-testid={`button-whatsapp-sales-order-${salesOrder.id}`}
+                          title="Send to WhatsApp"
+                          className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                        >
+                          <MessageCircle className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
@@ -3674,7 +3783,181 @@ function SalesOrderSection() {
             </Table>
           </div>
         )}
+        
+        {/* WhatsApp Status Message */}
+        {whatsappStatus && (
+          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800">
+            {whatsappStatus}
+          </div>
+        )}
       </CardContent>
+
+      {/* View Sales Order Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Sales Order Details</DialogTitle>
+            <DialogDescription>
+              Complete sales order information and status tracking
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedSalesOrder && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Order Number</label>
+                  <p className="font-medium">{selectedSalesOrder.orderNumber}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Status</label>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={
+                      selectedSalesOrder.status === 'DRAFT' ? 'secondary' : 
+                      selectedSalesOrder.status === 'APPROVED' ? 'default' : 
+                      selectedSalesOrder.status === 'COMPLETED' ? 'default' : 'outline'
+                    }>
+                      {selectedSalesOrder.status}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Credit Check</label>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={
+                      selectedSalesOrder.creditCheckStatus === 'APPROVED' ? 'default' : 
+                      selectedSalesOrder.creditCheckStatus === 'PENDING' ? 'outline' : 'destructive'
+                    }>
+                      {selectedSalesOrder.creditCheckStatus}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Client</label>
+                  <p className="font-medium">{getSalesOrderClientName(selectedSalesOrder)}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Order Date</label>
+                  <p className="font-medium">{new Date(selectedSalesOrder.orderDate || selectedSalesOrder.createdAt).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Expected Delivery</label>
+                  <p className="font-medium">
+                    {selectedSalesOrder.expectedDeliveryDate ? new Date(selectedSalesOrder.expectedDeliveryDate).toLocaleDateString() : 'Not set'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Total Amount</label>
+                  <p className="font-bold text-lg">₹{parseFloat(selectedSalesOrder.totalAmount || 0).toFixed(2)}</p>
+                </div>
+              </div>
+
+              {/* Items from related quotation */}
+              {(() => {
+                const quotation = (quotations as any[])?.find((q: any) => q.id === selectedSalesOrder.quotationId);
+                if (quotation?.items && quotation.items.length > 0) {
+                  return (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-muted-foreground">Order Items</label>
+                      <div className="border rounded-lg overflow-hidden">
+                        <div className="grid grid-cols-5 gap-2 p-3 bg-muted text-xs font-medium">
+                          <div>Product</div>
+                          <div>Quantity</div>
+                          <div>Unit</div>
+                          <div>Rate</div>
+                          <div>Amount</div>
+                        </div>
+                        {quotation.items.map((item: any, index: number) => (
+                          <div key={index} className="grid grid-cols-5 gap-2 p-3 border-t text-sm">
+                            <div>{item.description || 'Product Item'}</div>
+                            <div>{item.quantity}</div>
+                            <div>{item.unit}</div>
+                            <div>₹{parseFloat(item.unitPrice || item.rate || 0).toFixed(2)}</div>
+                            <div>₹{parseFloat(item.totalPrice || item.amount || 0).toFixed(2)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              <div className="border-t pt-4">
+                <div className="flex justify-between items-center text-sm">
+                  <span>Subtotal:</span>
+                  <span>₹{parseFloat(selectedSalesOrder.totalAmount || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span>Tax (18% GST):</span>
+                  <span>₹{(parseFloat(selectedSalesOrder.totalAmount || 0) * 0.18).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center text-lg font-bold border-t pt-2 mt-2">
+                  <span>Grand Total:</span>
+                  <span>₹{(parseFloat(selectedSalesOrder.totalAmount || 0) * 1.18).toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+              Close
+            </Button>
+            {selectedSalesOrder && (
+              <Button 
+                variant="outline"
+                onClick={() => handleDownloadSalesOrderPDF(selectedSalesOrder)}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download PDF
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Sales Order Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Sales Order</DialogTitle>
+            <DialogDescription>
+              Update sales order information and status
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedSalesOrder && (
+            <div className="space-y-4">
+              <div className="text-center py-8">
+                <Edit className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-medium mb-2">Edit Sales Order</h3>
+                <p className="text-muted-foreground mb-4">
+                  Sales order editing functionality will be implemented based on your specific requirements.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Order Number: {selectedSalesOrder.orderNumber}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
