@@ -3679,25 +3679,13 @@ M/S SRI HM BITUMEN CO`;
             </Button>
             {selectedQuotation && (
               <>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline">
-                      <Download className="h-4 w-4 mr-2" />
-                      Download PDF
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => handleDownloadPDF(selectedQuotation, 'bitumen')}>
-                      🏭 Bitumen Industry Format
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleDownloadPDF(selectedQuotation, 'professional')}>
-                      💼 Professional Format
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleDownloadPDF(selectedQuotation, 'advanced')}>
-                      ⭐ Advanced Format
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Button 
+                  variant="outline"
+                  onClick={() => handleDownloadPDF(selectedQuotation, 'bitumen')}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
                 
                 <Button 
                   variant="outline"

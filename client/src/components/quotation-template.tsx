@@ -60,8 +60,9 @@ export const generateBitumenQuotationPDF = (quotationData: QuotationData) => {
   
   // Page setup
   const pageWidth = doc.internal.pageSize.width;
-  const margin = 15;
-  let currentY = 20;
+  const pageHeight = doc.internal.pageSize.height;
+  const margin = 10;
+  let currentY = 15;
 
   // Helper function to add text with proper spacing
   const addText = (text: string, x: number, y: number, options?: any) => {
@@ -70,85 +71,154 @@ export const generateBitumenQuotationPDF = (quotationData: QuotationData) => {
 
   // Helper function to add bold text
   const addBoldText = (text: string, x: number, y: number, options?: any) => {
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text(text, x, y, options);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
   };
 
-  // Company Header (Right aligned like the sample)
+  // Helper function to draw rectangle with border
+  const drawRect = (x: number, y: number, width: number, height: number, fill = false) => {
+    if (fill) {
+      doc.setFillColor(240, 240, 240);
+      doc.rect(x, y, width, height, 'FD');
+    } else {
+      doc.rect(x, y, width, height);
+    }
+  };
+
+  // Set document background
+  doc.setFillColor(245, 245, 245);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+  // Header section with company logo placeholder and details
+  doc.setFillColor(255, 255, 255);
+  doc.rect(margin, margin, pageWidth - 2 * margin, 35, 'F');
+  doc.setDrawColor(0, 0, 0);
+  doc.rect(margin, margin, pageWidth - 2 * margin, 35);
+
+  // Company logo placeholder (orange circle)
+  doc.setFillColor(255, 165, 0);
+  doc.circle(margin + 15, margin + 17, 12, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  addText('HM', margin + 11, margin + 20);
+
+  // Company name and details
+  doc.setTextColor(0, 0, 0);
   doc.setFontSize(16);
-  addBoldText(quotationData.companyDetails.name, pageWidth - margin, currentY, { align: 'right' });
-  currentY += 6;
+  doc.setFont('helvetica', 'bold');
+  addText('M/S SRI HM BITUMEN CO', margin + 35, margin + 12);
   
-  doc.setFontSize(10);
-  const addressLines = quotationData.companyDetails.address.split('\n');
-  addressLines.forEach(line => {
-    addText(line, pageWidth - margin, currentY, { align: 'right' });
-    currentY += 4;
-  });
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  addText('Dag No : 1071, Patta No : 264, Mkirpara, Chakardaigaon', margin + 35, margin + 18);
+  addText('Mouza - Ramcharani, Guwahati, Assam - 781035', margin + 35, margin + 22);
+  addText('GST No : 18CGMPP6536N2ZG', margin + 35, margin + 26);
+  addText('Mobile No : +91 8453059698', margin + 35, margin + 30);
+  addText('Email ID : info.srihmbitumen@gmail.com', margin + 35, margin + 34);
+
+  currentY = margin + 50;
+
+  // Quotation title in red
+  doc.setTextColor(200, 0, 0);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  addText('Quotation', pageWidth / 2, currentY, { align: 'center' });
   
-  addText(`GST No : ${quotationData.companyDetails.gstNumber}`, pageWidth - margin, currentY, { align: 'right' });
-  currentY += 4;
-  addText(`Mobile No : ${quotationData.companyDetails.mobile}`, pageWidth - margin, currentY, { align: 'right' });
-  currentY += 4;
-  addText(`Email ID : ${quotationData.companyDetails.email}`, pageWidth - margin, currentY, { align: 'right' });
   currentY += 15;
 
-  // Quotation Title
-  doc.setFontSize(18);
-  addBoldText('Quotation', pageWidth / 2, currentY, { align: 'center' });
-  currentY += 15;
-
-  // Quotation Details Row (3 columns)
-  doc.setFontSize(10);
-  const col1X = margin;
-  const col2X = margin + 65;
-  const col3X = margin + 130;
-
-  // Headers
-  addBoldText('Quotation No.', col1X, currentY);
-  addBoldText('Quotation Date', col2X, currentY);
-  addBoldText('Valid Until', col3X, currentY);
-  currentY += 6;
-
-  // Values
-  addText(quotationData.quotationNumber, col1X, currentY);
-  addText(quotationData.quotationDate.toLocaleDateString('en-GB'), col2X, currentY);
-  addText(quotationData.validUntil.toLocaleDateString('en-GB'), col3X, currentY);
-  currentY += 10;
-
-  // Payment Terms Row
-  addBoldText('Payment Terms', col1X, currentY);
-  addBoldText('Destination', col2X, currentY);
-  addBoldText('Loading From', col3X, currentY);
-  currentY += 6;
-
-  addText(quotationData.paymentTerms || '30 Days Credit. Interest will be charged\nDay 1st Of Billing @18%P.A', col1X, currentY);
-  addText(quotationData.destination || '', col2X, currentY);
-  addText(quotationData.loadingFrom || 'Kandla', col3X, currentY);
-  currentY += 20;
-
+  // Details table header with colored background
+  const detailsTableStartY = currentY;
+  const tableWidth = pageWidth - 2 * margin;
+  const rowHeight = 8;
+  
+  // First row with quotation details
+  doc.setFillColor(100, 100, 100);
+  doc.rect(margin, currentY, tableWidth, rowHeight, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  
+  const col1 = margin + 2;
+  const col2 = margin + 65;
+  const col3 = margin + 130;
+  
+  addText('Quotation No.', col1, currentY + 5);
+  addText('Quotation Date', col2, currentY + 5);
+  addText('Valid Until', col3, currentY + 5);
+  currentY += rowHeight;
+  
+  // Values row
+  doc.setFillColor(255, 255, 255);
+  doc.rect(margin, currentY, tableWidth, rowHeight, 'F');
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
+  addText(quotationData.quotationNumber, col1, currentY + 5);
+  addText(quotationData.quotationDate.toLocaleDateString('en-GB'), col2, currentY + 5);
+  addText(quotationData.validUntil.toLocaleDateString('en-GB'), col3, currentY + 5);
+  currentY += rowHeight;
+  
+  // Second header row
+  doc.setFillColor(100, 100, 100);
+  doc.rect(margin, currentY, tableWidth, rowHeight, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  addText('Payment Terms', col1, currentY + 5);
+  addText('Destination', col2, currentY + 5);
+  addText('Loading From', col3, currentY + 5);
+  currentY += rowHeight;
+  
+  // Values row
+  doc.setFillColor(255, 255, 255);
+  doc.rect(margin, currentY, tableWidth, rowHeight * 2, 'F');
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
+  addText(`${quotationData.paymentTerms || '30'} days`, col1, currentY + 5);
+  addText(quotationData.destination || '', col2, currentY + 5);
+  addText(quotationData.loadingFrom || 'Kandla', col3, currentY + 5);
+  currentY += rowHeight * 2;
+  
   // Bill To and Ship To sections
-  addBoldText('Bill To :', col1X, currentY);
-  addBoldText('Ship To :', col2X + 30, currentY);
-  currentY += 6;
-
-  // Client details for both Bill To and Ship To
-  const clientLines = [
-    `Name : ${quotationData.client.name}`,
-    `GST No : ${quotationData.client.gstNumber || ''}`,
-    `Address : ${quotationData.client.address || ''}`,
-    `State : ${quotationData.client.state || ''}`,
-    `Pin Code : ${quotationData.client.pinCode || ''}`,
-    `Mobile No : ${quotationData.client.mobileNumber || ''}`,
-    `Email ID : ${quotationData.client.email || ''}`
-  ];
-
-  clientLines.forEach(line => {
-    addText(line, col1X, currentY);
-    addText(line, col2X + 30, currentY); // Ship To (same as Bill To)
-    currentY += 5;
-  });
+  const sectionHeight = 35;
+  const halfWidth = tableWidth / 2;
+  
+  // Bill To section
+  doc.setFillColor(100, 100, 100);
+  doc.rect(margin, currentY, halfWidth, rowHeight, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  addText('Bill To :', col1, currentY + 5);
+  
+  // Ship To section
+  doc.rect(margin + halfWidth, currentY, halfWidth, rowHeight, 'F');
+  addText('Ship To :', margin + halfWidth + 2, currentY + 5);
+  currentY += rowHeight;
+  
+  // Client details
+  doc.setFillColor(255, 255, 255);
+  doc.rect(margin, currentY, halfWidth, sectionHeight, 'F');
+  doc.rect(margin + halfWidth, currentY, halfWidth, sectionHeight, 'F');
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
+  
+  const clientY = currentY + 3;
+  addText(`Name : ${quotationData.client.name}`, col1, clientY);
+  addText(`Name : ${quotationData.client.name}`, margin + halfWidth + 2, clientY);
+  addText(`GST No : ${quotationData.client.gstNumber || ''}`, col1, clientY + 5);
+  addText(`GST No : ${quotationData.client.gstNumber || ''}`, margin + halfWidth + 2, clientY + 5);
+  addText(`Address : ${quotationData.client.address || ''}`, col1, clientY + 10);
+  addText(`Address : ${quotationData.client.address || ''}`, margin + halfWidth + 2, clientY + 10);
+  addText(`State : ${quotationData.client.state || ''}`, col1, clientY + 15);
+  addText(`State : ${quotationData.client.state || ''}`, margin + halfWidth + 2, clientY + 15);
+  addText(`Pin Code : ${quotationData.client.pinCode || ''}`, col1, clientY + 20);
+  addText(`Pin Code : ${quotationData.client.pinCode || ''}`, margin + halfWidth + 2, clientY + 20);
+  addText(`Mobile No : ${quotationData.client.mobileNumber || ''}`, col1, clientY + 25);
+  addText(`Mobile No : ${quotationData.client.mobileNumber || ''}`, margin + halfWidth + 2, clientY + 25);
+  addText(`Email ID : ${quotationData.client.email || ''}`, col1, clientY + 30);
+  addText(`Email ID : ${quotationData.client.email || ''}`, margin + halfWidth + 2, clientY + 30);
+  
+  currentY += sectionHeight + 5;
 
   currentY += 10;
 
