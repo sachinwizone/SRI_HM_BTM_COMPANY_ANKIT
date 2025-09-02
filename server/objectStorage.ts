@@ -109,13 +109,13 @@ export class ObjectStorageService {
         "Cache-Control": `${isPublic ? "public" : "private"}, max-age=${cacheTtlSec}`,
       };
 
+      // Always preserve the original content type
+      headers["Content-Type"] = metadata.contentType || "application/octet-stream";
+      
       if (forceDownload) {
-        // Force download by setting Content-Disposition header
+        // Force download by setting Content-Disposition header while preserving content type
         const filename = file.name.split('/').pop() || 'download';
         headers["Content-Disposition"] = `attachment; filename="${filename}"`;
-        headers["Content-Type"] = "application/octet-stream";
-      } else {
-        headers["Content-Type"] = metadata.contentType || "application/octet-stream";
       }
 
       res.set(headers);
