@@ -70,7 +70,7 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
   
   let currentY = margin + 5;
   
-  // Company Header Section - matching exact layout from sample
+  // Company Header Section - KEEP EXACTLY THE SAME AS SAMPLE
   const headerHeight = 35;
   doc.setFillColor(255, 255, 255);
   doc.setDrawColor(0, 0, 0);
@@ -92,13 +92,13 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
   doc.setFontSize(6);
   addText('BITUMEN COMPANY', margin + 2, currentY + 30);
 
-  // Company name in RED/ORANGE - matching sample exactly
+  // Company name in RED/ORANGE - EXACTLY AS IN SAMPLE
   doc.setTextColor(216, 69, 11);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   addText('M/S SRI HM BITUMEN CO', margin + 35, currentY + 12);
   
-  // Company details in black - matching sample format
+  // Company details in black - EXACTLY AS IN SAMPLE
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
@@ -139,7 +139,7 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
   addWhiteText('Delivery Terms', margin + 2*thirdWidth + thirdWidth/2, currentY + 9, { align: 'center' });
   currentY += boxHeight;
   
-  // Values row
+  // Values row - USE REAL DATA HERE
   doc.setFillColor(255, 255, 255);
   doc.rect(margin, currentY, tableWidth, boxHeight, 'F');
   doc.rect(margin, currentY, tableWidth, boxHeight);
@@ -151,7 +151,7 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
   doc.setFont('helvetica', 'normal');
   addText(quotationData.quotationNumber, margin + thirdWidth/2, currentY + 9, { align: 'center' });
   addText(quotationData.quotationDate.toLocaleDateString('en-GB'), margin + thirdWidth + thirdWidth/2, currentY + 9, { align: 'center' });
-  addText(quotationData.deliveryTerms || 'Within 10 to 12 Days', margin + 2*thirdWidth + thirdWidth/2, currentY + 9, { align: 'center' });
+  addText(quotationData.deliveryTerms || 'Standard delivery terms', margin + 2*thirdWidth + thirdWidth/2, currentY + 9, { align: 'center' });
   currentY += boxHeight;
   
   // Row 2: Payment Terms, Destination, Loading From with orange headers
@@ -169,7 +169,7 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
   addWhiteText('Destination', margin + thirdWidth + thirdWidth/2, currentY + 9, { align: 'center' });
   addWhiteText('Loading From', margin + 2*thirdWidth + thirdWidth/2, currentY + 9, { align: 'center' });
   
-  // Values in white sections
+  // Values in white sections - USE REAL DATA HERE
   doc.setFillColor(255, 255, 255);
   const valueY = currentY + boxHeight;
   const valueHeight = tallBoxHeight - boxHeight;
@@ -182,8 +182,8 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
   doc.setFont('helvetica', 'normal');
   addText(quotationData.paymentTerms || '30 Days Credit. Interest will be charged', margin + 2, currentY + 17);
   addText('Day 1st Of Billing @18% P.A', margin + 2, currentY + 23);
-  addText(quotationData.destination || 'As per requirement', margin + thirdWidth + 2, currentY + 20);
-  addText(quotationData.loadingFrom || 'As per requirement', margin + 2*thirdWidth + 2, currentY + 20);
+  addText(quotationData.destination || 'Kandla', margin + thirdWidth + 2, currentY + 20);
+  addText(quotationData.loadingFrom || 'Kandla', margin + 2*thirdWidth + 2, currentY + 20);
   currentY += tallBoxHeight + 2;
   
   // Bill To and Ship To sections side by side
@@ -202,7 +202,7 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
   addWhiteText('Ship To :', margin + halfWidth + 2, currentY + 9);
   currentY += boxHeight;
   
-  // Bill To and Ship To content
+  // Bill To and Ship To content - USE REAL CLIENT DATA HERE
   doc.setFillColor(240, 240, 240);
   doc.rect(margin, currentY, halfWidth, clientSectionHeight, 'F');
   doc.rect(margin + halfWidth, currentY, halfWidth, clientSectionHeight, 'F');
@@ -228,11 +228,11 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
   addText(`Pin Code : ${quotationData.client.pinCode || 'N/A'}`, margin + 2, clientY);
   addText(`Pin Code : ${quotationData.client.pinCode || 'N/A'}`, margin + halfWidth + 2, clientY);
   clientY += 7;
-  addText(`Mobile No : ${quotationData.client.mobileNumber || 'N/A'}`, margin + 2, clientY);
-  addText(`Mobile No : ${quotationData.client.mobileNumber || 'N/A'}`, margin + halfWidth + 2, clientY);
+  addText(`Mobile No : ${quotationData.client.mobileNumber || '0000000000'}`, margin + 2, clientY);
+  addText(`Mobile No : ${quotationData.client.mobileNumber || '0000000000'}`, margin + halfWidth + 2, clientY);
   clientY += 7;
-  addText(`Email ID : ${quotationData.client.email || 'N/A'}`, margin + 2, clientY);
-  addText(`Email ID : ${quotationData.client.email || 'N/A'}`, margin + halfWidth + 2, clientY);
+  addText(`Email ID : ${quotationData.client.email || 'notavailable@email.com'}`, margin + 2, clientY);
+  addText(`Email ID : ${quotationData.client.email || 'notavailable@email.com'}`, margin + halfWidth + 2, clientY);
   
   currentY += clientSectionHeight + 3;
   
@@ -244,7 +244,7 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
     colPositions.push(colPositions[i] + colWidths[i]);
   }
   
-  // Table headers with orange background
+  // Table headers with orange background - EXACT AS SAMPLE
   doc.setFillColor(216, 69, 11);
   doc.rect(margin, currentY, tableWidth, headerHeightTable, 'F');
   doc.setDrawColor(0, 0, 0);
@@ -269,7 +269,7 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
   
   currentY += headerHeightTable;
   
-  // Table data rows
+  // Table data rows - USE REAL ITEM DATA HERE
   doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
@@ -354,15 +354,15 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
   addWhiteText('SubTotal', rightSectionX + 2, currentY + 9);
   currentY += boxHeight;
   
-  // Sales Person value
+  // Sales Person value - USE REAL DATA
   doc.setFillColor(255, 255, 255);
   doc.rect(margin, currentY, leftSectionWidth, boxHeight, 'F');
   doc.rect(margin, currentY, leftSectionWidth, boxHeight);
   doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'normal');
-  addText(quotationData.salesPersonName || 'Sales Executive', margin + 2, currentY + 9);
+  addText(quotationData.salesPersonName || 'System Administrator', margin + 2, currentY + 9);
   
-  // SubTotal value - use actual data
+  // SubTotal value - USE REAL DATA
   doc.setFillColor(255, 255, 255);
   doc.rect(rightSectionX, currentY, rightSectionWidth, boxHeight, 'F');
   doc.rect(rightSectionX, currentY, rightSectionWidth, boxHeight);
@@ -382,7 +382,7 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
   addWhiteText('Freight', rightSectionX + 2, currentY + 9);
   currentY += boxHeight;
   
-  // Description content - left side
+  // Description content - left side - KEEP SAME AS SAMPLE
   const descriptionHeight = 25;
   doc.setFillColor(255, 255, 255);
   doc.rect(margin, currentY, leftSectionWidth, descriptionHeight, 'F');
@@ -393,7 +393,7 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
   addText('Note- Above Payment terms Not included in Transportation. Transportation payment', margin + 2, currentY + 8);
   addText('should be made on before unloading.', margin + 2, currentY + 15);
   
-  // Freight value
+  // Freight value - USE REAL DATA
   doc.setFillColor(255, 255, 255);
   doc.rect(rightSectionX, currentY, rightSectionWidth, boxHeight, 'F');
   doc.rect(rightSectionX, currentY, rightSectionWidth, boxHeight);
@@ -417,7 +417,7 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
   addText(quotationData.total.toFixed(0), rightSectionX + 2, currentY + 9);
   currentY += boxHeight + 5;
 
-  // Terms and Bank Details section with orange headers like sample
+  // Terms and Bank Details section with orange headers - KEEP SAME AS SAMPLE
   const leftTermsWidth = tableWidth * 0.65;
   const rightBankWidth = tableWidth * 0.35;
   const rightBankX = margin + leftTermsWidth;
@@ -438,7 +438,7 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
   addWhiteText('Bank Details', rightBankX + 2, currentY + 9);
   currentY += boxHeight;
   
-  // Terms and Conditions content
+  // Terms and Conditions content - KEEP SAME AS SAMPLE
   const termsHeight = 50;
   doc.setFillColor(255, 255, 255);
   doc.rect(margin, currentY, leftTermsWidth, termsHeight, 'F');
@@ -455,7 +455,7 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
   addText('  "M/s SRI HM BITUMEN CO" Only.', margin + 2, currentY + 38);
   addText('- Subject to Guwahati Jurisdiction Only.', margin + 2, currentY + 44);
   
-  // Bank Details content
+  // Bank Details content - KEEP SAME AS SAMPLE
   doc.setFillColor(255, 255, 255);
   doc.rect(rightBankX, currentY, rightBankWidth, termsHeight, 'F');
   doc.rect(rightBankX, currentY, rightBankWidth, termsHeight);
