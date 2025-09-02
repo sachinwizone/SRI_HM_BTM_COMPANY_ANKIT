@@ -575,10 +575,32 @@ export default function Clients() {
         URL.revokeObjectURL(documentBlobUrl);
       }
       
-      setCurrentDocument({ clientId, docType: documentType, label, documentUrl });
-      setDocumentBlobUrl(blobUrl);
-      setDocumentContentType(contentType);
-      setIsDocumentViewerOpen(true);
+      // Directly download the document instead of showing preview
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      
+      // Try to determine file extension from content type
+      let fileExtension = 'bin';
+      if (contentType?.includes('pdf')) {
+        fileExtension = 'pdf';
+      } else if (contentType?.startsWith('image/')) {
+        fileExtension = contentType.split('/')[1] || 'jpg';
+      } else if (contentType?.includes('word')) {
+        fileExtension = 'docx';
+      }
+      
+      a.download = `${label}-${clientId}.${fileExtension}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      // Clean up blob URL immediately after download
+      URL.revokeObjectURL(blobUrl);
+      
+      toast({
+        title: "Success",
+        description: "Document downloaded successfully",
+      });
     } catch (error) {
       console.error('Error getting document:', error);
       toast({
