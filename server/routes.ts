@@ -1482,13 +1482,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.sendStatus(401);
       }
       
-      // Set headers to allow iframe embedding for same origin
-      res.set({
-        'X-Frame-Options': 'SAMEORIGIN',
-        'Content-Security-Policy': "frame-ancestors 'self'",
-      });
+      // Check if this is a download request (force download for all document requests)
+      const forceDownload = true; // Always force download to prevent preview dialogs
       
-      objectStorageService.downloadObject(objectFile, res);
+      objectStorageService.downloadObject(objectFile, res, 3600, forceDownload);
     } catch (error: any) {
       console.error(`Error accessing document at path ${req.path}:`, error);
       if (error instanceof ObjectNotFoundError) {
