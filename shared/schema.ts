@@ -1270,6 +1270,10 @@ export const insertLeadFollowUpSchema = createInsertSchema(leadFollowUps).omit({
   followUpDate: z.string().transform((val) => new Date(val)),
   nextFollowUpDate: z.string().optional().transform((val) => val ? new Date(val) : undefined),
   completedAt: z.string().optional().transform((val) => val ? new Date(val) : undefined),
+  // Override status to accept lead status values instead of follow-up status
+  status: z.enum(["NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "CLOSED_WON", "CLOSED_LOST"]),
+  // Optional follow-up status for the actual follow-up record
+  followUpStatus: z.enum(["PENDING", "COMPLETED", "CANCELLED"]).optional(),
   // Make old columns optional since they're populated automatically
   type: z.string().optional(),
   description: z.string().optional(),
