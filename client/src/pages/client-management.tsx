@@ -129,6 +129,8 @@ export default function ClientManagement() {
   };
 
   const handleEditClient = (client: any) => {
+    console.log('🔍 EDITING CLIENT:', client);
+    console.log('🔍 CLIENT ID:', client?.id);
     setEditingClient(client);
     form.reset({
       name: client.name || "",
@@ -400,6 +402,10 @@ export default function ClientManagement() {
                                 Documents Upload (Checklist)
                               </h3>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Debug: Show current editing client */}
+                                <div className="col-span-2 p-2 bg-gray-100 rounded text-xs">
+                                  DEBUG: editingClient?.id = {editingClient?.id || 'UNDEFINED'}
+                                </div>
                                 <WorkingFileUpload
                                   documentType="gstCertificate"
                                   label="GST Certificate"
