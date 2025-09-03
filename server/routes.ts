@@ -1453,30 +1453,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { clientId } = req.params;
       let { documentType } = req.params;
       
+      console.log(`🔧 DOWNLOAD REQUEST: clientId=${clientId}, documentType=${documentType}`);
+      
       // Convert kebab-case to camelCase if needed for consistency
       if (documentType.includes('-')) {
         documentType = documentType.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
       }
       
+      console.log(`🔧 After kebab conversion: documentType=${documentType}`);
+      
       // Get client to check if document is uploaded
       const client = await storage.getClient(clientId);
       if (!client) {
+          console.log(`🔧 Client not found: ${clientId}`);
           return res.status(404).json({ error: "Client not found" });
       }
+      
+      console.log(`🔧 Client found: ${client.name}`);
       
       // Check if document is uploaded (convert to snake_case for database)
       const documentFieldSnake = documentType.replace(/([A-Z])/g, '_$1').toLowerCase() + '_uploaded';
       const urlFieldSnake = documentType.replace(/([A-Z])/g, '_$1').toLowerCase() + '_url';
       
+      console.log(`🔧 Database fields: ${documentFieldSnake}, ${urlFieldSnake}`);
+      
       const isUploaded = (client as any)[documentFieldSnake];
+      console.log(`🔧 Is uploaded: ${isUploaded}`);
+      
       if (!isUploaded) {
+          console.log(`🔧 Document not uploaded: ${documentFieldSnake} = ${isUploaded}`);
           return res.status(404).json({ error: "Document not uploaded" });
       }
       
       // First check if we have a stored URL for this document
       const storedUrl = (client as any)[urlFieldSnake] as string;
+      console.log(`🔧 Stored URL: ${storedUrl}`);
       
       if (storedUrl) {
+        console.log(`🔧 Using stored URL: ${storedUrl}`);
         // Use the stored URL directly
         res.json({ documentUrl: storedUrl });
         return;
@@ -1510,8 +1524,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentUser = (req as any).user;
       const objectStorageService = new ObjectStorageService();
       
-      console.log(`Document access requested: ${req.path}`);
-      console.log(`Full URL: ${req.url}`);
+      console.log(`🔧 SERVE DOCUMENT: ${req.path}`);
+      console.log(`🔧 Full URL: ${req.url}`);
       
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
       const canAccess = await objectStorageService.canAccessObjectEntity({
