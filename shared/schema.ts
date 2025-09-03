@@ -519,12 +519,12 @@ export const insertClientSchema = z.object({
   }),
   creditLimit: z.union([z.string(), z.number()]).optional().transform(val => {
     if (val == null || val === "") return undefined;
-    return typeof val === 'string' ? parseFloat(val) || 0 : val;
+    return typeof val === 'string' ? val : val.toString();
   }),
   bankInterestApplicable: z.enum(['FROM_DAY_1', 'FROM_DUE_DATE']).optional(),
   interestPercent: z.union([z.string(), z.number()]).optional().transform(val => {
     if (val == null || val === "") return undefined;
-    return typeof val === 'string' ? parseFloat(val) || 0 : val;
+    return typeof val === 'string' ? val : val.toString();
   }),
   poRequired: z.boolean().default(false),
   invoicingEmails: z.array(z.string()).optional().nullable().transform(val => val || []),
