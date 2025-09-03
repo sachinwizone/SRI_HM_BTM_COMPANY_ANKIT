@@ -305,7 +305,11 @@ export class ObjectStorageService {
     rawPath: string,
     aclPolicy: ObjectAclPolicy
   ): Promise<string> {
+    console.log(`🔧 trySetObjectEntityAclPolicy input rawPath: ${rawPath}`);
+    
     const normalizedPath = this.normalizeObjectEntityPath(rawPath);
+    console.log(`🔧 trySetObjectEntityAclPolicy normalized path: ${normalizedPath}`);
+    
     if (!normalizedPath.startsWith("/")) {
       return normalizedPath;
     }

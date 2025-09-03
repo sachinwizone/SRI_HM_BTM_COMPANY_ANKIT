@@ -1398,32 +1398,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`🔧 Got normalized objectPath: ${objectPath}`);
 
-      // Update client document status and URL in database
+      // Update client document status and URL in database (using correct snake_case field names)
       const updateData: any = {};
       switch (documentType) {
         case 'gstCertificate':
-          updateData.gstCertificateUploaded = true;
-          updateData.gstCertificateUrl = objectPath;
+          updateData.gst_certificate_uploaded = true;
+          updateData.gst_certificate_url = objectPath;
           break;
         case 'panCopy':
-          updateData.panCopyUploaded = true;
-          updateData.panCopyUrl = objectPath;
+          updateData.pan_copy_uploaded = true;
+          updateData.pan_copy_url = objectPath;
           break;
         case 'securityCheque':
-          updateData.securityChequeUploaded = true;
-          updateData.securityChequeUrl = objectPath;
+          updateData.security_cheque_uploaded = true;
+          updateData.security_cheque_url = objectPath;
           break;
         case 'aadharCard':
-          updateData.aadharCardUploaded = true;
-          updateData.aadharCardUrl = objectPath;
+          updateData.aadhar_card_uploaded = true;
+          updateData.aadhar_card_url = objectPath;
           break;
         case 'agreement':
-          updateData.agreementUploaded = true;
-          updateData.agreementUrl = objectPath;
+          updateData.agreement_uploaded = true;
+          updateData.agreement_url = objectPath;
           break;
         case 'poRateContract':
-          updateData.poRateContractUploaded = true;
-          updateData.poRateContractUrl = objectPath;
+          updateData.po_rate_contract_uploaded = true;
+          updateData.po_rate_contract_url = objectPath;
           break;
         default:
           return res.status(400).json({ error: "Invalid document type" });
