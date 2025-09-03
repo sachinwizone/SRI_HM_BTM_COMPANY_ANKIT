@@ -1431,9 +1431,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`🔧 Updating client ${clientId} with data:`, updateData);
       
-      const updatedClient = await storage.updateClient(clientId, updateData);
+      // Direct database update to bypass type issues
+      const fieldMap: Record<string, string> = {
+        'gstCertificateUploaded': 'gst_certificate_uploaded',
+        'gstCertificateUrl': 'gst_certificate_url',
+        'panCopyUploaded': 'pan_copy_uploaded', 
+        'panCopyUrl': 'pan_copy_url',
+        'securityChequeUploaded': 'security_cheque_uploaded',
+        'securityChequeUrl': 'security_cheque_url',
+        'aadharCardUploaded': 'aadhar_card_uploaded',
+        'aadharCardUrl': 'aadhar_card_url',
+        'agreementUploaded': 'agreement_uploaded',
+        'agreementUrl': 'agreement_url',
+        'poRateContractUploaded': 'po_rate_contract_uploaded',
+        'poRateContractUrl': 'po_rate_contract_url'
+      };
       
-      console.log(`🔧 Client updated successfully!`);
+      const updates = Object.entries(updateData).map(([key, value]) => {
+        const dbField = fieldMap[key] || key;
+        return `${dbField} = ${typeof value === 'boolean' ? value : `'${value}'`}`;
+      }).join(', ');
+      
+      // Use direct database update to bypass ORM type issues
+      const { db } = await import('./db.js');
+      await db.execute(sql.raw(`UPDATE clients SET ${updates} WHERE id = '${clientId}'`));
+      
+      console.log(`🔧 Client updated successfully with direct SQL!`);
 
       res.json({ objectPath, message: "Document uploaded successfully" });
     } catch (error: any) {
