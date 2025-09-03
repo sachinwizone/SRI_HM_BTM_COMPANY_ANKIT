@@ -109,16 +109,21 @@ export default function ClientManagement() {
       // Use client documents upload endpoint if we have a clientId, otherwise general upload
       let uploadURL;
       if (clientId) {
+        console.log(`Getting upload URL for existing client: ${clientId}, document: ${documentType}`);
         const response = await apiRequest('POST', '/api/clients/documents/upload', {
           clientId,
           documentType
-        }) as any;
-        uploadURL = response.uploadURL;
+        });
+        const data = await response.json();
+        uploadURL = data.uploadURL;
       } else {
-        // For new clients, use general upload temporarily
-        const response = await apiRequest('POST', '/api/objects/upload', {}) as any;
-        uploadURL = response.uploadURL;
+        console.log(`Getting upload URL for new client, document: ${documentType}`);
+        const response = await apiRequest('POST', '/api/objects/upload', {});
+        const data = await response.json();
+        uploadURL = data.uploadURL;
       }
+      
+      console.log(`Upload URL received: ${uploadURL}`);
       
       // Upload file to object storage
       const uploadResponse = await fetch(uploadURL, {
@@ -128,6 +133,8 @@ export default function ClientManagement() {
           'Content-Type': file.type,
         },
       });
+      
+      console.log(`Upload response status: ${uploadResponse.status}`);
       
       if (uploadResponse.ok) {
         setDocumentUploads(prev => ({
@@ -140,7 +147,9 @@ export default function ClientManagement() {
           description: `${file.name} uploaded successfully`,
         });
       } else {
-        throw new Error(`Upload failed with status: ${uploadResponse.status}`);
+        const errorText = await uploadResponse.text();
+        console.error(`Upload failed with status ${uploadResponse.status}: ${errorText}`);
+        throw new Error(`Upload failed with status: ${uploadResponse.status} - ${errorText}`);
       }
     } catch (error) {
       console.error('File upload error:', error);
@@ -148,9 +157,11 @@ export default function ClientManagement() {
         ...prev,
         [documentType]: { uploaded: false, uploading: false }
       }));
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       toast({
         title: "Error",
-        description: `Failed to upload ${file.name}. Please try again.`,
+        description: `Failed to upload ${file.name}: ${errorMessage}`,
         variant: "destructive"
       });
     }
