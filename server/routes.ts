@@ -1430,38 +1430,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { clientId } = req.params;
       let { documentType } = req.params;
       
-      console.log(`🔍 Document request: clientId=${clientId}, documentType=${documentType}`);
       
       // Convert kebab-case to camelCase if needed for consistency
       if (documentType.includes('-')) {
         documentType = documentType.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
-        console.log(`🔧 Converted to camelCase: ${documentType}`);
-      }
+        }
       const currentUser = (req as any).user;
       
       // Get client to check if document is uploaded
       const client = await storage.getClient(clientId);
       if (!client) {
-        console.log(`❌ Client not found: ${clientId}`);
-        return res.status(404).json({ error: "Client not found" });
+          return res.status(404).json({ error: "Client not found" });
       }
       
       // Check if document is uploaded (documentType is already in camelCase)
       const documentField = `${documentType}Uploaded` as keyof typeof client;
-      console.log(`🔍 Checking field: ${String(documentField)} = ${client[documentField]}`);
       if (!client[documentField]) {
-        console.log(`❌ Document not uploaded according to DB: ${String(documentField)}`);
-        return res.status(404).json({ error: "Document not uploaded" });
+          return res.status(404).json({ error: "Document not uploaded" });
       }
       
       // Try to find the document using the search method
       const objectStorageService = new ObjectStorageService();
-      console.log(`🔍 Searching for document file...`);
       const documentFile = await objectStorageService.findClientDocumentFile(clientId, documentType);
       
       if (!documentFile) {
-        console.log(`❌ Document file not found in object storage`);
-        // Don't reset the upload flag - just return an error without removing the document from UI
+          // Don't reset the upload flag - just return an error without removing the document from UI
         return res.status(404).json({ 
           error: "Document file not found", 
           message: "Document may be uploading or in a different location. Please try again or re-upload.",
@@ -1471,8 +1464,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Construct document URL based on the found file
       const documentUrl = `/objects/uploads/${clientId}/${documentType}`;
-      console.log(`✅ Document file found: ${documentFile.name}`);
-      console.log(`📄 Returning documentUrl: ${documentUrl}`);
       
       res.json({ documentUrl });
     } catch (error: any) {
