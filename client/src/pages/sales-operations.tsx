@@ -243,11 +243,7 @@ function AddLeadDialog({ open, onOpenChange, lead, users, onLeadSaved }: AddLead
 
   const form = useForm({
     resolver: zodResolver(
-      insertLeadSchema
-        .omit({ leadNumber: true })
-        .extend({
-          expectedCloseDate: z.string().optional(),
-        })
+      insertLeadSchema.omit({ leadNumber: true })
     ),
     defaultValues: {
       companyName: "",
@@ -257,8 +253,6 @@ function AddLeadDialog({ open, onOpenChange, lead, users, onLeadSaved }: AddLead
       leadSource: "WEBSITE",
       leadStatus: "NEW",
       interestedProducts: [],
-      estimatedValue: "",
-      expectedCloseDate: "",
       notes: "",
       assignedToUserId: user?.id || "",
       primarySalesPersonId: user?.id || "",
@@ -276,8 +270,6 @@ function AddLeadDialog({ open, onOpenChange, lead, users, onLeadSaved }: AddLead
         leadSource: lead.leadSource || "WEBSITE",
         leadStatus: lead.leadStatus || "NEW",
         interestedProducts: Array.isArray(lead.interestedProducts) ? lead.interestedProducts : [],
-        estimatedValue: lead.estimatedValue || "",
-        expectedCloseDate: lead.expectedCloseDate ? new Date(lead.expectedCloseDate).toISOString().split('T')[0] : "",
         notes: lead.notes || "",
         assignedToUserId: lead.assignedToUserId || user?.id || "",
         primarySalesPersonId: lead.primarySalesPersonId || user?.id || "",
@@ -291,8 +283,6 @@ function AddLeadDialog({ open, onOpenChange, lead, users, onLeadSaved }: AddLead
         leadSource: "WEBSITE",
         leadStatus: "NEW",
         interestedProducts: [],
-        estimatedValue: "",
-        expectedCloseDate: "",
         notes: "",
         assignedToUserId: user?.id || "",
         primarySalesPersonId: user?.id || "",
@@ -499,40 +489,6 @@ function AddLeadDialog({ open, onOpenChange, lead, users, onLeadSaved }: AddLead
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="estimatedValue"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Estimated Value (₹)</FormLabel>
-                    <FormControl>
-                      <Input {...field} type="number" placeholder="Enter estimated value" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="expectedCloseDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Expected Close Date</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="date" 
-                        value={field.value || ""}
-                        onChange={(e) => {
-                          field.onChange(e.target.value);
-                        }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
 
             <FormField
               control={form.control}

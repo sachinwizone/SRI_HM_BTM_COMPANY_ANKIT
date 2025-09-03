@@ -994,8 +994,6 @@ export const leads = pgTable("leads", {
   leadSource: leadSourceEnum("lead_source").notNull(),
   leadStatus: leadStatusEnum("lead_status").notNull().default('NEW'),
   interestedProducts: text("interested_products").array(),
-  estimatedValue: decimal("estimated_value", { precision: 15, scale: 2 }),
-  expectedCloseDate: timestamp("expected_close_date"),
   notes: text("notes"),
   assignedToUserId: varchar("assigned_to_user_id").references(() => users.id),
   primarySalesPersonId: varchar("primary_sales_person_id").references(() => users.id),
@@ -1254,12 +1252,6 @@ export const insertLeadSchema = createInsertSchema(leads).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-}).extend({
-  expectedCloseDate: z.string().optional().transform((val) => val ? new Date(val) : undefined),
-  estimatedValue: z.union([z.string(), z.number()]).optional().transform((val) => {
-    if (val === "" || val === null || val === undefined) return undefined;
-    return typeof val === "string" ? parseFloat(val) : val;
-  }),
 });
 
 export const insertLeadFollowUpSchema = createInsertSchema(leadFollowUps).omit({
