@@ -496,8 +496,8 @@ export const insertClientSchema = z.object({
   panNumber: z.string().nullable().optional().transform(val => val || ""),
   msmeNumber: z.string().nullable().optional().transform(val => val || ""),
   incorporationCertNumber: z.string().nullable().optional().transform(val => val || ""),
-  incorporationDate: z.union([z.string(), z.date()]).optional().transform(val => {
-    if (!val) return undefined;
+  incorporationDate: z.union([z.string(), z.date(), z.null()]).optional().transform(val => {
+    if (!val || val === null) return undefined;
     return typeof val === 'string' ? new Date(val) : val;
   }),
   companyType: z.enum(['PVT_LTD', 'PARTNERSHIP', 'PROPRIETOR', 'GOVT', 'OTHERS']).nullable().optional(),
