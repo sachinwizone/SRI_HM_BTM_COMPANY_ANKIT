@@ -144,6 +144,7 @@ export default function ClientManagement() {
   };
 
   const handleViewClient = (client: any) => {
+    console.log('Viewing client:', client.name);
     setViewingClient(client);
   };
 
@@ -506,7 +507,7 @@ export default function ClientManagement() {
                               <div>
                                 <button
                                   onClick={() => handleViewClient(client)}
-                                  className="font-medium text-blue-600 hover:text-blue-800 hover:underline text-left"
+                                  className="font-medium text-blue-600 hover:text-blue-800 hover:underline text-left cursor-pointer bg-transparent border-none p-0 m-0"
                                   data-testid={`link-client-${client.id}`}
                                 >
                                   {client.name}
