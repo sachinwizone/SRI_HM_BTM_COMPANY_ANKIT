@@ -30,10 +30,29 @@ export function SimpleFileUpload({ documentType, onUploadComplete }: SimpleFileU
     fileInputRef.current?.click();
   };
 
+  const testUploadStep = async (step: string, fn: () => Promise<any>) => {
+    try {
+      console.log(`🔄 Starting step: ${step}`);
+      const result = await fn();
+      console.log(`✅ Step completed: ${step}`, result);
+      return result;
+    } catch (error) {
+      console.error(`❌ Step failed: ${step}`, error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'No message',
+        stack: error instanceof Error ? error.stack : 'No stack',
+        name: error instanceof Error ? error.name : 'No name',
+        type: typeof error
+      });
+      throw error;
+    }
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    console.log('🚀 Starting file upload process...');
     console.log('File selected:', file.name, 'Type:', file.type, 'Size:', file.size);
 
     // Validate file type - be more flexible with MIME types
@@ -63,75 +82,87 @@ export function SimpleFileUpload({ documentType, onUploadComplete }: SimpleFileU
     setUploadSuccess(false);
 
     try {
-      console.log('Getting upload URL...');
-      
-      // Get upload URL from backend
-      const response = await fetch('/api/objects/upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({}),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Failed to get upload URL:', response.status, errorText);
-        throw new Error(`Failed to get upload URL: ${response.status} ${errorText}`);
-      }
-
-      const { uploadURL } = await response.json();
-      console.log('Got upload URL, starting upload...');
-
-      // Upload file to object storage with simplified headers
-      const uploadResult = await fetch(uploadURL, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type || 'application/octet-stream',
-        },
-      });
-
-      console.log('Upload response status:', uploadResult.status);
-
-      if (uploadResult.ok) {
-        console.log('Upload successful!');
-        setUploadSuccess(true);
-        onUploadComplete(documentType, true);
-        toast({
-          title: "Success",
-          description: `${getDisplayName(documentType)} uploaded successfully`,
+      // Step 1: Get upload URL from backend
+      const response = await testUploadStep('Get Upload URL', async () => {
+        return await fetch('/api/objects/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({}),
         });
-      } else {
-        let errorText = 'Unknown error';
-        try {
-          errorText = await uploadResult.text();
-        } catch (e) {
-          errorText = `HTTP ${uploadResult.status} ${uploadResult.statusText}`;
+      });
+
+      // Step 2: Parse response
+      const responseData = await testUploadStep('Parse Response', async () => {
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
-        console.error('Upload failed:', uploadResult.status, errorText);
-        throw new Error(`Upload failed: ${errorText}`);
-      }
+        return await response.json();
+      });
+
+      const { uploadURL } = responseData;
+      console.log('📡 Upload URL received:', uploadURL.substring(0, 100) + '...');
+
+      // Step 3: Upload file to storage
+      const uploadResult = await testUploadStep('Upload File', async () => {
+        return await fetch(uploadURL, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type || 'application/octet-stream',
+          },
+        });
+      });
+
+      // Step 4: Check upload result
+      await testUploadStep('Check Upload Result', async () => {
+        console.log('Upload response status:', uploadResult.status);
+        console.log('Upload response ok:', uploadResult.ok);
+        
+        if (uploadResult.ok) {
+          return { success: true };
+        } else {
+          let errorText = 'Unknown error';
+          try {
+            errorText = await uploadResult.text();
+          } catch (e) {
+            errorText = `HTTP ${uploadResult.status} ${uploadResult.statusText}`;
+          }
+          throw new Error(`Upload failed: ${errorText}`);
+        }
+      });
+
+      console.log('🎉 Upload completed successfully!');
+      setUploadSuccess(true);
+      onUploadComplete(documentType, true);
+      toast({
+        title: "Success",
+        description: `${getDisplayName(documentType)} uploaded successfully`,
+      });
+
     } catch (error) {
-      console.error('Upload error details:', error);
-      console.error('Error type:', typeof error);
-      console.error('Error constructor:', error?.constructor?.name);
-      console.error('Error string:', String(error));
-      console.error('Error JSON:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      console.error('💥 Upload process failed:', error);
+      console.error('Error analysis:', {
+        type: typeof error,
+        constructor: error?.constructor?.name,
+        message: error instanceof Error ? error.message : String(error),
+        isError: error instanceof Error,
+        isTypeError: error instanceof TypeError,
+        keys: error ? Object.keys(error) : [],
+        stringified: JSON.stringify(error, Object.getOwnPropertyNames(error))
+      });
       
       onUploadComplete(documentType, false);
       setUploadSuccess(false);
       
-      let errorMessage = 'Unknown upload error';
+      let errorMessage = 'Upload failed - check console for details';
       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (typeof error === 'string') {
         errorMessage = error;
-      } else if (error?.toString) {
-        errorMessage = error.toString();
-      } else {
-        errorMessage = 'Network or CORS error - please check your connection';
       }
       
       toast({
