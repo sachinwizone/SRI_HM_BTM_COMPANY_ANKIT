@@ -2017,7 +2017,7 @@ export default function Clients() {
                             { key: 'poRateContractUploaded', label: 'PO', field: client.poRateContractUploaded, docType: 'poRateContract' },
                           ].map(({ key, label, field, docType }) => (
                             <div key={key} className="flex items-center gap-1">
-                              {field ? (
+                              {field === true ? (
                                 <>
                                   <Check className="h-3 w-3 text-green-600" />
                                   <button
