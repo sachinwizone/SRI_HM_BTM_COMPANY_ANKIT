@@ -595,6 +595,15 @@ const leadFollowUpFormSchema = z.object({
   remarks: z.string().min(1, "Remarks are required"),
   followUpDate: z.string().min(1, "Follow-up date is required"),
   nextFollowUpDate: z.string().optional(),
+  status: z.enum(["PENDING", "COMPLETED", "CANCELLED"], {
+    required_error: "Follow-up status is required",
+  }),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"], {
+    required_error: "Priority is required",
+  }),
+  assignedUserId: z.string().min(1, "Assigned user is required"),
+  outcome: z.string().optional(),
+  reminderEnabled: z.boolean().optional(),
 });
 
 type FollowUpFormData = z.infer<typeof followUpFormSchema>;
@@ -1056,7 +1065,7 @@ function FollowUpDashboard() {
                           </Badge>
                         </div>
                         
-                        <p className="text-gray-700 mb-2">{followUp.remarks || followUp.description}</p>
+                        <p className="text-gray-700 mb-2">{followUp.remarks}</p>
                         
                         <div className="flex items-center space-x-4 text-sm text-gray-600">
                           <div className="flex items-center space-x-1">
@@ -1076,7 +1085,7 @@ function FollowUpDashboard() {
                         {/* Additional follow-up details */}
                         <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-500">
                           <span className="bg-gray-100 px-2 py-1 rounded">
-                            Type: {followUp.followUpType || followUp.type}
+                            Type: {followUp.followUpType}
                           </span>
                           {followUp.outcome && (
                             <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">
@@ -1302,12 +1311,17 @@ function LeadCRMSection() {
       remarks: "",
       followUpDate: getCurrentLocalDateTime(), // Auto-fill current date/time
       nextFollowUpDate: "",
+      status: "PENDING",
+      priority: "MEDIUM",
+      assignedUserId: "",
+      outcome: "",
+      reminderEnabled: false,
     },
   });
 
   // Create lead follow-up mutation
   const createLeadFollowUpMutation = useMutation({
-    mutationFn: async (data: LeadFollowUpFormData & { leadId: string; assignedUserId: string }) => {
+    mutationFn: async (data: LeadFollowUpFormData & { leadId: string }) => {
       return apiCall("/api/lead-follow-ups", "POST", data);
     },
     onSuccess: () => {
@@ -1317,6 +1331,11 @@ function LeadCRMSection() {
         remarks: "",
         followUpDate: getCurrentLocalDateTime(),
         nextFollowUpDate: "",
+        status: "PENDING",
+        priority: "MEDIUM",
+        assignedUserId: "",
+        outcome: "",
+        reminderEnabled: false,
       });
       setActiveFollowUpTab("history");
       queryClient.invalidateQueries({ queryKey: ["/api/lead-follow-ups"] });
@@ -1352,12 +1371,11 @@ function LeadCRMSection() {
   const onLeadFollowUpSubmit = (data: LeadFollowUpFormData) => {
     if (!selectedLead) return;
     
-    // Get current user ID (assuming first user for now, you might want to get from context)
-    const currentUserId = users[0]?.id;
-    if (!currentUserId) {
+    // Use the assigned user from the form, or default to current user
+    if (!data.assignedUserId) {
       toast({
         title: "Error",
-        description: "No user found for assignment",
+        description: "Please select a team member to assign this follow-up to",
         variant: "destructive",
       });
       return;
@@ -1366,7 +1384,6 @@ function LeadCRMSection() {
     createLeadFollowUpMutation.mutate({
       ...data,
       leadId: selectedLead.id,
-      assignedUserId: currentUserId,
     });
   };
 
@@ -1924,9 +1941,17 @@ function LeadCRMSection() {
                   return (
                     <TableRow key={lead.id} data-testid={`row-lead-${lead.id}`} className="hover:bg-muted/50">
                       <TableCell>
-                        <div className="font-medium" data-testid={`text-company-${lead.id}`}>
+                        <Button
+                          variant="link"
+                          className="font-medium text-left p-0 h-auto text-blue-600 hover:text-blue-800 hover:underline"
+                          data-testid={`link-company-${lead.id}`}
+                          onClick={() => {
+                            setSelectedLead(lead);
+                            setIsFollowUpDialogOpen(true);
+                          }}
+                        >
                           {lead.companyName}
-                        </div>
+                        </Button>
                       </TableCell>
                       <TableCell>
                         <div data-testid={`text-contact-${lead.id}`}>
@@ -2016,7 +2041,7 @@ function LeadCRMSection() {
                                 {nextDate.toLocaleDateString()}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {nextFollowUp.followUpType || nextFollowUp.type || 'FOLLOW_UP'}
+                                {nextFollowUp.followUpType || 'FOLLOW_UP'}
                               </div>
                             </div>
                           );
@@ -2235,6 +2260,133 @@ function LeadCRMSection() {
                         )}
                       />
 
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={leadFollowUpForm.control}
+                          name="status"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Follow-up Status</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select status" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="PENDING">⏳ Pending</SelectItem>
+                                  <SelectItem value="COMPLETED">✅ Completed</SelectItem>
+                                  <SelectItem value="CANCELLED">❌ Cancelled</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={leadFollowUpForm.control}
+                          name="priority"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Priority / Urgency</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select priority" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="LOW">🟢 Low</SelectItem>
+                                  <SelectItem value="MEDIUM">🟡 Medium</SelectItem>
+                                  <SelectItem value="HIGH">🟠 High</SelectItem>
+                                  <SelectItem value="URGENT">🔴 Urgent</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <FormField
+                        control={leadFollowUpForm.control}
+                        name="assignedUserId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Assigned To</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select team member" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {(users as any[])?.filter((user: any) => 
+                                  user.role === 'SALES_MANAGER' || 
+                                  user.role === 'SALES_EXECUTIVE' || 
+                                  user.role === 'ADMIN'
+                                ).map((user: any) => (
+                                  <SelectItem key={user.id} value={user.id}>
+                                    👤 {user.firstName} {user.lastName} ({user.role.replace('_', ' ')})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={leadFollowUpForm.control}
+                        name="outcome"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Outcome of Last Follow-up (Optional)</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select outcome" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="POSITIVE_RESPONSE">👍 Positive Response</SelectItem>
+                                <SelectItem value="NEEDS_MORE_INFO">❓ Needs More Info</SelectItem>
+                                <SelectItem value="NOT_INTERESTED">👎 Not Interested</SelectItem>
+                                <SelectItem value="CONVERTED">🎉 Converted</SelectItem>
+                                <SelectItem value="NO_RESPONSE">📵 No Response</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={leadFollowUpForm.control}
+                        name="reminderEnabled"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                            <FormControl>
+                              <input
+                                type="checkbox"
+                                checked={field.value || false}
+                                onChange={(e) => field.onChange(e.target.checked)}
+                                className="h-4 w-4 rounded border border-primary text-primary shadow focus:ring-primary"
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>📔 Set Reminder / Notification</FormLabel>
+                              <div className="text-sm text-muted-foreground">
+                                Enable to get notified about this follow-up
+                              </div>
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
                       <div className="flex justify-end space-x-2">
                         <Button
                           type="button"
@@ -2248,6 +2400,11 @@ function LeadCRMSection() {
                               remarks: "",
                               followUpDate: getCurrentLocalDateTime(),
                               nextFollowUpDate: "",
+                              status: "PENDING",
+                              priority: "MEDIUM",
+                              assignedUserId: "",
+                              outcome: "",
+                              reminderEnabled: false,
                             });
                           }}
                         >
@@ -2285,14 +2442,14 @@ function LeadCRMSection() {
                                 <div className="space-y-2 flex-1">
                                   <div className="flex items-center gap-2">
                                     <Badge variant="outline" className="bg-blue-50">
-                                      {followUp.followUpType || followUp.type || 'FOLLOW_UP'}
+                                      {followUp.followUpType || 'FOLLOW_UP'}
                                     </Badge>
                                     <span className="text-sm text-gray-500">
                                       {new Date(followUp.followUpDate || followUp.createdAt).toLocaleString()}
                                     </span>
                                   </div>
                                   <p className="text-sm font-medium">
-                                    {followUp.remarks || followUp.description || 'No details provided'}
+                                    {followUp.remarks || 'No details provided'}
                                   </p>
                                   {followUp.nextFollowUpDate && (
                                     <p className="text-xs text-blue-600">
