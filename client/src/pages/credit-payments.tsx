@@ -1,4 +1,4 @@
-
+import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Search, Plus, Filter, AlertTriangle, Clock, CheckCircle } from "lucide-react";
 
 export default function CreditPayments() {
+  const [searchValue, setSearchValue] = useState("");
   const { data: allPayments, isLoading } = useQuery({
     queryKey: ['/api/payments'],
   });
@@ -113,6 +114,8 @@ export default function CreditPayments() {
                         type="text" 
                         placeholder="Search payments..." 
                         className="w-64 pl-10"
+                        value={searchValue}
+                        onChange={(e) => setSearchValue(e.target.value)}
                       />
                     </div>
                     <Button variant="outline" size="sm">

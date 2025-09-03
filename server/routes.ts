@@ -418,9 +418,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { clientId } = req.params;
       const addresses = await storage.getShippingAddressesByClient(clientId);
       res.json(addresses);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Get shipping addresses error:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message || "Failed to get shipping addresses" });
     }
   });
 
@@ -429,9 +429,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = insertShippingAddressSchema.parse(req.body);
       const address = await storage.createShippingAddress(result);
       res.status(201).json(address);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Create shipping address error:", error);
-      res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message || "Failed to create shipping address" });
     }
   });
 
@@ -441,9 +441,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = insertShippingAddressSchema.parse(req.body);
       const address = await storage.updateShippingAddress(id, result);
       res.json(address);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Update shipping address error:", error);
-      res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message || "Failed to update shipping address" });
     }
   });
 
@@ -452,9 +452,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       await storage.deleteShippingAddress(id);
       res.status(204).send();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Delete shipping address error:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message || "Failed to delete shipping address" });
     }
   });
 

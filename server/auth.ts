@@ -31,14 +31,14 @@ export class AuthService {
     firstName: string;
     lastName: string;
     email: string;
-    role?: 'ADMIN' | 'SALES_MANAGER' | 'SALES_EXECUTIVE' | 'OPERATIONS';
+    role?: 'ADMIN' | 'MANAGER' | 'ACCOUNTANT' | 'EMPLOYEE' | 'SALES_MANAGER' | 'SALES_EXECUTIVE' | 'OPERATIONS';
   }): Promise<User> {
     const hashedPassword = await this.hashPassword(userData.password);
     
     const [user] = await db.insert(users).values({
       ...userData,
       password: hashedPassword,
-      role: userData.role || 'SALES_EXECUTIVE',
+      role: userData.role || 'EMPLOYEE',
     }).returning();
 
     return user;
@@ -213,5 +213,5 @@ export function requireRole(roles: string[]) {
 // Middleware to check admin role
 export const requireAdmin = requireRole(['ADMIN']);
 
-// Middleware to check manager role (admin or sales manager)
-export const requireManager = requireRole(['ADMIN', 'SALES_MANAGER']);
+// Middleware to check manager role (admin, manager, or sales manager)
+export const requireManager = requireRole(['ADMIN', 'MANAGER', 'SALES_MANAGER']);

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Search, Filter, Plus, MapPin, Truck, Clock, Navigation } from "lucide-react";
 
 export default function ClientTracking() {
+  const [searchValue, setSearchValue] = useState("");
   const { data: trackingData, isLoading } = useQuery({
     queryKey: ["/api/client-tracking"],
   });
@@ -90,6 +92,8 @@ export default function ClientTracking() {
                   type="text" 
                   placeholder="Search by vehicle or location..." 
                   className="w-64 pl-10"
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
                 />
               </div>
               <Button variant="outline" size="sm">

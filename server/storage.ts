@@ -382,8 +382,10 @@ export class DatabaseStorage implements IStorage {
     const stats = { ALFA: 0, BETA: 0, GAMMA: 0, DELTA: 0, total: 0 };
     
     results.forEach(result => {
-      if (result.category in stats) {
-        stats[result.category as keyof typeof stats] = result.count;
+      // Handle both ALFA and ALPHA as ALFA for compatibility
+      const category = result.category === 'ALPHA' ? 'ALFA' : result.category;
+      if (category in stats) {
+        stats[category as keyof typeof stats] = result.count;
         stats.total += result.count;
       }
     });
