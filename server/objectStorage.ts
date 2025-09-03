@@ -241,11 +241,9 @@ export class ObjectStorageService {
         
         // If no specific match, try any file in uploads directory
         // This is a fallback for files uploaded with random UUIDs
-        for (const file of files) {
-          console.log(`🔧 Fallback file option: ${file.name}`);
-          // For demo, return any uploaded file as fallback
-          // In production, you'd want better matching logic
-          return file;
+        if (files.length > 0) {
+          console.log(`🔧 Using fallback - returning first available file: ${files[0].name}`);
+          return files[0];
         }
         
       } catch (error) {
