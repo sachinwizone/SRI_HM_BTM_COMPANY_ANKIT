@@ -1381,7 +1381,9 @@ function LeadCRMSection() {
         reminderEnabled: false,
       });
       setActiveFollowUpTab("history");
+      // Invalidate all related queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ["/api/lead-follow-ups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] }); // Refresh leads list to show updated status
       if (selectedLead?.id) {
         queryClient.invalidateQueries({ queryKey: ["/api/lead-follow-ups", selectedLead.id] });
       }
