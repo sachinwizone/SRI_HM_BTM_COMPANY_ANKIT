@@ -1449,12 +1449,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Try to find the document using the search method
-      console.log(`🔍 Searching for document: clientId=${clientId}, documentType=${documentType}`);
       const objectStorageService = new ObjectStorageService();
       const documentFile = await objectStorageService.findClientDocumentFile(clientId, documentType);
       
       if (!documentFile) {
-        console.error(`❌ Document file NOT found for ${clientId}/${documentType}`);
         // Don't reset the upload flag - just return an error without removing the document from UI
         return res.status(404).json({ 
           error: "Document file not found", 
@@ -1462,8 +1460,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           needsReupload: false 
         });
       }
-      
-      console.log(`✅ Document file found: ${documentFile.name}`);
       
       // Construct document URL based on the found file
       const documentUrl = `/objects/uploads/${clientId}/${documentType}`;
