@@ -1197,9 +1197,14 @@ function FollowUpDashboard() {
                           )}
                           
                           <div className="flex items-center justify-between text-xs text-gray-500">
-                            {assignedUser && (
-                              <span>Assigned to: {assignedUser.firstName} {assignedUser.lastName}</span>
-                            )}
+                            <div className="space-y-1">
+                              {assignedUser && (
+                                <div>Assigned to: {assignedUser.firstName} {assignedUser.lastName}</div>
+                              )}
+                              <div className="font-medium">
+                                Updated by: {assignedUser ? `${assignedUser.firstName} ${assignedUser.lastName}` : 'Unknown User'}
+                              </div>
+                            </div>
                             {followUp.nextFollowUpDate && (
                               <span>Next follow-up: {new Date(followUp.nextFollowUpDate).toLocaleDateString()}</span>
                             )}
@@ -2274,9 +2279,24 @@ function LeadCRMSection() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="PENDING">🟡 Pending</SelectItem>
-                                  <SelectItem value="COMPLETED">🟢 Completed</SelectItem>
-                                  <SelectItem value="CANCELLED">❌ Cancelled</SelectItem>
+                                  <SelectItem value="PENDING" className="bg-yellow-50 hover:bg-yellow-100">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                                      <span>Pending</span>
+                                    </div>
+                                  </SelectItem>
+                                  <SelectItem value="COMPLETED" className="bg-green-50 hover:bg-green-100">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                      <span>Completed</span>
+                                    </div>
+                                  </SelectItem>
+                                  <SelectItem value="CANCELLED" className="bg-red-50 hover:bg-red-100">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                      <span>Cancelled</span>
+                                    </div>
+                                  </SelectItem>
                                 </SelectContent>
                               </Select>
                               <FormMessage />
@@ -2461,6 +2481,14 @@ function LeadCRMSection() {
                                       Assigned to: {followUp.assignedUser.firstName} {followUp.assignedUser.lastName}
                                     </p>
                                   )}
+                                  <div className="mt-2 pt-2 border-t border-gray-100">
+                                    <p className="text-xs text-gray-500">
+                                      <span className="font-medium">Updated by:</span> {(() => {
+                                        const updatedUser = users.find(u => u.id === followUp.assignedUserId);
+                                        return updatedUser ? `${updatedUser.firstName} ${updatedUser.lastName}` : 'Unknown User';
+                                      })()}
+                                    </p>
+                                  </div>
                                 </div>
                               </div>
                             </Card>
