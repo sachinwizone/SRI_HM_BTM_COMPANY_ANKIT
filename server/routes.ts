@@ -1398,32 +1398,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`🔧 Got normalized objectPath: ${objectPath}`);
 
-      // Update client document status and URL in database (using correct snake_case field names)
+      // Update client document status and URL in database (using correct camelCase field names)
       const updateData: any = {};
       switch (documentType) {
         case 'gstCertificate':
-          updateData.gst_certificate_uploaded = true;
-          updateData.gst_certificate_url = objectPath;
+          updateData.gstCertificateUploaded = true;
+          updateData.gstCertificateUrl = objectPath;
           break;
         case 'panCopy':
-          updateData.pan_copy_uploaded = true;
-          updateData.pan_copy_url = objectPath;
+          updateData.panCopyUploaded = true;
+          updateData.panCopyUrl = objectPath;
           break;
         case 'securityCheque':
-          updateData.security_cheque_uploaded = true;
-          updateData.security_cheque_url = objectPath;
+          updateData.securityChequeUploaded = true;
+          updateData.securityChequeUrl = objectPath;
           break;
         case 'aadharCard':
-          updateData.aadhar_card_uploaded = true;
-          updateData.aadhar_card_url = objectPath;
+          updateData.aadharCardUploaded = true;
+          updateData.aadharCardUrl = objectPath;
           break;
         case 'agreement':
-          updateData.agreement_uploaded = true;
-          updateData.agreement_url = objectPath;
+          updateData.agreementUploaded = true;
+          updateData.agreementUrl = objectPath;
           break;
         case 'poRateContract':
-          updateData.po_rate_contract_uploaded = true;
-          updateData.po_rate_contract_url = objectPath;
+          updateData.poRateContractUploaded = true;
+          updateData.poRateContractUrl = objectPath;
           break;
         default:
           return res.status(400).json({ error: "Invalid document type" });
