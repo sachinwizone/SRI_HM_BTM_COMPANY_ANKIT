@@ -16,6 +16,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Search, Plus, Filter, Users, Edit, Eye, Upload, Download, FileText, Shield, CreditCard, Building, FileCheck, ScrollText, Trash2, MoreVertical } from "lucide-react";
 import { useState } from "react";
+import { WorkingFileUpload } from "@/components/WorkingFileUpload";
 
 export default function ClientManagement() {
   const { toast } = useToast();
@@ -23,6 +24,7 @@ export default function ClientManagement() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [editingClient, setEditingClient] = useState<any>(null);
   const [viewingClient, setViewingClient] = useState<any>(null);
+  const [documentUploads, setDocumentUploads] = useState<Record<string, boolean>>({});
 
   const { data: clients, isLoading } = useQuery({
     queryKey: ['/api/clients'],
@@ -42,7 +44,7 @@ export default function ClientManagement() {
       toast({ title: "Success", description: "Client created successfully" });
       setIsDialogOpen(false);
       form.reset();
-
+      setDocumentUploads({});
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to create client", variant: "destructive" });
@@ -58,7 +60,7 @@ export default function ClientManagement() {
       toast({ title: "Success", description: "Client updated successfully" });
       setEditingClient(null);
       form.reset();
-
+      setDocumentUploads({});
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update client", variant: "destructive" });
@@ -93,6 +95,12 @@ export default function ClientManagement() {
     }
   });
 
+  const handleUploadComplete = (documentType: string, success: boolean, fileUrl?: string) => {
+    setDocumentUploads(prev => ({
+      ...prev,
+      [documentType]: success
+    }));
+  };
 
   const onSubmit = (data: any) => {
     // Ensure creditLimit is within database bounds (max 13 digits before decimal)
@@ -104,6 +112,13 @@ export default function ClientManagement() {
     const clientData = {
       ...data,
       creditLimit: creditLimit || null,
+      // Add document upload status
+      gstCertificateUploaded: documentUploads.gstCertificate || false,
+      panCopyUploaded: documentUploads.panCopy || false,
+      securityChequeUploaded: documentUploads.securityCheque || false,
+      aadharCardUploaded: documentUploads.aadharCard || false,
+      agreementUploaded: documentUploads.agreement || false,
+      poRateContractUploaded: documentUploads.poRateContract || false,
     };
 
     if (editingClient) {
@@ -142,6 +157,7 @@ export default function ClientManagement() {
     setIsDialogOpen(false);
     setEditingClient(null);
     form.reset();
+    setDocumentUploads({});
   };
 
   const getCategoryColor = (category: string) => {
@@ -384,45 +400,40 @@ export default function ClientManagement() {
                                 Documents Upload (Checklist)
                               </h3>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {[
-                                  { key: 'gstCertificate', label: 'GST Certificate' },
-                                  { key: 'panCopy', label: 'PAN Copy' },
-                                  { key: 'securityCheque', label: 'Security Cheque' },
-                                  { key: 'aadharCard', label: 'Aadhar Card' },
-                                  { key: 'agreement', label: 'Agreement' },
-                                  { key: 'poRateContract', label: 'PO / Rate Contract' }
-                                ].map((doc) => (
-                                  <div key={doc.key} className="border border-dashed border-gray-300 rounded-lg p-4 text-center">
-                                    <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                                    <p className="text-sm font-medium text-gray-600 mb-2">{doc.label}</p>
-                                    <input
-                                      type="file"
-                                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                                      className="hidden"
-                                      id={`file-${doc.key}`}
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) {
-                                          toast({
-                                            title: "Document Selected",
-                                            description: `${doc.label}: ${file.name} selected (upload functionality will be restored soon)`,
-                                          });
-                                        }
-                                      }}
-                                    />
-                                    <label 
-                                      htmlFor={`file-${doc.key}`}
-                                      className="cursor-pointer text-sm text-blue-600 hover:text-blue-800"
-                                    >
-                                      Click to select file
-                                    </label>
-                                    <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG, DOC (max 10MB)</p>
-                                  </div>
-                                ))}
+                                <WorkingFileUpload
+                                  documentType="gstCertificate"
+                                  label="GST Certificate"
+                                  onUploadComplete={handleUploadComplete}
+                                />
+                                <WorkingFileUpload
+                                  documentType="panCopy"
+                                  label="PAN Copy"
+                                  onUploadComplete={handleUploadComplete}
+                                />
+                                <WorkingFileUpload
+                                  documentType="securityCheque"
+                                  label="Security Cheque"
+                                  onUploadComplete={handleUploadComplete}
+                                />
+                                <WorkingFileUpload
+                                  documentType="aadharCard"
+                                  label="Aadhar Card"
+                                  onUploadComplete={handleUploadComplete}
+                                />
+                                <WorkingFileUpload
+                                  documentType="agreement"
+                                  label="Agreement"
+                                  onUploadComplete={handleUploadComplete}
+                                />
+                                <WorkingFileUpload
+                                  documentType="poRateContract"
+                                  label="PO / Rate Contract"
+                                  onUploadComplete={handleUploadComplete}
+                                />
                               </div>
                               
                               <p className="text-sm text-gray-500 mt-3">
-                                Document upload functionality is being restored. For now, files can be selected and will be saved with client records.
+                                Upload documents for this client. Files are securely stored in cloud storage and can be managed after client creation.
                               </p>
                             </div>
                             
