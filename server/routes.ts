@@ -1430,8 +1430,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Client not found" });
       }
       
-      // Check if document is uploaded
-      const documentField = `${documentType.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())}Uploaded` as keyof typeof client;
+      // Check if document is uploaded (documentType is already in camelCase)
+      const documentField = `${documentType}Uploaded` as keyof typeof client;
       if (!client[documentField]) {
         return res.status(404).json({ error: "Document not uploaded" });
       }

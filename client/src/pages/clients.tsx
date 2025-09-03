@@ -1999,12 +1999,12 @@ export default function Clients() {
                       <TableCell>
                         <div className="text-xs space-y-1">
                           {[
-                            { key: 'gstCertificateUploaded', label: 'GST', field: client.gstCertificateUploaded, docType: 'gst-certificate' },
-                            { key: 'panCopyUploaded', label: 'PAN', field: client.panCopyUploaded, docType: 'pan-copy' },
-                            { key: 'securityChequeUploaded', label: 'SEC', field: client.securityChequeUploaded, docType: 'security-cheque' },
-                            { key: 'aadharCardUploaded', label: 'ADH', field: client.aadharCardUploaded, docType: 'aadhar-card' },
+                            { key: 'gstCertificateUploaded', label: 'GST', field: client.gstCertificateUploaded, docType: 'gstCertificate' },
+                            { key: 'panCopyUploaded', label: 'PAN', field: client.panCopyUploaded, docType: 'panCopy' },
+                            { key: 'securityChequeUploaded', label: 'SEC', field: client.securityChequeUploaded, docType: 'securityCheque' },
+                            { key: 'aadharCardUploaded', label: 'ADH', field: client.aadharCardUploaded, docType: 'aadharCard' },
                             { key: 'agreementUploaded', label: 'AGR', field: client.agreementUploaded, docType: 'agreement' },
-                            { key: 'poRateContractUploaded', label: 'PO', field: client.poRateContractUploaded, docType: 'po-rate-contract' },
+                            { key: 'poRateContractUploaded', label: 'PO', field: client.poRateContractUploaded, docType: 'poRateContract' },
                           ].map(({ key, label, field, docType }) => (
                             <div key={key} className="flex items-center gap-1">
                               {field ? (

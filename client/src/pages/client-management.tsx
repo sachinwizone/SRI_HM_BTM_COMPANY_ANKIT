@@ -698,31 +698,42 @@ export default function ClientManagement() {
 // Enhanced Document Downloads Component
 function ClientDocumentDownloads({ client }: { client: any }) {
   const documents = [
-    { key: 'gstCertificateUploaded', label: 'GST Certificate', type: 'gst-certificate', icon: FileText },
-    { key: 'panCopyUploaded', label: 'PAN Copy', type: 'pan-copy', icon: FileText },
-    { key: 'securityChequeUploaded', label: 'Security Cheque', type: 'security-cheque', icon: FileText },
-    { key: 'aadharCardUploaded', label: 'Aadhar Card', type: 'aadhar-card', icon: FileText },
+    { key: 'gstCertificateUploaded', label: 'GST Certificate', type: 'gstCertificate', icon: FileText },
+    { key: 'panCopyUploaded', label: 'PAN Copy', type: 'panCopy', icon: FileText },
+    { key: 'securityChequeUploaded', label: 'Security Cheque', type: 'securityCheque', icon: FileText },
+    { key: 'aadharCardUploaded', label: 'Aadhar Card', type: 'aadharCard', icon: FileText },
     { key: 'agreementUploaded', label: 'Agreement', type: 'agreement', icon: FileText },
-    { key: 'poRateContractUploaded', label: 'PO / Rate Contract', type: 'po-rate-contract', icon: FileText }
+    { key: 'poRateContractUploaded', label: 'PO / Rate Contract', type: 'poRateContract', icon: FileText }
   ];
 
   const handleDownloadDocument = async (documentType: string, docLabel: string) => {
     try {
-      // First try to get the document URL from the API
+      console.log(`Downloading document: ${documentType} for client: ${client.id}`);
+      
+      // First get the document URL from the API
       const response = await fetch(`/api/clients/${client.id}/documents/${documentType}`, {
         credentials: 'include',
       });
       
       if (response.ok) {
         const data = await response.json();
+        console.log(`Got document URL: ${data.documentUrl}`);
+        
         // Open in new tab for download
-        window.open(data.documentUrl, '_blank');
+        const link = document.createElement('a');
+        link.href = data.documentUrl;
+        link.download = `${client.name}_${docLabel}`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       } else {
-        throw new Error('Document not found');
+        const errorData = await response.json();
+        console.error('Document API error:', errorData);
+        throw new Error(errorData.message || 'Document not found');
       }
     } catch (error) {
       console.error('Error downloading document:', error);
-      // Show user-friendly error message
       alert('Document not available for download. Please re-upload the document.');
     }
   };
