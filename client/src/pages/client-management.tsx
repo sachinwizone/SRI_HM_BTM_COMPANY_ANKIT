@@ -145,6 +145,7 @@ export default function ClientManagement() {
 
   const handleViewClient = (client: any) => {
     console.log('Viewing client:', client.name);
+    console.log('Setting viewingClient to:', client);
     setViewingClient(client);
   };
 
@@ -505,13 +506,23 @@ export default function ClientManagement() {
                           <tr key={index} className="hover:bg-gray-50">
                             <td className="px-6 py-4">
                               <div>
-                                <button
+                                <div 
                                   onClick={() => handleViewClient(client)}
-                                  className="font-medium text-blue-600 hover:text-blue-800 hover:underline text-left cursor-pointer bg-transparent border-none p-0 m-0"
+                                  className="font-medium hover:underline cursor-pointer"
+                                  style={{
+                                    color: '#2563eb',
+                                    textDecoration: 'none'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.target.style.color = '#1d4ed8';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.target.style.color = '#2563eb';
+                                  }}
                                   data-testid={`link-client-${client.id}`}
                                 >
                                   {client.name}
-                                </button>
+                                </div>
                                 <div className="text-sm text-gray-500">{client.gstNumber || 'No GST'}</div>
                               </div>
                             </td>
