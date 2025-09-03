@@ -7,6 +7,7 @@ import {
   CheckSquare, ShoppingCart, File, Receipt, 
   FileText, TrendingUp, DollarSign, Database, Settings, LucideIcon, Package, Clock, LogOut, Target
 } from "lucide-react";
+import logoImage from "@assets/image_1756898354167.png";
 
 type NavigationItem = {
   name: string;
@@ -77,11 +78,11 @@ export default function Sidebar() {
     <aside className="w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col">
       {/* Header */}
       <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center">
+        <div className="flex items-center justify-center">
           <img 
-            src="@assets/image_1756898354167.png" 
+            src={logoImage} 
             alt="Bitumen Company Logo" 
-            className="h-8 w-auto object-contain"
+            className="h-12 w-auto object-contain"
           />
         </div>
         <p className="text-sm text-gray-500 mt-1">Quality & Service is Our Specialty</p>
