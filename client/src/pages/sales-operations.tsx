@@ -269,7 +269,7 @@ function AddLeadDialog({ open, onOpenChange, lead, users, onLeadSaved }: AddLead
         email: lead.email || "",
         leadSource: lead.leadSource || "WEBSITE",
         leadStatus: lead.leadStatus || "NEW",
-        interestedProducts: Array.isArray(lead.interestedProducts) ? lead.interestedProducts : [],
+        interestedProducts: Array.isArray(lead.interestedProducts) ? lead.interestedProducts : [] as string[],
         notes: lead.notes || "",
         assignedToUserId: lead.assignedToUserId || user?.id || "",
         primarySalesPersonId: lead.primarySalesPersonId || user?.id || "",
@@ -1926,14 +1926,6 @@ function LeadCRMSection() {
                     </div>
                   </TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("estimatedValue")}>
-                    <div className="flex items-center gap-1">
-                      Est. Value
-                      {sortField === "estimatedValue" && (
-                        <span className="text-xs">{sortDirection === "asc" ? "↑" : "↓"}</span>
-                      )}
-                    </div>
-                  </TableHead>
                   <TableHead>Next Follow-up</TableHead>
                   <TableHead>Primary Sales Person</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -2048,13 +2040,6 @@ function LeadCRMSection() {
                             </SelectItem>
                           </SelectContent>
                         </Select>
-                      </TableCell>
-                      <TableCell>
-                        {lead.estimatedValue && (
-                          <div className="text-right font-medium" data-testid={`text-value-${lead.id}`}>
-                            ₹{Number(lead.estimatedValue).toLocaleString()}
-                          </div>
-                        )}
                       </TableCell>
                       <TableCell>
                         {(() => {
