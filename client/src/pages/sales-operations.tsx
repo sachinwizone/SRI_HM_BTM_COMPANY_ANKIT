@@ -630,10 +630,10 @@ const leadFollowUpFormSchema = z.object({
   remarks: z.string().min(1, "Remarks are required"),
   followUpDate: z.string().min(1, "Follow-up date is required"),
   nextFollowUpDate: z.string().optional(),
-  status: z.enum(["PENDING", "COMPLETED", "CANCELLED"], {
-    required_error: "Follow-up status is required",
+  status: z.enum(["NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "CLOSED_WON", "CLOSED_LOST"], {
+    required_error: "Lead status is required",
   }),
-  leadStatusUpdate: z.enum(["NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "CLOSED_WON", "CLOSED_LOST"]).optional(),
+  followUpStatus: z.enum(["PENDING", "COMPLETED", "CANCELLED"]).default("PENDING"),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"], {
     required_error: "Priority is required",
   }),
@@ -1352,8 +1352,8 @@ function LeadCRMSection() {
       remarks: "",
       followUpDate: getCurrentLocalDateTime(), // Auto-fill current date/time
       nextFollowUpDate: "",
-      status: "PENDING",
-      leadStatusUpdate: undefined,
+      status: "NEW",
+      followUpStatus: "PENDING",
       priority: "MEDIUM",
       assignedUserId: "",
       outcome: "",
@@ -1373,8 +1373,8 @@ function LeadCRMSection() {
         remarks: "",
         followUpDate: getCurrentLocalDateTime(),
         nextFollowUpDate: "",
-        status: "PENDING",
-        leadStatusUpdate: undefined,
+        status: "NEW",
+        followUpStatus: "PENDING",
         priority: "MEDIUM",
         assignedUserId: "",
         outcome: "",
@@ -1430,10 +1430,7 @@ function LeadCRMSection() {
       leadId: selectedLead.id,
     });
     
-    // Also update the lead status if leadStatusUpdate is provided
-    if (data.leadStatusUpdate && data.leadStatusUpdate !== selectedLead.leadStatus) {
-      updateLeadStatusMutation.mutate({ leadId: selectedLead.id, status: data.leadStatusUpdate });
-    }
+    // Lead status will be updated by backend automatically
   };
 
   const handleConvertToClient = (lead: Lead) => {
@@ -1998,7 +1995,7 @@ function LeadCRMSection() {
                             setSelectedLead(lead);
                             setIsFollowUpDialogOpen(true);
                             // Pre-populate form with current lead status
-                            leadFollowUpForm.setValue("leadStatusUpdate", lead.leadStatus);
+                            leadFollowUpForm.setValue("status", lead.leadStatus);
                           }}
                         >
                           {lead.companyName}
@@ -2148,7 +2145,7 @@ function LeadCRMSection() {
                               setSelectedLead(lead);
                               setIsFollowUpDialogOpen(true);
                               // Pre-populate form with current lead status
-                              leadFollowUpForm.setValue("leadStatusUpdate", lead.leadStatus);
+                              leadFollowUpForm.setValue("status", lead.leadStatus);
                             }}
                             data-testid={`button-followup-${lead.id}`}
                           >
@@ -2354,49 +2351,11 @@ function LeadCRMSection() {
                           name="status"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Follow-up Status</FormLabel>
+                              <FormLabel>Lead Status Update</FormLabel>
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select status" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="PENDING" className="bg-yellow-50 hover:bg-yellow-100">
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                                      <span>Pending</span>
-                                    </div>
-                                  </SelectItem>
-                                  <SelectItem value="COMPLETED" className="bg-green-50 hover:bg-green-100">
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                      <span>Completed</span>
-                                    </div>
-                                  </SelectItem>
-                                  <SelectItem value="CANCELLED" className="bg-red-50 hover:bg-red-100">
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                                      <span>Cancelled</span>
-                                    </div>
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={leadFollowUpForm.control}
-                          name="leadStatusUpdate"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Update Lead Status (Optional)</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select new lead status" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
@@ -2448,6 +2407,7 @@ function LeadCRMSection() {
                             </FormItem>
                           )}
                         />
+
                       </div>
                       
                       <div className="grid grid-cols-1 gap-4">
@@ -2567,8 +2527,8 @@ function LeadCRMSection() {
                               remarks: "",
                               followUpDate: getCurrentLocalDateTime(),
                               nextFollowUpDate: "",
-                              status: "PENDING",
-        leadStatusUpdate: undefined,
+                              status: "NEW",
+        followUpStatus: "PENDING",
                               priority: "MEDIUM",
                               assignedUserId: "",
                               outcome: "",

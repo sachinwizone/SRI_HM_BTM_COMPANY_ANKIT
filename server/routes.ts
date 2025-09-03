@@ -1008,6 +1008,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const leadFollowUpData = {
         ...validatedData,
+        // Map status from lead status to follow-up status
+        status: validatedData.followUpStatus || 'PENDING', // Use followUpStatus for the follow-up record
         // Populate both old and new columns for compatibility
         type: validatedData.type || validatedData.followUpType, // Old column
         description: validatedData.description || validatedData.remarks, // Old column
@@ -1016,6 +1018,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nextFollowUpDate: validatedData.nextFollowUpDate ? new Date(validatedData.nextFollowUpDate) : undefined,
         completedAt: validatedData.completedAt ? new Date(validatedData.completedAt) : undefined,
       } as any;
+      
+      // Update lead status if provided
+      if (validatedData.status && validatedData.leadId) {
+        await storage.updateLead(validatedData.leadId, { leadStatus: validatedData.status });
+      }
       
       const leadFollowUp = await storage.createLeadFollowUp(leadFollowUpData);
       res.status(201).json(leadFollowUp);
