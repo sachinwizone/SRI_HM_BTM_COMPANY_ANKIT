@@ -1454,6 +1454,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Use direct database update to bypass ORM type issues
       const { db } = await import('./db.js');
+      const { sql } = await import('drizzle-orm');
       await db.execute(sql.raw(`UPDATE clients SET ${updates} WHERE id = '${clientId}'`));
       
       console.log(`🔧 Client updated successfully with direct SQL!`);
