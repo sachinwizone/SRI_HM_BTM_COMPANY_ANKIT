@@ -759,55 +759,6 @@ function ClientDocumentDownloads({ client }: { client: any }) {
     </div>
   );
 }
-                          <span className="text-sm font-medium text-gray-500">Email:</span>
-                          <span className="ml-2">{viewingClient.email || 'Not provided'}</span>
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium text-gray-500">Phone:</span>
-                          <span className="ml-2">{viewingClient.mobileNumber || 'Not provided'}</span>
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium text-gray-500">GST Number:</span>
-                          <span className="ml-2">{viewingClient.gstNumber || 'Not provided'}</span>
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium text-gray-500">Address:</span>
-                          <span className="ml-2">{viewingClient.billingAddressLine || 'Not provided'}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <h4 className="font-semibold text-gray-900">Financial Information</h4>
-                      <div className="space-y-2">
-                        <div>
-                          <span className="text-sm font-medium text-gray-500">Credit Limit:</span>
-                          <span className="ml-2 font-semibold">
-                            {viewingClient.creditLimit ? `₹${parseInt(viewingClient.creditLimit).toLocaleString()}` : 'Not set'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium text-gray-500">Payment Terms:</span>
-                          <span className="ml-2">{viewingClient.paymentTerms || 30} days</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-6">
-                    <h4 className="font-semibold text-gray-900 mb-3">Document Status</h4>
-                    <DocumentStatus client={viewingClient} />
-                  </div>
-                  <div className="flex justify-end mt-6">
-                    <Button onClick={() => setViewingClient(null)}>Close</Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
-
-            {/* Client Attachments Section */}
-            <ClientAttachmentsSection />
-    </div>
-  );
-}
 
 // Document Status Component  
 function DocumentStatus({ client }: { client: any }) {
