@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertClientSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Plus, Filter, Users, Edit, Eye, Upload, Download, FileText, Shield, CreditCard, Building, FileCheck, ScrollText } from "lucide-react";
+import { Search, Plus, Filter, Users, Edit, Eye, Upload, Download, FileText, Shield, CreditCard, Building, FileCheck, ScrollText, Trash2, MoreVertical } from "lucide-react";
 import { useState } from "react";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { FileUploadButton } from "@/components/FileUploadButton";
@@ -23,6 +24,8 @@ export default function ClientManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [documentUploads, setDocumentUploads] = useState<Record<string, { uploaded: boolean; fileUrl?: string; uploading?: boolean }>>({});
+  const [editingClient, setEditingClient] = useState<any>(null);
+  const [viewingClient, setViewingClient] = useState<any>(null);
 
   const { data: clients, isLoading } = useQuery({
     queryKey: ['/api/clients'],
@@ -46,6 +49,36 @@ export default function ClientManagement() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to create client", variant: "destructive" });
+    }
+  });
+
+  const updateClientMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return await apiRequest('PUT', `/api/clients/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
+      toast({ title: "Success", description: "Client updated successfully" });
+      setEditingClient(null);
+      form.reset();
+      setDocumentUploads({});
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update client", variant: "destructive" });
+    }
+  });
+
+  const deleteClientMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest('DELETE', `/api/clients/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
+      toast({ title: "Success", description: "Client deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete client", variant: "destructive" });
     }
   });
 
@@ -87,9 +120,14 @@ export default function ClientManagement() {
       });
       
       if (uploadResponse.ok) {
+        // Extract object path from upload URL for later access
+        const url = new URL(uploadURL);
+        const objectPath = url.pathname;
+        const accessPath = `/objects${objectPath.split('/').slice(2).join('/')}`;
+        
         setDocumentUploads(prev => ({
           ...prev,
-          [documentType]: { uploaded: true, fileUrl: uploadURL, uploading: false }
+          [documentType]: { uploaded: true, fileUrl: accessPath, uploading: false }
         }));
         
         toast({
@@ -97,7 +135,7 @@ export default function ClientManagement() {
           description: `${file.name} uploaded successfully`,
         });
       } else {
-        throw new Error('Upload failed');
+        throw new Error(`Upload failed with status: ${uploadResponse.status}`);
       }
     } catch (error) {
       console.error('File upload error:', error);
@@ -107,7 +145,7 @@ export default function ClientManagement() {
       }));
       toast({
         title: "Error",
-        description: `Failed to upload ${file.name}`,
+        description: `Failed to upload ${file.name}. Please try again.`,
         variant: "destructive"
       });
     }
@@ -120,7 +158,7 @@ export default function ClientManagement() {
       creditLimit = 9999999999999; // Max safe value for precision 15,2
     }
     
-    createClientMutation.mutate({
+    const clientData = {
       ...data,
       creditLimit: creditLimit || null,
       // Add document upload status
@@ -130,7 +168,45 @@ export default function ClientManagement() {
       aadharCardUploaded: documentUploads.aadharCard?.uploaded || false,
       agreementUploaded: documentUploads.agreement?.uploaded || false,
       poRateContractUploaded: documentUploads.poRateContract?.uploaded || false,
+    };
+
+    if (editingClient) {
+      updateClientMutation.mutate({ id: editingClient.id, data: clientData });
+    } else {
+      createClientMutation.mutate(clientData);
+    }
+  };
+
+  const handleEditClient = (client: any) => {
+    setEditingClient(client);
+    form.reset({
+      name: client.name || "",
+      category: client.category || "BETA",
+      email: client.email || "",
+      mobileNumber: client.mobileNumber || "",
+      billingAddressLine: client.billingAddressLine || "",
+      gstNumber: client.gstNumber || "",
+      creditLimit: client.creditLimit || 0,
+      paymentTerms: client.paymentTerms || 30
     });
+    setIsDialogOpen(true);
+  };
+
+  const handleViewClient = (client: any) => {
+    setViewingClient(client);
+  };
+
+  const handleDeleteClient = (client: any) => {
+    if (window.confirm(`Are you sure you want to delete ${client.name}? This action cannot be undone.`)) {
+      deleteClientMutation.mutate(client.id);
+    }
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setEditingClient(null);
+    form.reset();
+    setDocumentUploads({});
   };
 
   const getCategoryColor = (category: string) => {
@@ -232,7 +308,7 @@ export default function ClientManagement() {
                       <Filter size={16} className="mr-2" />
                       Filter
                     </Button>
-                    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                    <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
                       <DialogTrigger asChild>
                         <Button size="sm">
                           <Plus size={16} className="mr-2" />
@@ -241,7 +317,7 @@ export default function ClientManagement() {
                       </DialogTrigger>
                       <DialogContent className="max-w-2xl">
                         <DialogHeader>
-                          <DialogTitle>Add New Client</DialogTitle>
+                          <DialogTitle>{editingClient ? 'Edit Client' : 'Add New Client'}</DialogTitle>
                         </DialogHeader>
                         <Form {...form}>
                           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -423,11 +499,14 @@ export default function ClientManagement() {
                             </div>
                             
                             <div className="flex justify-end space-x-2">
-                              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                              <Button type="button" variant="outline" onClick={handleCloseDialog}>
                                 Cancel
                               </Button>
-                              <Button type="submit" disabled={createClientMutation.isPending}>
-                                {createClientMutation.isPending ? "Creating..." : "Create Client"}
+                              <Button type="submit" disabled={createClientMutation.isPending || updateClientMutation.isPending}>
+                                {createClientMutation.isPending || updateClientMutation.isPending 
+                                  ? (editingClient ? "Updating..." : "Creating...") 
+                                  : (editingClient ? "Update Client" : "Create Client")
+                                }
                               </Button>
                             </div>
                           </form>
@@ -492,7 +571,7 @@ export default function ClientManagement() {
                             <td className="px-6 py-4">
                               <div>
                                 <div className="text-gray-900">{client.email || 'No email'}</div>
-                                <div className="text-sm text-gray-500">{client.phone || 'No phone'}</div>
+                                <div className="text-sm text-gray-500">{client.mobileNumber || 'No phone'}</div>
                               </div>
                             </td>
                             <td className="px-6 py-4">
@@ -507,16 +586,30 @@ export default function ClientManagement() {
                               <div className="text-gray-900">{client.paymentTerms || 30} days</div>
                             </td>
                             <td className="px-6 py-4">
-                              <div className="flex space-x-2">
-                                <Button variant="outline" size="sm">
-                                  <Edit size={16} className="mr-1" />
-                                  Edit
-                                </Button>
-                                <Button variant="link" size="sm">
-                                  <Eye size={16} className="mr-1" />
-                                  View
-                                </Button>
-                              </div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  <DropdownMenuItem onClick={() => handleViewClient(client)}>
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    View Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleEditClient(client)}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Edit Client
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    onClick={() => handleDeleteClient(client)}
+                                    className="text-red-600 focus:text-red-600"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete Client
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </td>
                           </tr>
                         ))
@@ -526,6 +619,71 @@ export default function ClientManagement() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Client View Dialog */}
+            {viewingClient && (
+              <Dialog open={!!viewingClient} onOpenChange={() => setViewingClient(null)}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Building className="h-5 w-5" />
+                      {viewingClient.name}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <h4 className="font-semibold text-gray-900">Basic Information</h4>
+                      <div className="space-y-2">
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Category:</span>
+                          <Badge className={`ml-2 ${getCategoryColor(viewingClient.category)}`}>
+                            {viewingClient.category}
+                          </Badge>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Email:</span>
+                          <span className="ml-2">{viewingClient.email || 'Not provided'}</span>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Phone:</span>
+                          <span className="ml-2">{viewingClient.mobileNumber || 'Not provided'}</span>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">GST Number:</span>
+                          <span className="ml-2">{viewingClient.gstNumber || 'Not provided'}</span>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Address:</span>
+                          <span className="ml-2">{viewingClient.billingAddressLine || 'Not provided'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <h4 className="font-semibold text-gray-900">Financial Information</h4>
+                      <div className="space-y-2">
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Credit Limit:</span>
+                          <span className="ml-2 font-semibold">
+                            {viewingClient.creditLimit ? `₹${parseInt(viewingClient.creditLimit).toLocaleString()}` : 'Not set'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Payment Terms:</span>
+                          <span className="ml-2">{viewingClient.paymentTerms || 30} days</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-6">
+                    <h4 className="font-semibold text-gray-900 mb-3">Document Status</h4>
+                    <DocumentStatus client={viewingClient} />
+                  </div>
+                  <div className="flex justify-end mt-6">
+                    <Button onClick={() => setViewingClient(null)}>Close</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
 
             {/* Client Attachments Section */}
             <ClientAttachmentsSection />
