@@ -1449,6 +1449,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get client document URL for viewing
   app.get("/api/clients/:clientId/documents/:documentType", requireAuth, async (req, res) => {
+    console.log(`🚀 ROUTE HIT: /api/clients/${req.params.clientId}/documents/${req.params.documentType}`);
+    
     try {
       const { clientId } = req.params;
       let { documentType } = req.params;
