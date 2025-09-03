@@ -160,6 +160,8 @@ export default function Clients() {
   const [documentBlobUrl, setDocumentBlobUrl] = useState<string | null>(null);
   const [documentContentType, setDocumentContentType] = useState<string | null>(null);
   const [isLoadingDocument, setIsLoadingDocument] = useState(false);
+  const [selectedClientForView, setSelectedClientForView] = useState<Client | null>(null);
+  const [isClientViewOpen, setIsClientViewOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -1953,10 +1955,18 @@ export default function Clients() {
                   {(clients as Client[]).map((client: Client) => (
                     <TableRow key={client.id} className="hover:bg-gray-50">
                       <TableCell>
-                        <div className="font-medium">{client.name}</div>
-                        <div className="text-sm text-gray-500">
-                          {client.companyType && companyTypeLabels[client.companyType]}
-                        </div>
+                        <button
+                          onClick={() => {
+                            setSelectedClientForView(client);
+                            setIsClientViewOpen(true);
+                          }}
+                          className="text-left hover:text-blue-600 transition-colors duration-200"
+                        >
+                          <div className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline">{client.name}</div>
+                          <div className="text-sm text-gray-500">
+                            {client.companyType && companyTypeLabels[client.companyType]}
+                          </div>
+                        </button>
                       </TableCell>
                       <TableCell>
                         <Badge className={categoryColors[client.category]}>
@@ -2052,6 +2062,17 @@ export default function Clients() {
                           <Button
                             variant="outline"
                             size="sm"
+                            onClick={() => {
+                              setSelectedClientForView(client);
+                              setIsClientViewOpen(true);
+                            }}
+                            title="View client details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleEdit(client)}
                           >
                             <Edit className="h-4 w-4" />
@@ -2096,6 +2117,192 @@ export default function Clients() {
           )}
         </CardContent>
       </Card>
+
+      {/* Client Detail View Modal */}
+      <Dialog open={isClientViewOpen} onOpenChange={setIsClientViewOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">
+              Client Details - {selectedClientForView?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedClientForView && (
+            <div className="space-y-6">
+              {/* Client 360 View */}
+              <Client360View clientId={selectedClientForView.id} />
+              
+              {/* Additional Client Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Basic Info */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Basic Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div>
+                      <p className="text-sm text-gray-500">Company Name</p>
+                      <p className="font-medium">{selectedClientForView.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Category</p>
+                      <Badge className={categoryColors[selectedClientForView.category]}>
+                        {categoryLabels[selectedClientForView.category]}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Company Type</p>
+                      <p>{selectedClientForView.companyType && companyTypeLabels[selectedClientForView.companyType]}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Contact Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Contact Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div>
+                      <p className="text-sm text-gray-500">Contact Person</p>
+                      <p className="font-medium">{selectedClientForView.contactPersonName || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Mobile Number</p>
+                      <p>{selectedClientForView.mobileNumber || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Email</p>
+                      <p>{selectedClientForView.email || 'N/A'}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Billing Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Billing Address</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div>
+                      <p className="text-sm text-gray-500">Address</p>
+                      <p className="font-medium">
+                        {[
+                          selectedClientForView.billingAddressLine,
+                          selectedClientForView.billingCity,
+                          selectedClientForView.billingState,
+                          selectedClientForView.billingPincode
+                        ].filter(Boolean).join(', ') || 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Country</p>
+                      <p>{selectedClientForView.billingCountry || 'N/A'}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Compliance Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Compliance Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div>
+                      <p className="text-sm text-gray-500">GST Number</p>
+                      <p className="font-medium">{selectedClientForView.gstNumber || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">PAN Number</p>
+                      <p>{selectedClientForView.panNumber || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">MSME Number</p>
+                      <p>{selectedClientForView.msmeNumber || 'N/A'}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Financial Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Financial Terms</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div>
+                      <p className="text-sm text-gray-500">Payment Terms</p>
+                      <p className="font-medium">{selectedClientForView.paymentTerms} days</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Credit Limit</p>
+                      <p>{selectedClientForView.creditLimit ? `₹${parseFloat(selectedClientForView.creditLimit).toLocaleString()}` : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Interest Rate</p>
+                      <p>{selectedClientForView.interestPercent ? `${selectedClientForView.interestPercent}%` : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">PO Required</p>
+                      <p>{selectedClientForView.poRequired ? 'Yes' : 'No'}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Sales Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Sales Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div>
+                      <p className="text-sm text-gray-500">Primary Sales Person</p>
+                      {selectedClientForView.primarySalesPersonId ? (
+                        (() => {
+                          const salesPerson = salesUsers.data?.find(user => user.id === selectedClientForView.primarySalesPersonId);
+                          return salesPerson ? (
+                            <div>
+                              <p className="font-medium">{salesPerson.firstName} {salesPerson.lastName}</p>
+                              <p className="text-sm text-gray-500">{salesPerson.role}</p>
+                            </div>
+                          ) : (
+                            <p className="text-gray-400">Unknown User</p>
+                          );
+                        })()
+                      ) : (
+                        <p className="text-gray-400">Not Assigned</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Created Date</p>
+                      <p>{selectedClientForView.createdAt ? new Date(selectedClientForView.createdAt).toLocaleDateString() : 'N/A'}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsClientViewOpen(false);
+                    handleEdit(selectedClientForView);
+                  }}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Client
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsClientViewOpen(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Document Viewer Modal */}
       <Dialog open={isDocumentViewerOpen} onOpenChange={setIsDocumentViewerOpen}>
