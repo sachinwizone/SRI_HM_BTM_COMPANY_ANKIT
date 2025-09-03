@@ -40,11 +40,15 @@ export function WorkingFileUpload({ documentType, label, clientId, onUploadCompl
       }
 
       console.log('1. Getting upload URL...');
+      console.log('Client ID:', clientId);
+      console.log('Document Type:', documentType);
       
       // Get client-specific upload URL from backend
       const uploadEndpoint = clientId 
         ? '/api/clients/documents/upload'
         : '/api/objects/upload';
+      
+      console.log('Using upload endpoint:', uploadEndpoint);
       
       const requestBody = clientId 
         ? { clientId, documentType }
