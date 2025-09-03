@@ -77,11 +77,14 @@ export default function Sidebar() {
     <aside className="w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col">
       {/* Header */}
       <div className="p-6 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-gray-900 flex items-center">
-          <BarChart3 className="text-primary mr-2" size={24} />
-          BizFlow Pro
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">Business Management Suite</p>
+        <div className="flex items-center">
+          <img 
+            src="@assets/image_1756898354167.png" 
+            alt="Bitumen Company Logo" 
+            className="h-8 w-auto object-contain"
+          />
+        </div>
+        <p className="text-sm text-gray-500 mt-1">Quality & Service is Our Specialty</p>
       </div>
 
       {/* Navigation */}

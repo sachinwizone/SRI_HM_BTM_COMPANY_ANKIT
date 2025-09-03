@@ -32,7 +32,7 @@ export function MobileLayout({ children, sidebar }: MobileLayoutProps) {
               {sidebar}
             </SheetContent>
           </Sheet>
-          <h1 className="text-lg font-semibold">Business Management</h1>
+          <h1 className="text-lg font-semibold">Bitumen Company</h1>
           <div></div>
         </header>
 
