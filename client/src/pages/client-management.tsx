@@ -129,8 +129,6 @@ export default function ClientManagement() {
   };
 
   const handleEditClient = (client: any) => {
-    console.log('🔍 EDITING CLIENT:', client);
-    console.log('🔍 CLIENT ID:', client?.id);
     setEditingClient(client);
     form.reset({
       name: client.name || "",
@@ -402,10 +400,6 @@ export default function ClientManagement() {
                                 Documents Upload (Checklist)
                               </h3>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {/* Debug: Show current editing client */}
-                                <div className="col-span-2 p-2 bg-gray-100 rounded text-xs">
-                                  DEBUG: editingClient?.id = {editingClient?.id || 'UNDEFINED'}
-                                </div>
                                 <WorkingFileUpload
                                   documentType="gstCertificate"
                                   label="GST Certificate"
@@ -510,7 +504,13 @@ export default function ClientManagement() {
                           <tr key={index} className="hover:bg-gray-50">
                             <td className="px-6 py-4">
                               <div>
-                                <div className="font-medium text-gray-900">{client.name}</div>
+                                <button
+                                  onClick={() => handleViewClient(client)}
+                                  className="font-medium text-blue-600 hover:text-blue-800 hover:underline text-left"
+                                  data-testid={`link-client-${client.id}`}
+                                >
+                                  {client.name}
+                                </button>
                                 <div className="text-sm text-gray-500">{client.gstNumber || 'No GST'}</div>
                               </div>
                             </td>
@@ -574,24 +574,191 @@ export default function ClientManagement() {
             {/* Client View Dialog */}
             {viewingClient && (
               <Dialog open={!!viewingClient} onOpenChange={() => setViewingClient(null)}>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                      <Building className="h-5 w-5" />
+                      <Building className="h-5 w-5 text-[#dc322f]" />
                       {viewingClient.name}
                     </DialogTitle>
                   </DialogHeader>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <h4 className="font-semibold text-gray-900">Basic Information</h4>
-                      <div className="space-y-2">
-                        <div>
-                          <span className="text-sm font-medium text-gray-500">Category:</span>
-                          <Badge className={`ml-2 ${getCategoryColor(viewingClient.category)}`}>
-                            {viewingClient.category}
-                          </Badge>
+                  
+                  <div className="space-y-6">
+                    {/* Basic Information */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="space-y-4">
+                        <h4 className="font-semibold text-gray-900 border-b pb-2">Basic Information</h4>
+                        <div className="space-y-3">
+                          <div>
+                            <span className="text-sm font-medium text-gray-500">Category:</span>
+                            <Badge className={`ml-2 ${getCategoryColor(viewingClient.category)}`}>
+                              {viewingClient.category}
+                            </Badge>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-500">Email:</span>
+                            <span className="ml-2">{viewingClient.email || 'Not provided'}</span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-500">Phone:</span>
+                            <span className="ml-2">{viewingClient.mobileNumber || 'Not provided'}</span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-500">GST Number:</span>
+                            <span className="ml-2">{viewingClient.gstNumber || 'Not provided'}</span>
+                          </div>
                         </div>
-                        <div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h4 className="font-semibold text-gray-900 border-b pb-2">Address Information</h4>
+                        <div className="space-y-3">
+                          <div>
+                            <span className="text-sm font-medium text-gray-500">Address Line:</span>
+                            <span className="ml-2">{viewingClient.billingAddressLine || 'Not provided'}</span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-500">City:</span>
+                            <span className="ml-2">{viewingClient.billingCity || 'Not provided'}</span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-500">State:</span>
+                            <span className="ml-2">{viewingClient.billingState || 'Not provided'}</span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-500">Pincode:</span>
+                            <span className="ml-2">{viewingClient.billingPincode || 'Not provided'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h4 className="font-semibold text-gray-900 border-b pb-2">Financial Information</h4>
+                        <div className="space-y-3">
+                          <div>
+                            <span className="text-sm font-medium text-gray-500">Credit Limit:</span>
+                            <span className="ml-2 font-semibold text-lg text-[#dc322f]">
+                              {viewingClient.creditLimit ? `₹${parseInt(viewingClient.creditLimit).toLocaleString()}` : 'Not set'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-500">Payment Terms:</span>
+                            <span className="ml-2">{viewingClient.paymentTerms || 30} days</span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-500">PAN Number:</span>
+                            <span className="ml-2">{viewingClient.panNumber || 'Not provided'}</span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-500">MSME Number:</span>
+                            <span className="ml-2">{viewingClient.msmeNumber || 'Not provided'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Documents Section */}
+                    <div className="space-y-4">
+                      <h4 className="font-semibold text-gray-900 border-b pb-2 flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-[#dc322f]" />
+                        Document Downloads
+                      </h4>
+                      <ClientDocumentDownloads client={viewingClient} />
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between mt-6">
+                    <Button variant="outline" onClick={() => handleEditClient(viewingClient)}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit Client
+                    </Button>
+                    <Button onClick={() => setViewingClient(null)}>Close</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+
+            {/* Client Attachments Section */}
+            <ClientAttachmentsSection />
+    </div>
+  );
+}
+
+// Enhanced Document Downloads Component
+function ClientDocumentDownloads({ client }: { client: any }) {
+  const documents = [
+    { key: 'gstCertificateUploaded', label: 'GST Certificate', type: 'gst-certificate', icon: FileText },
+    { key: 'panCopyUploaded', label: 'PAN Copy', type: 'pan-copy', icon: FileText },
+    { key: 'securityChequeUploaded', label: 'Security Cheque', type: 'security-cheque', icon: FileText },
+    { key: 'aadharCardUploaded', label: 'Aadhar Card', type: 'aadhar-card', icon: FileText },
+    { key: 'agreementUploaded', label: 'Agreement', type: 'agreement', icon: FileText },
+    { key: 'poRateContractUploaded', label: 'PO / Rate Contract', type: 'po-rate-contract', icon: FileText }
+  ];
+
+  const handleDownloadDocument = async (documentType: string, docLabel: string) => {
+    try {
+      // First try to get the document URL from the API
+      const response = await fetch(`/api/clients/${client.id}/documents/${documentType}`, {
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Open in new tab for download
+        window.open(data.documentUrl, '_blank');
+      } else {
+        throw new Error('Document not found');
+      }
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      // Show user-friendly error message
+      alert('Document not available for download. Please re-upload the document.');
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {documents.map((doc) => {
+        const Icon = doc.icon;
+        const isUploaded = client[doc.key];
+        
+        return (
+          <div key={doc.key} className={`p-4 border rounded-lg ${isUploaded ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Icon className={`h-5 w-5 ${isUploaded ? 'text-green-600' : 'text-gray-400'}`} />
+                <div>
+                  <p className="font-medium text-gray-900">{doc.label}</p>
+                  <p className="text-xs text-gray-500">
+                    {isUploaded ? 'Available' : 'Not uploaded'}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {isUploaded ? (
+                  <>
+                    <Badge className="bg-green-100 text-green-800 text-xs">Uploaded</Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDownloadDocument(doc.type, doc.label)}
+                      className="text-[#dc322f] border-[#dc322f] hover:bg-[#dc322f] hover:text-white"
+                      data-testid={`button-download-${doc.type}`}
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <Badge variant="secondary" className="text-xs">Missing</Badge>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
                           <span className="text-sm font-medium text-gray-500">Email:</span>
                           <span className="ml-2">{viewingClient.email || 'Not provided'}</span>
                         </div>

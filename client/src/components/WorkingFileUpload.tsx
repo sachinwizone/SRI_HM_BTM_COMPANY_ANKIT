@@ -20,10 +20,7 @@ export function WorkingFileUpload({ documentType, label, clientId, onUploadCompl
     const file = e.target.files?.[0];
     if (!file) return;
 
-    console.log(`=== STARTING UPLOAD ===`);
-    console.log(`Upload for ${label}:`, file.name);
-    console.log(`Client ID passed to component:`, clientId);
-    console.log(`Document Type:`, documentType);
+    console.log(`Starting upload for ${label}:`, file.name);
     
     setIsUploading(true);
     setFileName(file.name);
@@ -43,17 +40,12 @@ export function WorkingFileUpload({ documentType, label, clientId, onUploadCompl
         throw new Error('File size must be less than 10MB');
       }
 
-      console.log('=== VALIDATION PASSED ===');
-      
       // Always use client-specific upload when clientId is available
       if (!clientId) {
-        console.error('❌ NO CLIENT ID PROVIDED!');
         throw new Error('Client ID is required for document upload');
       }
       
       const uploadEndpoint = '/api/clients/documents/upload';
-      console.log('✅ Using upload endpoint:', uploadEndpoint);
-      console.log('✅ Request body:', { clientId, documentType });
       
       const requestBody = { clientId, documentType };
       

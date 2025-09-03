@@ -1350,7 +1350,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/clients/documents/upload", requireAuth, async (req, res) => {
     try {
       const { clientId, documentType } = req.body;
-      console.log(`🔍 Client document upload request: clientId=${clientId}, documentType=${documentType}`);
       
       if (!clientId || !documentType) {
         return res.status(400).json({ error: "clientId and documentType are required" });
@@ -1358,7 +1357,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const objectStorageService = new ObjectStorageService();
       const uploadURL = await objectStorageService.getClientDocumentUploadURL(clientId, documentType);
-      console.log(`🔍 Generated upload URL for ${clientId}/${documentType}: ${uploadURL.substring(0, 100)}...`);
       
       res.json({ uploadURL });
     } catch (error: any) {
@@ -1443,7 +1441,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const documentFile = await objectStorageService.findClientDocumentFile(clientId, documentType);
       
       if (!documentFile) {
-        console.log(`Document not found in storage for ${clientId}/${documentType}, but keeping upload status`);
         // Don't reset the upload flag - just return an error without removing the document from UI
         return res.status(404).json({ 
           error: "Document file not found", 

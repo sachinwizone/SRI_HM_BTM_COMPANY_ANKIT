@@ -220,29 +220,23 @@ export class ObjectStorageService {
       return null;
     }
 
-    console.log(`Searching for document: ${clientId}/${documentType}`);
-    console.log(`Private object dir: ${privateObjectDir}`);
-
     // Try new path structure first: uploads/{clientId}/{documentType}
     try {
       const newPath = `${privateObjectDir}/uploads/${clientId}/${documentType}`;
-      console.log(`Trying new path: ${newPath}`);
       const { bucketName, objectName } = parseObjectPath(newPath);
       const bucket = objectStorageClient.bucket(bucketName);
       const file = bucket.file(objectName);
       const [exists] = await file.exists();
       if (exists) {
-        console.log(`✅ Found document at new path: ${newPath}`);
         return file;
       }
     } catch (error) {
-      console.log(`New path structure not found for ${clientId}/${documentType}:`, error);
+      // Path not found, continue to next search method
     }
 
     // Try to find document in uploads directory by listing files
     try {
       const uploadsPath = `${privateObjectDir}/uploads/`;
-      console.log(`Searching in uploads directory: ${uploadsPath}`);
       const { bucketName } = parseObjectPath(uploadsPath);
       const bucket = objectStorageClient.bucket(bucketName);
       
@@ -251,40 +245,29 @@ export class ObjectStorageService {
         prefix: uploadsPath.substring(1), // Remove leading slash for GCS
       });
 
-      console.log(`Found ${files.length} files in uploads directory`);
-
       // Look for files that might match this client's documents
       for (const file of files) {
-        console.log(`Checking file: ${file.name}`);
-        
         // Check if filename contains client ID and document type
         if (file.name.includes(clientId) || file.name.includes(documentType.replace(/([A-Z])/g, '-$1').toLowerCase())) {
-          console.log(`✅ Potential match found: ${file.name}`);
           return file;
         }
       }
       
       // If no files in uploads directory, search the entire private directory
-      console.log(`No files in uploads directory, searching entire private directory...`);
       const [allFiles] = await bucket.getFiles({
         prefix: privateObjectDir.substring(1), // Remove leading slash for GCS
       });
       
-      console.log(`Found ${allFiles.length} total files in private directory`);
       for (const file of allFiles) {
-        console.log(`Found file: ${file.name}`);
-        
         // Check if this file might be for this client
         if (file.name.includes(clientId)) {
-          console.log(`✅ Found potential client file: ${file.name}`);
           return file;
         }
       }
     } catch (error) {
-      console.log(`Error searching for document files: ${error}`);
+      // Continue if search fails
     }
 
-    console.log(`❌ No document found for ${clientId}/${documentType}`);
     return null;
   }
 
