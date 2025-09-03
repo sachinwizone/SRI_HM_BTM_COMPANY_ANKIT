@@ -78,14 +78,14 @@ export default function Sidebar() {
     <aside className="w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col">
       {/* Header */}
       <div className="p-6 border-b border-gray-200">
-        <div className="w-full">
+        <div className="w-full -mx-6 px-4 py-2 bg-gray-900">
           <img 
             src={logoImage} 
             alt="Bitumen Company Logo" 
-            className="w-full h-16 object-contain"
+            className="w-full h-16 object-cover"
           />
         </div>
-        <p className="text-sm text-gray-500 mt-1">Quality & Service is Our Specialty</p>
+        <p className="text-sm text-gray-500 mt-3 text-center">Quality & Service is Our Specialty</p>
       </div>
 
       {/* Navigation */}
