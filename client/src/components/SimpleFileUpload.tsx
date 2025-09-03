@@ -48,133 +48,97 @@ export function SimpleFileUpload({ documentType, onUploadComplete }: SimpleFileU
     }
   };
 
+  const simpleUploadTest = async (file: File) => {
+    console.log('=== SIMPLE UPLOAD TEST ===');
+    console.log('File:', file.name, file.type, file.size);
+    
+    try {
+      console.log('1. Getting upload URL...');
+      const urlResponse = await fetch('/api/objects/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({})
+      });
+      
+      console.log('1. URL Response status:', urlResponse.status);
+      const urlData = await urlResponse.json();
+      console.log('1. Upload URL received');
+      
+      console.log('2. Uploading file...');
+      const uploadResponse = await fetch(urlData.uploadURL, {
+        method: 'PUT',
+        body: file
+      });
+      
+      console.log('2. Upload status:', uploadResponse.status);
+      console.log('2. Upload ok:', uploadResponse.ok);
+      
+      if (uploadResponse.ok) {
+        console.log('✅ UPLOAD SUCCESS!');
+        return true;
+      } else {
+        console.log('❌ UPLOAD FAILED');
+        return false;
+      }
+    } catch (err) {
+      console.log('❌ ERROR:', err);
+      return false;
+    }
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    console.log('🚀 Starting file upload process...');
-    console.log('File selected:', file.name, 'Type:', file.type, 'Size:', file.size);
+    console.log('File selected:', file.name);
+    setIsUploading(true);
+    setFileName(file.name);
+    setUploadSuccess(false);
 
-    // Validate file type - be more flexible with MIME types
-    const fileExtension = file.name.toLowerCase().split('.').pop();
-    const allowedExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'gif'];
-    
-    if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
+    // Simple validation
+    const ext = file.name.toLowerCase().split('.').pop();
+    if (!ext || !['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'gif'].includes(ext)) {
       toast({
         title: "Invalid File Type",
         description: "Please upload PDF, Word documents, or images only",
         variant: "destructive"
       });
+      setIsUploading(false);
       return;
     }
 
-    if (file.size > 10485760) { // 10MB
+    if (file.size > 10485760) {
       toast({
-        title: "File Too Large", 
+        title: "File Too Large",
         description: "File size must be less than 10MB",
         variant: "destructive"
       });
+      setIsUploading(false);
       return;
     }
 
-    setIsUploading(true);
-    setFileName(file.name);
-    setUploadSuccess(false);
-
-    try {
-      // Step 1: Get upload URL from backend
-      const response = await testUploadStep('Get Upload URL', async () => {
-        return await fetch('/api/objects/upload', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({}),
-        });
-      });
-
-      // Step 2: Parse response
-      const responseData = await testUploadStep('Parse Response', async () => {
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
-        return await response.json();
-      });
-
-      const { uploadURL } = responseData;
-      console.log('📡 Upload URL received:', uploadURL.substring(0, 100) + '...');
-
-      // Step 3: Upload file to storage
-      const uploadResult = await testUploadStep('Upload File', async () => {
-        return await fetch(uploadURL, {
-          method: 'PUT',
-          body: file,
-          headers: {
-            'Content-Type': file.type || 'application/octet-stream',
-          },
-        });
-      });
-
-      // Step 4: Check upload result
-      await testUploadStep('Check Upload Result', async () => {
-        console.log('Upload response status:', uploadResult.status);
-        console.log('Upload response ok:', uploadResult.ok);
-        
-        if (uploadResult.ok) {
-          return { success: true };
-        } else {
-          let errorText = 'Unknown error';
-          try {
-            errorText = await uploadResult.text();
-          } catch (e) {
-            errorText = `HTTP ${uploadResult.status} ${uploadResult.statusText}`;
-          }
-          throw new Error(`Upload failed: ${errorText}`);
-        }
-      });
-
-      console.log('🎉 Upload completed successfully!');
+    // Try the simple upload test
+    const success = await simpleUploadTest(file);
+    
+    if (success) {
       setUploadSuccess(true);
       onUploadComplete(documentType, true);
       toast({
         title: "Success",
         description: `${getDisplayName(documentType)} uploaded successfully`,
       });
-
-    } catch (error) {
-      console.error('💥 Upload process failed:', error);
-      console.error('Error analysis:', {
-        type: typeof error,
-        constructor: error?.constructor?.name,
-        message: error instanceof Error ? error.message : String(error),
-        isError: error instanceof Error,
-        isTypeError: error instanceof TypeError,
-        keys: error ? Object.keys(error) : [],
-        stringified: JSON.stringify(error, Object.getOwnPropertyNames(error))
-      });
-      
-      onUploadComplete(documentType, false);
+    } else {
       setUploadSuccess(false);
-      
-      let errorMessage = 'Upload failed - check console for details';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-      
+      onUploadComplete(documentType, false);
       toast({
         title: "Upload Failed",
-        description: errorMessage,
+        description: "Check console for error details",
         variant: "destructive"
       });
-    } finally {
-      setIsUploading(false);
     }
     
-    // Reset the input to allow re-uploading the same file
+    setIsUploading(false);
     e.target.value = '';
   };
 
