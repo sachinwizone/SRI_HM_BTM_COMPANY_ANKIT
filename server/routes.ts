@@ -1433,12 +1433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const updatedClient = await storage.updateClient(clientId, updateData);
       
-      console.log(`🔧 Client updated successfully, checking saved URL...`);
-      console.log(`🔧 Updated client document URLs:`, {
-        gstCertificateUrl: updatedClient.gstCertificateUrl,
-        agreementUrl: updatedClient.agreementUrl,
-        panCopyUrl: updatedClient.panCopyUrl
-      });
+      console.log(`🔧 Client updated successfully!`);
 
       res.json({ objectPath, message: "Document uploaded successfully" });
     } catch (error: any) {
