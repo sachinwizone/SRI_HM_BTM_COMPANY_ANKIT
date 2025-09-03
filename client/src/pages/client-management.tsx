@@ -96,7 +96,7 @@ export default function ClientManagement() {
     }
   });
 
-  const handleFileSelected = async (file: File, documentType: string) => {
+  const handleFileSelected = async (file: File, documentType: string, clientId?: string) => {
     console.log(`File selected for ${documentType}:`, file.name);
     
     // Set uploading state
@@ -106,9 +106,19 @@ export default function ClientManagement() {
     }));
     
     try {
-      // Get upload URL from server
-      const response = await apiRequest('POST', '/api/objects/upload', {}) as any;
-      const uploadURL = response.uploadURL;
+      // Use client documents upload endpoint if we have a clientId, otherwise general upload
+      let uploadURL;
+      if (clientId) {
+        const response = await apiRequest('POST', '/api/clients/documents/upload', {
+          clientId,
+          documentType
+        }) as any;
+        uploadURL = response.uploadURL;
+      } else {
+        // For new clients, use general upload temporarily
+        const response = await apiRequest('POST', '/api/objects/upload', {}) as any;
+        uploadURL = response.uploadURL;
+      }
       
       // Upload file to object storage
       const uploadResponse = await fetch(uploadURL, {
@@ -120,14 +130,9 @@ export default function ClientManagement() {
       });
       
       if (uploadResponse.ok) {
-        // Extract object path from upload URL for later access
-        const url = new URL(uploadURL);
-        const objectPath = url.pathname;
-        const accessPath = `/objects${objectPath.split('/').slice(2).join('/')}`;
-        
         setDocumentUploads(prev => ({
           ...prev,
-          [documentType]: { uploaded: true, fileUrl: accessPath, uploading: false }
+          [documentType]: { uploaded: true, fileUrl: uploadURL, uploading: false }
         }));
         
         toast({
@@ -452,42 +457,42 @@ export default function ClientManagement() {
                                 <FileUploadButton
                                   label="GST Certificate"
                                   documentType="gstCertificate"
-                                  onFileSelected={handleFileSelected}
+                                  onFileSelected={(file, docType) => handleFileSelected(file, docType, editingClient?.id)}
                                   isUploading={documentUploads.gstCertificate?.uploading}
                                   isUploaded={documentUploads.gstCertificate?.uploaded}
                                 />
                                 <FileUploadButton
                                   label="PAN Copy"
                                   documentType="panCopy"
-                                  onFileSelected={handleFileSelected}
+                                  onFileSelected={(file, docType) => handleFileSelected(file, docType, editingClient?.id)}
                                   isUploading={documentUploads.panCopy?.uploading}
                                   isUploaded={documentUploads.panCopy?.uploaded}
                                 />
                                 <FileUploadButton
                                   label="Security Cheque"
                                   documentType="securityCheque"
-                                  onFileSelected={handleFileSelected}
+                                  onFileSelected={(file, docType) => handleFileSelected(file, docType, editingClient?.id)}
                                   isUploading={documentUploads.securityCheque?.uploading}
                                   isUploaded={documentUploads.securityCheque?.uploaded}
                                 />
                                 <FileUploadButton
                                   label="Aadhar Card"
                                   documentType="aadharCard"
-                                  onFileSelected={handleFileSelected}
+                                  onFileSelected={(file, docType) => handleFileSelected(file, docType, editingClient?.id)}
                                   isUploading={documentUploads.aadharCard?.uploading}
                                   isUploaded={documentUploads.aadharCard?.uploaded}
                                 />
                                 <FileUploadButton
                                   label="Agreement"
                                   documentType="agreement"
-                                  onFileSelected={handleFileSelected}
+                                  onFileSelected={(file, docType) => handleFileSelected(file, docType, editingClient?.id)}
                                   isUploading={documentUploads.agreement?.uploading}
                                   isUploaded={documentUploads.agreement?.uploaded}
                                 />
                                 <FileUploadButton
                                   label="PO / Rate Contract"
                                   documentType="poRateContract"
-                                  onFileSelected={handleFileSelected}
+                                  onFileSelected={(file, docType) => handleFileSelected(file, docType, editingClient?.id)}
                                   isUploading={documentUploads.poRateContract?.uploading}
                                   isUploaded={documentUploads.poRateContract?.uploaded}
                                 />
