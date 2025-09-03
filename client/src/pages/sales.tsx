@@ -68,7 +68,7 @@ export default function Sales() {
   // Create Transporter Mutation
   const createTransporterMutation = useMutation({
     mutationFn: async (data: { name: string; contactNumber: string }) => {
-      return await apiRequest("POST", "/api/transporters", data);
+      return await apiRequest("/api/transporters", "POST", data);
     },
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["/api/transporters"] });
@@ -157,9 +157,9 @@ export default function Sales() {
       };
 
       if (editingSales) {
-        return await apiRequest("PUT", `/api/sales/${editingSales.id}`, finalData);
+        return await apiRequest(`/api/sales/${editingSales.id}`, "PUT", finalData);
       }
-      return await apiRequest("POST", "/api/sales", finalData);
+      return await apiRequest("/api/sales", "POST", finalData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
@@ -182,7 +182,7 @@ export default function Sales() {
 
   const deleteMutation = useMutation({
     mutationFn: async (salesId: string) => {
-      return await apiRequest("DELETE", `/api/sales/${salesId}`);
+      return await apiRequest(`/api/sales/${salesId}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
@@ -195,7 +195,7 @@ export default function Sales() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ salesId, newStatus }: { salesId: string; newStatus: string }) => {
-      return await apiRequest("PUT", `/api/sales/${salesId}`, { deliveryStatus: newStatus });
+      return await apiRequest(`/api/sales/${salesId}`, "PUT", { deliveryStatus: newStatus });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });

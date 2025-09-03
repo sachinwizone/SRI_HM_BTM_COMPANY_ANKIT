@@ -45,7 +45,7 @@ export function DragDropUpload({ documentType, onUploadComplete, disabled }: Dra
     setIsUploading(true);
     try {
       // Get upload URL
-      const uploadResponse = await apiRequest('POST', '/api/objects/upload', {}) as any;
+      const uploadResponse = await apiRequest('/api/objects/upload', 'POST', {}) as any;
       
       // Upload file to object storage
       const formData = new FormData();
