@@ -1390,26 +1390,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       );
 
-      // Update client document status in database
+      // Update client document status and URL in database
       const updateData: any = {};
       switch (documentType) {
         case 'gstCertificate':
           updateData.gstCertificateUploaded = true;
+          updateData.gstCertificateUrl = objectPath;
           break;
         case 'panCopy':
           updateData.panCopyUploaded = true;
+          updateData.panCopyUrl = objectPath;
           break;
         case 'securityCheque':
           updateData.securityChequeUploaded = true;
+          updateData.securityChequeUrl = objectPath;
           break;
         case 'aadharCard':
           updateData.aadharCardUploaded = true;
+          updateData.aadharCardUrl = objectPath;
           break;
         case 'agreement':
           updateData.agreementUploaded = true;
+          updateData.agreementUrl = objectPath;
           break;
         case 'poRateContract':
           updateData.poRateContractUploaded = true;
+          updateData.poRateContractUrl = objectPath;
           break;
         default:
           return res.status(400).json({ error: "Invalid document type" });
@@ -1449,12 +1455,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "Document not uploaded" });
       }
       
-      // Try to find the document using the search method
+      // First check if we have a stored URL for this document
+      const urlField = `${documentType}Url` as keyof typeof client;
+      const storedUrl = client[urlField] as string;
+      
+      if (storedUrl) {
+        // Use the stored URL directly
+        res.json({ documentUrl: storedUrl });
+        return;
+      }
+      
+      // Fallback: Try to find the document using the search method (for old uploads)
       const objectStorageService = new ObjectStorageService();
       const documentFile = await objectStorageService.findClientDocumentFile(clientId, documentType);
       
       if (!documentFile) {
-          // Don't reset the upload flag - just return an error without removing the document from UI
         return res.status(404).json({ 
           error: "Document file not found", 
           message: "Document may be uploading or in a different location. Please try again or re-upload.",
