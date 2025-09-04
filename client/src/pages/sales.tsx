@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 // Hooks and Utils
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { insertSalesSchema, type Sales, type InsertSales, type User, type Client, type Product, type Transporter, type ProductMaster } from "@shared/schema";
+import { insertSalesSchema, type Sales, type InsertSales, type User, type Client, type Product, type Transporter, type ProductMaster, type CompanyProfile } from "@shared/schema";
 
 const statusColors = {
   RECEIVING: "bg-orange-100 text-orange-800",
@@ -79,6 +79,8 @@ export default function Sales() {
   const [isTransporterDialogOpen, setIsTransporterDialogOpen] = useState(false);
   const [newTransporterName, setNewTransporterName] = useState("");
   const [newTransporterContactNumber, setNewTransporterContactNumber] = useState("");
+  const [isPDFPreviewOpen, setIsPDFPreviewOpen] = useState(false);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -107,6 +109,11 @@ export default function Sales() {
 
   const { data: transporters = [] } = useQuery<Transporter[]>({
     queryKey: ["/api/transporters"],
+  });
+
+  // Fetch Company Profile for PDF generation
+  const { data: companyProfile } = useQuery<CompanyProfile>({
+    queryKey: ["/api/company-profile"],
   });
 
   // Create Transporter Mutation
@@ -181,140 +188,40 @@ export default function Sales() {
   const discountAmount = parseFloat(form.watch("discountAmount")?.toString() || '0') || 0;
   const totalAmount = subtotal + taxAmount - discountAmount;
 
-  // PDF Generation Function for existing sales records
-  const generateInvoicePDFForSales = (salesRecord: Sales) => {
-    const doc = new jsPDF();
-    const selectedClient = clients.find(c => c.id === salesRecord.clientId);
-    const selectedTransporter = transporters.find(t => t.id === salesRecord.transporterId);
-    
-    // Company Header
-    doc.setFontSize(20);
-    doc.setFont("helvetica", "bold");
-    doc.text("BUSINESS INVOICE", 105, 20, { align: "center" });
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Your Company Name", 105, 30, { align: "center" });
-    doc.text("Company Address Line 1", 105, 37, { align: "center" });
-    doc.text("Company Address Line 2", 105, 44, { align: "center" });
-    doc.text("Phone: +91-XXXXXXXXXX | Email: company@email.com", 105, 51, { align: "center" });
-    
-    // Line separator
-    doc.line(20, 58, 190, 58);
-    
-    // Invoice Info Section
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Invoice Details:", 20, 70);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Invoice No: ${salesRecord.invoiceNumber}`, 20, 78);
-    doc.text(`Sales Order: ${salesRecord.salesOrderNumber}`, 20, 85);
-    doc.text(`Date: ${new Date(salesRecord.date).toLocaleDateString('en-IN')}`, 20, 92);
-    doc.text(`Status: ${salesRecord.deliveryStatus}`, 20, 99);
-    
-    // Client Info Section
-    doc.setFont("helvetica", "bold");
-    doc.text("Bill To:", 120, 70);
-    doc.setFont("helvetica", "normal");
-    doc.text(`${selectedClient?.name || 'N/A'}`, 120, 78);
-    doc.text(`${selectedClient?.billingAddressLine || 'Address not available'}`, 120, 85);
-    doc.text(`Contact: ${selectedClient?.contactPersonName || 'N/A'}`, 120, 92);
-    doc.text(`Phone: ${selectedClient?.mobileNumber || 'N/A'}`, 120, 99);
-    
-    // Transport Details (if available)
-    if (salesRecord.transporterId && selectedTransporter) {
-      doc.setFont("helvetica", "bold");
-      doc.text("Transport Details:", 20, 115);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Transporter: ${selectedTransporter.name}`, 20, 123);
-      doc.text(`Vehicle: ${salesRecord.vehicleNumber || 'N/A'}`, 20, 130);
-      doc.text(`Location: ${salesRecord.location || 'N/A'}`, 20, 137);
-    }
-    
-    // Items Table - Legacy format
-    const tableStartY = salesRecord.transporterId ? 150 : 115;
-    
-    // Prepare table data from legacy sales record
-    const tableData = [[
-      salesRecord.productId || 'N/A',
-      'Legacy Product',
-      salesRecord.drumQuantity || 0,
-      'PCS',
-      `₹${parseFloat(salesRecord.basicRate?.toString() || '0').toFixed(2)}`,
-      `₹${parseFloat(salesRecord.totalAmount?.toString() || '0').toFixed(2)}`
-    ]];
-    
-    // Add table
-    autoTable(doc, {
-      startY: tableStartY,
-      head: [['Item Code', 'Description', 'Qty', 'Unit', 'Rate', 'Amount']],
-      body: tableData,
-      theme: 'grid',
-      styles: {
-        fontSize: 9,
-        cellPadding: 3,
-      },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: 255,
-        fontStyle: 'bold'
-      },
-      columnStyles: {
-        0: { cellWidth: 25 },
-        1: { cellWidth: 55 },
-        2: { cellWidth: 20 },
-        3: { cellWidth: 20 },
-        4: { cellWidth: 25 },
-        5: { cellWidth: 25 }
-      }
-    });
-    
-    // Get final Y position after table
-    const finalY = (doc as any).lastAutoTable.finalY + 10;
-    
-    // Totals Section
-    const totalsX = 140;
-    const totalAmount = parseFloat(salesRecord.totalAmount?.toString() || '0');
-    const gstPercent = parseFloat(salesRecord.gstPercent?.toString() || '0');
-    const basicAmount = totalAmount / (1 + gstPercent / 100);
-    const gstAmount = totalAmount - basicAmount;
-    
-    doc.setFont("helvetica", "normal");
-    doc.text(`Subtotal: ₹${basicAmount.toFixed(2)}`, totalsX, finalY);
-    doc.text(`GST (${gstPercent}%): ₹${gstAmount.toFixed(2)}`, totalsX, finalY + 7);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text(`Total: ₹${totalAmount.toFixed(2)}`, totalsX, finalY + 14);
-    
-    // Footer
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "italic");
-    doc.text("Thank you for your business!", 105, finalY + 30, { align: "center" });
-    doc.text("This is a computer generated invoice.", 105, finalY + 37, { align: "center" });
-    
-    // Save the PDF
-    const fileName = `Invoice_${salesRecord.invoiceNumber}_${new Date().toISOString().split('T')[0]}.pdf`;
+  // Preview PDF Function
+  const previewPDF = (salesData: any, isFormData = false) => {
+    const doc = generatePDFDocument(salesData, isFormData);
+    const pdfOutput = doc.output('blob');
+    setPdfBlob(pdfOutput);
+    setIsPDFPreviewOpen(true);
+  };
+
+  // Generate and Download PDF
+  const downloadPDF = (salesData: any, isFormData = false) => {
+    const doc = generatePDFDocument(salesData, isFormData);
+    const fileName = `Invoice_${salesData.invoiceNumber}_${new Date().toISOString().split('T')[0]}.pdf`;
     doc.save(fileName);
   };
-  
-  // PDF Generation Function for form data
-  const generateInvoicePDF = () => {
+
+  // Helper function to generate PDF with real company data
+  const generatePDFDocument = (salesData: any, isFormData = false) => {
     const doc = new jsPDF();
-    const formData = form.getValues();
-    const selectedClient = clients.find(c => c.id === formData.clientId);
-    const selectedTransporter = transporters.find(t => t.id === formData.transporterId);
+    const selectedClient = clients.find(c => c.id === salesData.clientId);
+    const selectedTransporter = transporters.find(t => t.id === salesData.transporterId);
     
-    // Company Header
+    // Company Header with real data
     doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
     doc.text("BUSINESS INVOICE", 105, 20, { align: "center" });
     
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
-    doc.text("Your Company Name", 105, 30, { align: "center" });
-    doc.text("Company Address Line 1", 105, 37, { align: "center" });
-    doc.text("Company Address Line 2", 105, 44, { align: "center" });
-    doc.text("Phone: +91-XXXXXXXXXX | Email: company@email.com", 105, 51, { align: "center" });
+    doc.text(companyProfile?.legalName || "Your Company Name", 105, 30, { align: "center" });
+    doc.text(companyProfile?.registeredAddressLine1 || "Company Address Line 1", 105, 37, { align: "center" });
+    doc.text(companyProfile?.registeredAddressLine2 || "Company Address Line 2", 105, 44, { align: "center" });
+    
+    const contactLine = `Phone: ${companyProfile?.primaryContactMobile || '+91-XXXXXXXXXX'} | Email: ${companyProfile?.primaryContactEmail || 'company@email.com'}`;
+    doc.text(contactLine, 105, 51, { align: "center" });
     
     // Line separator
     doc.line(20, 58, 190, 58);
@@ -324,10 +231,10 @@ export default function Sales() {
     doc.setFont("helvetica", "bold");
     doc.text("Invoice Details:", 20, 70);
     doc.setFont("helvetica", "normal");
-    doc.text(`Invoice No: ${formData.invoiceNumber}`, 20, 78);
-    doc.text(`Sales Order: ${formData.salesOrderNumber}`, 20, 85);
-    doc.text(`Date: ${new Date(formData.date).toLocaleDateString('en-IN')}`, 20, 92);
-    doc.text(`Status: ${formData.deliveryStatus}`, 20, 99);
+    doc.text(`Invoice No: ${salesData.invoiceNumber}`, 20, 78);
+    doc.text(`Sales Order: ${salesData.salesOrderNumber}`, 20, 85);
+    doc.text(`Date: ${new Date(salesData.date).toLocaleDateString('en-IN')}`, 20, 92);
+    doc.text(`Status: ${salesData.deliveryStatus}`, 20, 99);
     
     // Client Info Section
     doc.setFont("helvetica", "bold");
@@ -339,27 +246,66 @@ export default function Sales() {
     doc.text(`Phone: ${selectedClient?.mobileNumber || 'N/A'}`, 120, 99);
     
     // Transport Details (if available)
-    if (formData.transporterId && selectedTransporter) {
+    if (salesData.transporterId && selectedTransporter) {
       doc.setFont("helvetica", "bold");
       doc.text("Transport Details:", 20, 115);
       doc.setFont("helvetica", "normal");
       doc.text(`Transporter: ${selectedTransporter.name}`, 20, 123);
-      doc.text(`Vehicle: ${formData.vehicleNumber || 'N/A'}`, 20, 130);
-      doc.text(`Location: ${formData.location || 'N/A'}`, 20, 137);
+      doc.text(`Vehicle: ${salesData.vehicleNumber || 'N/A'}`, 20, 130);
+      doc.text(`Location: ${salesData.location || 'N/A'}`, 20, 137);
     }
     
     // Items Table
-    const tableStartY = formData.transporterId ? 150 : 115;
+    const tableStartY = salesData.transporterId ? 150 : 115;
     
     // Prepare table data
-    const tableData = formData.items.map(item => [
-      item.itemCode || 'N/A',
-      item.itemDescription || 'N/A',
-      item.quantity || 0,
-      item.unit || 'PCS',
-      `₹${(item.unitPrice || 0).toFixed(2)}`,
-      `₹${((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)}`
-    ]);
+    let tableData;
+    let totalsInfo;
+    
+    if (isFormData && salesData.items) {
+      // Form data with items array
+      tableData = salesData.items.map((item: any) => [
+        item.itemCode || 'N/A',
+        item.itemDescription || 'N/A',
+        item.quantity || 0,
+        item.unit || 'PCS',
+        `₹${(item.unitPrice || 0).toFixed(2)}`,
+        `₹${((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)}`
+      ]);
+      
+      const subtotal = salesData.items.reduce((sum: number, item: any) => {
+        return sum + (item.quantity || 0) * (item.unitPrice || 0);
+      }, 0);
+      
+      totalsInfo = {
+        subtotal,
+        tax: parseFloat(salesData.taxAmount?.toString() || '0') || 0,
+        discount: parseFloat(salesData.discountAmount?.toString() || '0') || 0,
+        total: subtotal + (parseFloat(salesData.taxAmount?.toString() || '0') || 0) - (parseFloat(salesData.discountAmount?.toString() || '0') || 0)
+      };
+    } else {
+      // Legacy sales record
+      tableData = [[
+        salesData.productId || 'N/A',
+        'Legacy Product',
+        salesData.drumQuantity || 0,
+        'PCS',
+        `₹${parseFloat(salesData.basicRate?.toString() || '0').toFixed(2)}`,
+        `₹${parseFloat(salesData.totalAmount?.toString() || '0').toFixed(2)}`
+      ]];
+      
+      const totalAmount = parseFloat(salesData.totalAmount?.toString() || '0');
+      const gstPercent = parseFloat(salesData.gstPercent?.toString() || '0');
+      const basicAmount = totalAmount / (1 + gstPercent / 100);
+      const gstAmount = totalAmount - basicAmount;
+      
+      totalsInfo = {
+        subtotal: basicAmount,
+        tax: gstAmount,
+        discount: 0,
+        total: totalAmount
+      };
+    }
     
     // Add table
     autoTable(doc, {
@@ -391,13 +337,14 @@ export default function Sales() {
     
     // Totals Section
     const totalsX = 140;
+    
     doc.setFont("helvetica", "normal");
-    doc.text(`Subtotal: ₹${subtotal.toFixed(2)}`, totalsX, finalY);
-    doc.text(`Tax: ₹${taxAmount.toFixed(2)}`, totalsX, finalY + 7);
-    doc.text(`Discount: ₹${discountAmount.toFixed(2)}`, totalsX, finalY + 14);
+    doc.text(`Subtotal: ₹${totalsInfo.subtotal.toFixed(2)}`, totalsX, finalY);
+    doc.text(`Tax: ₹${totalsInfo.tax.toFixed(2)}`, totalsX, finalY + 7);
+    doc.text(`Discount: ₹${totalsInfo.discount.toFixed(2)}`, totalsX, finalY + 14);
     
     doc.setFont("helvetica", "bold");
-    doc.text(`Total: ₹${totalAmount.toFixed(2)}`, totalsX, finalY + 21);
+    doc.text(`Total: ₹${totalsInfo.total.toFixed(2)}`, totalsX, finalY + 21);
     
     // Footer
     doc.setFontSize(8);
@@ -405,9 +352,22 @@ export default function Sales() {
     doc.text("Thank you for your business!", 105, finalY + 40, { align: "center" });
     doc.text("This is a computer generated invoice.", 105, finalY + 47, { align: "center" });
     
-    // Save the PDF
-    const fileName = `Invoice_${formData.invoiceNumber}_${new Date().toISOString().split('T')[0]}.pdf`;
-    doc.save(fileName);
+    return doc;
+  };
+  
+  // Updated PDF functions using the helper
+  const generateInvoicePDFForSales = (salesRecord: Sales) => {
+    downloadPDF(salesRecord, false);
+  };
+  
+  const generateInvoicePDF = () => {
+    const formData = form.getValues();
+    downloadPDF(formData, true);
+  };
+  
+  const previewInvoicePDF = () => {
+    const formData = form.getValues();
+    previewPDF(formData, true);
   };
 
   // Product selection handler
@@ -1454,12 +1414,22 @@ export default function Sales() {
                 <Button 
                   type="button" 
                   variant="outline"
+                  onClick={previewInvoicePDF}
+                  className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                  data-testid="button-preview-pdf"
+                >
+                  <Package className="mr-2 h-4 w-4" />
+                  Preview
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline"
                   onClick={generateInvoicePDF}
                   className="border-green-300 text-green-700 hover:bg-green-50"
                   data-testid="button-generate-pdf"
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  Generate PDF
+                  Download PDF
                 </Button>
                 <Button 
                   type="submit" 
@@ -1535,6 +1505,72 @@ export default function Sales() {
                 {createTransporterMutation.isPending ? "Creating..." : "Create Transporter"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* PDF Preview Modal */}
+      <Dialog open={isPDFPreviewOpen} onOpenChange={setIsPDFPreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Invoice Preview</DialogTitle>
+            <DialogDescription>
+              Preview your invoice before downloading or printing.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-hidden">
+            {pdfBlob && (
+              <div className="space-y-4">
+                <div className="flex justify-end space-x-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      if (pdfBlob) {
+                        const url = URL.createObjectURL(pdfBlob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = `Invoice_${new Date().toISOString().split('T')[0]}.pdf`;
+                        link.click();
+                        URL.revokeObjectURL(url);
+                      }
+                    }}
+                    className="border-green-300 text-green-700 hover:bg-green-50"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      if (pdfBlob) {
+                        const url = URL.createObjectURL(pdfBlob);
+                        const printWindow = window.open(url, '_blank');
+                        if (printWindow) {
+                          printWindow.onload = () => {
+                            printWindow.print();
+                          };
+                        }
+                      }
+                    }}
+                    className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                  >
+                    <Printer className="mr-2 h-4 w-4" />
+                    Print
+                  </Button>
+                </div>
+                
+                <div className="border rounded-lg overflow-hidden" style={{ height: '500px' }}>
+                  <iframe
+                    src={URL.createObjectURL(pdfBlob)}
+                    className="w-full h-full"
+                    title="Invoice Preview"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
