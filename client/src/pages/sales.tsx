@@ -851,50 +851,61 @@ export default function Sales() {
                     </Button>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
+                <CardContent className="space-y-4">
+                  {/* Product Selection Area */}
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <FormField
+                        control={form.control}
+                        name={`items.0.productMasterId`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Select Product to Add</FormLabel>
+                            <Select value={field.value} onValueChange={(value) => handleProductSelection(fields.length - 1, value)}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-product-new">
+                                  <SelectValue placeholder="Choose product to add to bill" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="manual">Manual Entry</SelectItem>
+                                {productMasters?.map((product) => (
+                                  <SelectItem key={product.id} value={product.id}>
+                                    {product.productCode} - {product.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="flex items-end">
+                        <Button type="button" onClick={addItem} size="default" className="w-full" data-testid="button-add-item">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Item to Bill
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Billing Table */}
+                  <div className="overflow-x-auto border rounded-lg">
                     <table className="w-full">
                       <thead className="bg-gray-50 border-b">
                         <tr className="text-left text-xs font-medium text-gray-500 uppercase">
-                          <th className="px-4 py-3">Select Product</th>
-                          <th className="px-4 py-3">Item Code</th>
-                          <th className="px-4 py-3">Description</th>
-                          <th className="px-4 py-3">Qty</th>
-                          <th className="px-4 py-3">Unit</th>
-                          <th className="px-4 py-3">Unit Price</th>
-                          <th className="px-4 py-3">Line Total</th>
-                          <th className="px-4 py-3">Actions</th>
+                          <th className="px-4 py-3 text-center">ITEM CODE</th>
+                          <th className="px-4 py-3 text-center">DESCRIPTION</th>
+                          <th className="px-4 py-3 text-center">QTY</th>
+                          <th className="px-4 py-3 text-center">UNIT</th>
+                          <th className="px-4 py-3 text-center">UNIT PRICE</th>
+                          <th className="px-4 py-3 text-center">LINE TOTAL</th>
+                          <th className="px-4 py-3 text-center">ACTIONS</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {fields.map((field, index) => (
                           <tr key={field.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-4">
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.productMasterId`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <Select value={field.value} onValueChange={(value) => handleProductSelection(index, value)}>
-                                      <FormControl>
-                                        <SelectTrigger data-testid={`select-product-${index}`} className="w-48">
-                                          <SelectValue placeholder="Choose product" />
-                                        </SelectTrigger>
-                                      </FormControl>
-                                      <SelectContent>
-                                        <SelectItem value="manual">Manual Entry</SelectItem>
-                                        {productMasters?.map((product) => (
-                                          <SelectItem key={product.id} value={product.id}>
-                                            {product.productCode} - {product.name}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </td>
                             <td className="px-4 py-4">
                               <FormField
                                 control={form.control}
@@ -906,7 +917,8 @@ export default function Sales() {
                                         {...field} 
                                         placeholder="Auto-filled"
                                         data-testid={`input-item-code-${index}`}
-                                        className="w-32"
+                                        className="text-center border-0 bg-transparent"
+                                        readOnly
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -925,7 +937,8 @@ export default function Sales() {
                                         {...field} 
                                         placeholder="Auto-filled"
                                         data-testid={`input-description-${index}`}
-                                        className="w-48"
+                                        className="text-center border-0 bg-transparent"
+                                        readOnly
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -947,7 +960,7 @@ export default function Sales() {
                                         {...field}
                                         onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
                                         data-testid={`input-quantity-${index}`}
-                                        className="w-24"
+                                        className="text-center"
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -963,7 +976,7 @@ export default function Sales() {
                                   <FormItem>
                                     <Select onValueChange={field.onChange} value={field.value}>
                                       <FormControl>
-                                        <SelectTrigger data-testid={`select-unit-${index}`} className="w-20">
+                                        <SelectTrigger data-testid={`select-unit-${index}`} className="text-center">
                                           <SelectValue />
                                         </SelectTrigger>
                                       </FormControl>
@@ -994,7 +1007,7 @@ export default function Sales() {
                                         {...field}
                                         onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
                                         data-testid={`input-unit-price-${index}`}
-                                        className="w-28"
+                                        className="text-center"
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -1003,11 +1016,11 @@ export default function Sales() {
                               />
                             </td>
                             <td className="px-4 py-4">
-                              <div className="font-semibold text-gray-900">
+                              <div className="font-semibold text-gray-900 text-center">
                                 ₹{((watchedItems[index]?.quantity || 0) * (watchedItems[index]?.unitPrice || 0)).toFixed(2)}
                               </div>
                             </td>
-                            <td className="px-4 py-4">
+                            <td className="px-4 py-4 text-center">
                               {fields.length > 1 && (
                                 <Button
                                   type="button"
@@ -1025,37 +1038,6 @@ export default function Sales() {
                       </tbody>
                     </table>
                   </div>
-                  
-                  {/* Product Master Details - Show for all selected products */}
-                  {watchedItems.some(item => item?.productMasterId && item?.productMasterId !== "manual") && (
-                    <div className="border-t p-4 space-y-2">
-                      <h4 className="font-medium text-sm text-gray-700">Product Master Details:</h4>
-                      {watchedItems.map((item, index) => 
-                        item?.productMasterId && item?.productMasterId !== "manual" ? (
-                          <div key={index} className="bg-green-50 p-3 rounded border text-sm">
-                            <div className="grid grid-cols-4 gap-4">
-                              <div>
-                                <span className="font-medium text-gray-600">Item {index + 1}:</span>
-                                <div>{item?.itemCode || '-'}</div>
-                              </div>
-                              <div>
-                                <span className="font-medium text-gray-600">Family:</span>
-                                <div>{item?.productFamily || '-'}</div>
-                              </div>
-                              <div>
-                                <span className="font-medium text-gray-600">Grade:</span>
-                                <div>{item?.productGrade || '-'}</div>
-                              </div>
-                              <div>
-                                <span className="font-medium text-gray-600">HSN Code:</span>
-                                <div>{item?.hsnCode || '-'}</div>
-                              </div>
-                            </div>
-                          </div>
-                        ) : null
-                      )}
-                    </div>
-                  )}
                 </CardContent>
               </Card>
 
