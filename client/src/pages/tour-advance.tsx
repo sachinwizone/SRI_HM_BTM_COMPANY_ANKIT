@@ -170,15 +170,9 @@ export default function TourAdvance() {
   const createUpdateMutation = useMutation({
     mutationFn: async (data: TourAdvanceFormData) => {
       if (selectedTourAdvance) {
-        return apiRequest(`/api/tour-advances/${selectedTourAdvance.id}`, {
-          method: "PUT",
-          body: JSON.stringify(data),
-        });
+        return apiRequest(`/api/tour-advances/${selectedTourAdvance.id}`, "PUT", data);
       } else {
-        return apiRequest("/api/tour-advances", {
-          method: "POST",
-          body: JSON.stringify(data),
-        });
+        return apiRequest("/api/tour-advances", "POST", data);
       }
     },
     onSuccess: () => {
@@ -203,9 +197,7 @@ export default function TourAdvance() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest(`/api/tour-advances/${id}`, {
-        method: "DELETE",
-      });
+      return apiRequest(`/api/tour-advances/${id}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tour-advances"] });
