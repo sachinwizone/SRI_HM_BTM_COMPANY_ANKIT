@@ -720,16 +720,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Received PO data:", JSON.stringify(purchaseOrder, null, 2));
       console.log("Received items data:", JSON.stringify(items, null, 2));
       
-      // Prepare purchase order data with date conversion
+      // Prepare purchase order data with date conversion and field mapping
       const poData = {
         ...purchaseOrder,
-        orderDate: new Date(purchaseOrder.orderDate),
-        expectedDeliveryDate: new Date(purchaseOrder.expectedDeliveryDate),
+        orderDate: purchaseOrder.poDate ? new Date(purchaseOrder.poDate) : new Date(),
+        expectedDeliveryDate: purchaseOrder.deliveryDate ? new Date(purchaseOrder.deliveryDate) : new Date(),
       };
       
-      // Prepare items data with date conversion
+      // Prepare items data with field mapping and type conversion
       const itemsData = items.map((item: any) => ({
         ...item,
+        itemName: item.itemDescription || item.itemName || item.productName,
+        quantityOrdered: Number(item.quantityOrdered),
+        unit: item.unitOfMeasure || item.unit,
+        unitPrice: Number(item.unitPrice),
+        totalPrice: Number(item.totalLineValue || item.totalPrice),
         deliveryDate: item.deliveryDate ? new Date(item.deliveryDate) : undefined,
       }));
       
