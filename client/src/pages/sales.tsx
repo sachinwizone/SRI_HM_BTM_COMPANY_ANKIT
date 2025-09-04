@@ -81,6 +81,8 @@ export default function Sales() {
   const [newTransporterContactNumber, setNewTransporterContactNumber] = useState("");
   const [isPDFPreviewOpen, setIsPDFPreviewOpen] = useState(false);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [isClientDetailsOpen, setIsClientDetailsOpen] = useState(false);
+  const [selectedClientForDetails, setSelectedClientForDetails] = useState<Client | null>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -790,8 +792,19 @@ export default function Sales() {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {client?.name || 'Unknown Client'}
+                          <div className="text-sm font-medium">
+                            <button
+                              className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left font-medium"
+                              onClick={() => {
+                                if (client) {
+                                  setSelectedClientForDetails(client);
+                                  setIsClientDetailsOpen(true);
+                                }
+                              }}
+                              title="View client details"
+                            >
+                              {client?.name || 'Unknown Client'}
+                            </button>
                           </div>
                           <div className="text-xs text-gray-500">
                             Sales: {salesperson ? `${salesperson.firstName} ${salesperson.lastName}`.trim() || salesperson.username : 'Unknown'}
@@ -1628,6 +1641,129 @@ export default function Sales() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Client Details Modal */}
+      <Dialog open={isClientDetailsOpen} onOpenChange={setIsClientDetailsOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Client Details</DialogTitle>
+            <DialogDescription>
+              Complete information for {selectedClientForDetails?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedClientForDetails && (
+            <div className="space-y-6">
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Company Name</label>
+                    <p className="text-sm text-gray-900 mt-1">{selectedClientForDetails.name}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Category</label>
+                    <Badge className={`mt-1 ${
+                      selectedClientForDetails.category === 'ALFA' ? 'bg-green-100 text-green-800' :
+                      selectedClientForDetails.category === 'BETA' ? 'bg-blue-100 text-blue-800' :
+                      selectedClientForDetails.category === 'GAMMA' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {selectedClientForDetails.category}
+                    </Badge>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Contact Person</label>
+                    <p className="text-sm text-gray-900 mt-1">{selectedClientForDetails.contactPersonName || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Mobile Number</label>
+                    <p className="text-sm text-gray-900 mt-1">{selectedClientForDetails.mobileNumber || 'Not specified'}</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Email</label>
+                    <p className="text-sm text-gray-900 mt-1">{selectedClientForDetails.email || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">GSTIN</label>
+                    <p className="text-sm text-gray-900 mt-1">{selectedClientForDetails.gstin || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">PAN Number</label>
+                    <p className="text-sm text-gray-900 mt-1">{selectedClientForDetails.panNumber || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Registration Date</label>
+                    <p className="text-sm text-gray-900 mt-1">
+                      {selectedClientForDetails.createdAt ? new Date(selectedClientForDetails.createdAt).toLocaleDateString() : 'Not available'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Address Information */}
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Address Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Billing Address</label>
+                    <div className="text-sm text-gray-900 mt-1 space-y-1">
+                      <p>{selectedClientForDetails.billingAddressLine || 'Not specified'}</p>
+                      <p>{selectedClientForDetails.billingCity || ''} {selectedClientForDetails.billingPincode || ''}</p>
+                      <p>{selectedClientForDetails.billingState || ''}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Shipping Address</label>
+                    <div className="text-sm text-gray-900 mt-1 space-y-1">
+                      <p>{selectedClientForDetails.shippingAddressLine || 'Same as billing'}</p>
+                      <p>{selectedClientForDetails.shippingCity || ''} {selectedClientForDetails.shippingPincode || ''}</p>
+                      <p>{selectedClientForDetails.shippingState || ''}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Financial Information */}
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Financial Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Credit Limit</label>
+                    <p className="text-sm text-gray-900 mt-1">
+                      {selectedClientForDetails.creditLimit ? `₹${parseFloat(selectedClientForDetails.creditLimit.toString()).toLocaleString()}` : 'Not set'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Payment Terms</label>
+                    <p className="text-sm text-gray-900 mt-1">{selectedClientForDetails.paymentTerms || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Interest Rate</label>
+                    <p className="text-sm text-gray-900 mt-1">
+                      {selectedClientForDetails.interestPercent ? `${selectedClientForDetails.interestPercent}%` : 'Not set'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="border-t pt-6 flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsClientDetailsOpen(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
