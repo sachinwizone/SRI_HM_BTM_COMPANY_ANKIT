@@ -159,17 +159,7 @@ export default function Sales() {
       transporterContactNumber: "",
       taxAmount: 0,
       discountAmount: 0,
-      items: [{
-        productMasterId: "",
-        itemCode: "",
-        itemDescription: "",
-        productFamily: "",
-        productGrade: "",
-        hsnCode: "",
-        quantity: 0,
-        unit: "PCS",
-        unitPrice: 0
-      }]
+      items: [] // Start with empty array
     },
   });
 
@@ -184,7 +174,9 @@ export default function Sales() {
 
   // Calculate totals
   const subtotal = watchedItems.reduce((sum, item) => {
-    return sum + (item.quantity || 0) * (item.unitPrice || 0);
+    const qty = typeof item.quantity === 'string' ? parseFloat(item.quantity) || 0 : item.quantity || 0;
+    const price = typeof item.unitPrice === 'string' ? parseFloat(item.unitPrice) || 0 : item.unitPrice || 0;
+    return sum + qty * price;
   }, 0);
   
   const taxAmount = parseFloat(form.watch("taxAmount")?.toString() || '0') || 0;
@@ -529,29 +521,35 @@ export default function Sales() {
         // Update the existing record with aggregated data
         return await apiRequest(`/api/sales/${editingSales.id}`, "PUT", aggregatedData);
       } else {
-        // For new records, create separate sales records for each item
-        const results = [];
-        for (let i = 0; i < items.length; i++) {
-          const item = items[i];
-          const productMatch = products.find(p => p.name === item.itemDescription) || products[0];
-          
-          const itemData = {
-            ...baseData,
-            // Use base numbers for first item, append suffix for others
-            salesOrderNumber: i === 0 ? data.salesOrderNumber : `${data.salesOrderNumber}-${i}`,
-            invoiceNumber: i === 0 ? data.invoiceNumber : `${data.invoiceNumber}-${i}`,
-            netWeight: item.quantity.toString(),
-            drumQuantity: Math.ceil(item.quantity),
-            perDrumWeight: item.unitPrice.toFixed(2),
-            basicRate: item.unitPrice.toFixed(2),
-            totalAmount: (item.quantity * item.unitPrice * 1.18).toFixed(2),
-            productId: productMatch?.id || ""
-          };
+        // For new records, also aggregate all items into single record
+        const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+        const totalValue = items.reduce((sum, item) => sum + ((item.quantity || 0) * (item.unitPrice || 0)), 0);
+        
+        // Create combined description from all items
+        const itemDescriptions = items
+          .filter(item => item.itemDescription)
+          .map(item => `${item.itemCode || ''} ${item.itemDescription || ''}`.trim())
+          .join(', ');
+        
+        // Use first item for product reference, or find best match
+        const firstItem = items[0];
+        const productMatch = products.find(p => 
+          items.some(item => item.itemDescription?.includes(p.name || ''))
+        ) || products.find(p => p.name === firstItem?.itemDescription) || products[0];
+        
+        const aggregatedData = {
+          ...baseData,
+          netWeight: totalQuantity.toString(),
+          drumQuantity: Math.ceil(totalQuantity),
+          perDrumWeight: totalQuantity > 0 ? (totalValue / totalQuantity).toFixed(2) : "0",
+          basicRate: totalQuantity > 0 ? (totalValue / totalQuantity).toFixed(2) : "0",
+          totalAmount: (totalValue * 1.18).toFixed(2), // Including 18% GST
+          productId: productMatch?.id || "",
+          // Store item descriptions for reference
+          notes: `Items: ${itemDescriptions}`
+        };
 
-          const result = await apiRequest("/api/sales", "POST", itemData);
-          results.push(result);
-        }
-        return results[0]; // Return first record as reference
+        return await apiRequest("/api/sales", "POST", aggregatedData);
       }
     },
     onSuccess: () => {
@@ -1374,17 +1372,15 @@ export default function Sales() {
                                         type="number" 
                                         step="0.001"
                                         min="0"
-                                        value={field.value === 0 ? '' : field.value}
+                                        value={field.value || ''}
                                         onChange={e => {
                                           const value = e.target.value;
-                                          if (value === '' || value === '0') {
-                                            field.onChange(0);
-                                          } else {
-                                            const num = parseFloat(value);
-                                            if (!isNaN(num)) {
-                                              field.onChange(num);
-                                            }
-                                          }
+                                          field.onChange(value);
+                                        }}
+                                        onBlur={e => {
+                                          const value = e.target.value;
+                                          const num = parseFloat(value);
+                                          field.onChange(isNaN(num) ? 0 : num);
                                         }}
                                         data-testid={`input-quantity-${index}`}
                                         className="text-center"
@@ -1432,17 +1428,15 @@ export default function Sales() {
                                         type="number" 
                                         step="0.01"
                                         min="0"
-                                        value={field.value === 0 ? '' : field.value}
+                                        value={field.value || ''}
                                         onChange={e => {
                                           const value = e.target.value;
-                                          if (value === '' || value === '0') {
-                                            field.onChange(0);
-                                          } else {
-                                            const num = parseFloat(value);
-                                            if (!isNaN(num)) {
-                                              field.onChange(num);
-                                            }
-                                          }
+                                          field.onChange(value);
+                                        }}
+                                        onBlur={e => {
+                                          const value = e.target.value;
+                                          const num = parseFloat(value);
+                                          field.onChange(isNaN(num) ? 0 : num);
                                         }}
                                         data-testid={`input-unit-price-${index}`}
                                         className="text-center"
@@ -1456,7 +1450,13 @@ export default function Sales() {
                             </td>
                             <td className="px-4 py-4">
                               <div className="font-semibold text-gray-900 text-center">
-                                ₹{((watchedItems[index]?.quantity || 0) * (watchedItems[index]?.unitPrice || 0)).toFixed(2)}
+                                ₹{(() => {
+                                  const item = watchedItems[index];
+                                  if (!item) return '0.00';
+                                  const qty = typeof item.quantity === 'string' ? parseFloat(item.quantity) || 0 : item.quantity || 0;
+                                  const price = typeof item.unitPrice === 'string' ? parseFloat(item.unitPrice) || 0 : item.unitPrice || 0;
+                                  return (qty * price).toFixed(2);
+                                })()}
                               </div>
                             </td>
                             <td className="px-4 py-4 text-center">
