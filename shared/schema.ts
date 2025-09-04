@@ -651,6 +651,9 @@ export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  orderDate: z.string().transform(str => new Date(str)),
+  expectedDeliveryDate: z.string().transform(str => new Date(str)),
 });
 
 export const insertPurchaseOrderItemSchema = createInsertSchema(purchaseOrderItems).omit({
@@ -662,6 +665,7 @@ export const insertPurchaseOrderItemSchema = createInsertSchema(purchaseOrderIte
   productFamily: z.string().optional(),
   productGrade: z.string().optional(),
   hsnCode: z.string().optional(),
+  deliveryDate: z.string().optional().transform(str => str ? new Date(str) : undefined),
 });
 
 export const insertPaymentSchema = createInsertSchema(payments).omit({
