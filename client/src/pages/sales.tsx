@@ -805,30 +805,44 @@ export default function Sales() {
                   <div className="bg-orange-50 p-4 rounded-lg">
                     <h3 className="text-sm font-semibold text-gray-900 mb-3">Transport Details (Optional)</h3>
                     <div className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="transporterId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Transporter</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value || ""}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select transporter" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {transporters.map((transporter) => (
-                                  <SelectItem key={transporter.id} value={transporter.id}>
-                                    {transporter.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <div className="space-y-2">
+                        <FormField
+                          control={form.control}
+                          name="transporterId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Transporter</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value || ""}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select or search transporter" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <div className="border-b p-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setIsTransporterDialogOpen(true)}
+                                      className="w-full text-blue-600 border-blue-300 hover:bg-blue-50"
+                                    >
+                                      <Plus className="h-4 w-4 mr-2" />
+                                      Add New Transporter
+                                    </Button>
+                                  </div>
+                                  {transporters.map((transporter) => (
+                                    <SelectItem key={transporter.id} value={transporter.id}>
+                                      {transporter.name} {transporter.contactNumber ? `(${transporter.contactNumber})` : ''}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                       <FormField
                         control={form.control}
                         name="vehicleNumber"
