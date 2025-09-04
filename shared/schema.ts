@@ -32,6 +32,7 @@ export const dispatchStatusEnum = pgEnum('dispatch_status', ['PENDING', 'LOADING
 export const creditCheckStatusEnum = pgEnum('credit_check_status', ['PENDING', 'APPROVED', 'REJECTED', 'REQUIRES_GUARANTEE']);
 export const approvalStatusEnum = pgEnum('approval_status', ['PENDING', 'APPROVED', 'REJECTED', 'REQUIRES_REVISION']);
 export const assignmentTypeEnum = pgEnum('assignment_type', ['PRIMARY', 'SECONDARY', 'BACKUP']);
+export const supplierTypeEnum = pgEnum('supplier_type', ['MANUFACTURER', 'DISTRIBUTOR', 'SERVICE_PROVIDER', 'CONTRACTOR', 'VENDOR', 'OTHERS']);
 
 // Users table (Enhanced for ERP system)
 export const users = pgTable("users", {
@@ -895,23 +896,65 @@ export const productMaster = pgTable("product_master", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
-// Suppliers Master
+// Suppliers Master - Enhanced with comprehensive supplier master data
 export const suppliers = pgTable("suppliers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // 1. Identification & General Info
   supplierCode: text("supplier_code").unique().notNull(),
-  name: text("name").notNull(),
-  gstin: text("gstin"),
-  pan: text("pan"),
-  addressLine: text("address_line"),
-  city: text("city"),
-  state: text("state"),
-  pincode: text("pincode"),
+  supplierName: text("supplier_name").notNull(), // Legal Name
+  tradeName: text("trade_name"), // Brand Name if different
+  supplierType: supplierTypeEnum("supplier_type").notNull().default('VENDOR'),
+  status: text("status").notNull().default('ACTIVE'), // ACTIVE/INACTIVE
+  
+  // 2. Contact Details
   contactPersonName: text("contact_person_name"),
-  contactPersonMobile: text("contact_person_mobile"),
-  contactPersonEmail: text("contact_person_email"),
-  paymentTerms: integer("payment_terms").default(30), // days
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  fax: text("fax"),
+  website: text("website"),
+  
+  // 3. Address Information
+  registeredAddressStreet: text("registered_address_street"),
+  registeredAddressCity: text("registered_address_city"),
+  registeredAddressState: text("registered_address_state"),
+  registeredAddressCountry: text("registered_address_country").default('India'),
+  registeredAddressPostalCode: text("registered_address_postal_code"),
+  
+  shippingAddressStreet: text("shipping_address_street"),
+  shippingAddressCity: text("shipping_address_city"),
+  shippingAddressState: text("shipping_address_state"),
+  shippingAddressCountry: text("shipping_address_country"),
+  shippingAddressPostalCode: text("shipping_address_postal_code"),
+  
+  billingAddressStreet: text("billing_address_street"),
+  billingAddressCity: text("billing_address_city"),
+  billingAddressState: text("billing_address_state"),
+  billingAddressCountry: text("billing_address_country"),
+  billingAddressPostalCode: text("billing_address_postal_code"),
+  
+  // 4. Financial & Payment Details
+  taxId: text("tax_id"), // Tax ID / VAT / GST / PAN
+  bankAccountNumber: text("bank_account_number"),
+  bankName: text("bank_name"),
+  bankBranch: text("bank_branch"),
+  swiftIbanCode: text("swift_iban_code"),
+  paymentTerms: integer("payment_terms").default(30), // e.g., Net 30, Net 60
+  preferredCurrency: text("preferred_currency").default('INR'),
+  
+  // Legacy fields for compatibility
+  name: text("name"), // Keeping for backward compatibility
+  gstin: text("gstin"), // Will be mapped to taxId
+  pan: text("pan"), // Will be mapped to taxId
+  addressLine: text("address_line"), // Will be mapped to registered address
+  city: text("city"), // Will be mapped to registered city
+  state: text("state"), // Will be mapped to registered state
+  pincode: text("pincode"), // Will be mapped to registered postal code
+  contactPersonMobile: text("contact_person_mobile"), // Will be mapped to contactPhone
+  contactPersonEmail: text("contact_person_email"), // Will be mapped to contactEmail
   productCategories: text("product_categories").array(), // VG, EMULSION, ACCESSORIES
   isActive: boolean("is_active").notNull().default(true),
+  
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -13,19 +14,21 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit, Building, Factory, Package, Building2 } from "lucide-react";
+import { Plus, Edit, Building, Factory, Package, Building2, Pencil } from "lucide-react";
 import { CompanyProfileForm } from "@/components/CompanyProfileForm";
 import { ProductMasterForm } from "@/components/ProductMasterForm";
 import type { 
   CompanyProfile, 
   Branch,
   ProductMaster,
-  Supplier
+  Supplier,
+  InsertSupplier
 } from "@shared/schema";
 import { 
   insertCompanyProfileSchema,
   insertBranchSchema
 } from "@shared/schema";
+import { z } from "zod";
 
 export default function MasterDataPage() {
   const [activeTab, setActiveTab] = useState("company");
@@ -511,22 +514,717 @@ function ProductMasterSection() {
 }
 
 function SuppliersSection() {
+  const [showForm, setShowForm] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const queryClient = useQueryClient();
+
+  const { data: suppliers, isLoading } = useQuery<Supplier[]>({
+    queryKey: ['/api/suppliers'],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: InsertSupplier) => apiRequest('/api/suppliers', { method: 'POST', body: data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/suppliers'] });
+      setShowForm(false);
+      toast({ title: "Success", description: "Supplier created successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create supplier", variant: "destructive" });
+    }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<InsertSupplier> }) => 
+      apiRequest(`/api/suppliers/${id}`, { method: 'PUT', body: data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/suppliers'] });
+      setShowForm(false);
+      setSelectedSupplier(null);
+      toast({ title: "Success", description: "Supplier updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update supplier", variant: "destructive" });
+    }
+  });
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Suppliers</CardTitle>
-        <CardDescription>Manage supplier information and payment terms</CardDescription>
+        <CardTitle>Suppliers Master</CardTitle>
+        <CardDescription>Comprehensive supplier information and payment terms management</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="text-center py-8">
-          <Building2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-medium mb-2">Supplier Management Coming Soon</h3>
-          <p className="text-muted-foreground">
-            Add and manage supplier contacts and payment terms
-          </p>
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center space-x-4">
+            <Building2 className="h-6 w-6 text-primary" />
+            <h3 className="text-lg font-semibold">Supplier Database</h3>
+          </div>
+          <Button onClick={() => { setShowForm(true); setSelectedSupplier(null); }} data-testid="button-add-supplier">
+            <Plus className="h-4 w-4 mr-2" />
+            Add New Supplier
+          </Button>
         </div>
+
+        {isLoading ? (
+          <div className="text-center py-8">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600 mx-auto"></div>
+            <p className="text-muted-foreground mt-2">Loading suppliers...</p>
+          </div>
+        ) : !suppliers || suppliers.length === 0 ? (
+          <div className="text-center py-8" data-testid="suppliers-empty">
+            <Building2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-medium mb-2">No Suppliers Found</h3>
+            <p className="text-muted-foreground mb-4">
+              Add your first supplier to get started
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {suppliers.map((supplier) => (
+              <div key={supplier.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors" data-testid={`card-supplier-${supplier.id}`}>
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h4 className="font-semibold text-gray-900" data-testid={`text-supplier-name-${supplier.id}`}>
+                        {supplier.supplierName || supplier.name}
+                      </h4>
+                      <Badge variant={supplier.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                        {supplier.status || 'ACTIVE'}
+                      </Badge>
+                      <Badge variant="outline">{supplier.supplierType || 'VENDOR'}</Badge>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
+                      <div>
+                        <p className="font-medium">Code</p>
+                        <p>{supplier.supplierCode}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium">Contact</p>
+                        <p>{supplier.contactPersonName || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium">Email</p>
+                        <p>{supplier.contactEmail || supplier.contactPersonEmail || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium">Payment Terms</p>
+                        <p>Net {supplier.paymentTerms || 30} days</p>
+                      </div>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => { setSelectedSupplier(supplier); setShowForm(true); }}
+                    data-testid={`button-edit-supplier-${supplier.id}`}
+                  >
+                    <Pencil className="h-4 w-4 mr-1" />
+                    Edit
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {showForm && (
+          <SupplierForm 
+            supplier={selectedSupplier}
+            onSubmit={(data: InsertSupplier) => {
+              if (selectedSupplier) {
+                updateMutation.mutate({ id: selectedSupplier.id, data });
+              } else {
+                createMutation.mutate(data);
+              }
+            }}
+            onCancel={() => { setShowForm(false); setSelectedSupplier(null); }}
+            isLoading={createMutation.isPending || updateMutation.isPending}
+          />
+        )}
       </CardContent>
     </Card>
+  );
+}
+
+// SupplierForm component with comprehensive sections
+function SupplierForm({ 
+  supplier, 
+  onSubmit, 
+  onCancel, 
+  isLoading 
+}: {
+  supplier: Supplier | null;
+  onSubmit: (data: InsertSupplier) => void;
+  onCancel: () => void;
+  isLoading: boolean;
+}) {
+  const { toast } = useToast();
+  const [formStep, setFormStep] = useState("identification");
+
+  // Form schema with all comprehensive fields - need z import
+  const supplierFormSchema = z.object({
+    supplierCode: z.string().min(1, "Supplier code is required"),
+    supplierName: z.string().min(1, "Supplier name is required"),
+    tradeName: z.string().optional(),
+    supplierType: z.enum(['MANUFACTURER', 'DISTRIBUTOR', 'SERVICE_PROVIDER', 'CONTRACTOR', 'VENDOR', 'OTHERS']),
+    status: z.string().default('ACTIVE'),
+    contactPersonName: z.string().optional(),
+    contactEmail: z.string().email().optional().or(z.literal('')),
+    contactPhone: z.string().optional(),
+    fax: z.string().optional(),
+    website: z.string().url().optional().or(z.literal('')),
+    registeredAddressStreet: z.string().optional(),
+    registeredAddressCity: z.string().optional(),
+    registeredAddressState: z.string().optional(),
+    registeredAddressCountry: z.string().default('India'),
+    registeredAddressPostalCode: z.string().optional(),
+    shippingAddressStreet: z.string().optional(),
+    shippingAddressCity: z.string().optional(),
+    shippingAddressState: z.string().optional(),
+    shippingAddressCountry: z.string().optional(),
+    shippingAddressPostalCode: z.string().optional(),
+    billingAddressStreet: z.string().optional(),
+    billingAddressCity: z.string().optional(),
+    billingAddressState: z.string().optional(),
+    billingAddressCountry: z.string().optional(),
+    billingAddressPostalCode: z.string().optional(),
+    taxId: z.string().optional(),
+    bankAccountNumber: z.string().optional(),
+    bankName: z.string().optional(),
+    bankBranch: z.string().optional(),
+    swiftIbanCode: z.string().optional(),
+    paymentTerms: z.number().min(1).default(30),
+    preferredCurrency: z.string().default('INR'),
+  });
+
+  const form = useForm<z.infer<typeof supplierFormSchema>>({
+    resolver: zodResolver(supplierFormSchema),
+    defaultValues: {
+      supplierCode: supplier?.supplierCode || '',
+      supplierName: supplier?.supplierName || supplier?.name || '',
+      tradeName: supplier?.tradeName || '',
+      supplierType: supplier?.supplierType || 'VENDOR',
+      status: supplier?.status || 'ACTIVE',
+      contactPersonName: supplier?.contactPersonName || '',
+      contactEmail: supplier?.contactEmail || supplier?.contactPersonEmail || '',
+      contactPhone: supplier?.contactPhone || supplier?.contactPersonMobile || '',
+      fax: supplier?.fax || '',
+      website: supplier?.website || '',
+      registeredAddressStreet: supplier?.registeredAddressStreet || supplier?.addressLine || '',
+      registeredAddressCity: supplier?.registeredAddressCity || supplier?.city || '',
+      registeredAddressState: supplier?.registeredAddressState || supplier?.state || '',
+      registeredAddressCountry: supplier?.registeredAddressCountry || 'India',
+      registeredAddressPostalCode: supplier?.registeredAddressPostalCode || supplier?.pincode || '',
+      shippingAddressStreet: supplier?.shippingAddressStreet || '',
+      shippingAddressCity: supplier?.shippingAddressCity || '',
+      shippingAddressState: supplier?.shippingAddressState || '',
+      shippingAddressCountry: supplier?.shippingAddressCountry || '',
+      shippingAddressPostalCode: supplier?.shippingAddressPostalCode || '',
+      billingAddressStreet: supplier?.billingAddressStreet || '',
+      billingAddressCity: supplier?.billingAddressCity || '',
+      billingAddressState: supplier?.billingAddressState || '',
+      billingAddressCountry: supplier?.billingAddressCountry || '',
+      billingAddressPostalCode: supplier?.billingAddressPostalCode || '',
+      taxId: supplier?.taxId || supplier?.gstin || supplier?.pan || '',
+      bankAccountNumber: supplier?.bankAccountNumber || '',
+      bankName: supplier?.bankName || '',
+      bankBranch: supplier?.bankBranch || '',
+      swiftIbanCode: supplier?.swiftIbanCode || '',
+      paymentTerms: supplier?.paymentTerms || 30,
+      preferredCurrency: supplier?.preferredCurrency || 'INR',
+    },
+  });
+
+  const handleSubmit = (data: z.infer<typeof supplierFormSchema>) => {
+    onSubmit(data as InsertSupplier);
+  };
+
+  const formSteps = [
+    { id: "identification", label: "General Info", icon: Building2 },
+    { id: "contact", label: "Contact", icon: Plus },
+    { id: "address", label: "Address", icon: Factory },
+    { id: "financial", label: "Financial", icon: Package }
+  ];
+
+  return (
+    <Dialog open={true} onOpenChange={() => onCancel()}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="dialog-supplier-form">
+        <DialogHeader>
+          <DialogTitle data-testid="dialog-title">
+            {supplier ? 'Edit Supplier' : 'Add New Supplier'}
+          </DialogTitle>
+          <DialogDescription>
+            Complete supplier master data with all required information organized by sections.
+          </DialogDescription>
+        </DialogHeader>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+            <Tabs value={formStep} onValueChange={setFormStep} className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                {formSteps.map((step) => {
+                  const Icon = step.icon;
+                  return (
+                    <TabsTrigger key={step.id} value={step.id} className="text-xs" data-testid={`tab-${step.id}`}>
+                      <Icon className="h-4 w-4 mr-1" />
+                      <span className="hidden sm:inline">{step.label}</span>
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+
+              {/* Section 1: Identification & General Info */}
+              <TabsContent value="identification" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="supplierCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Supplier Code (Unique) *</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="SUP001" data-testid="input-supplier-code" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="supplierType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Supplier Type *</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-supplier-type">
+                              <SelectValue placeholder="Select supplier type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="MANUFACTURER">Manufacturer</SelectItem>
+                            <SelectItem value="DISTRIBUTOR">Distributor</SelectItem>
+                            <SelectItem value="SERVICE_PROVIDER">Service Provider</SelectItem>
+                            <SelectItem value="CONTRACTOR">Contractor</SelectItem>
+                            <SelectItem value="VENDOR">Vendor</SelectItem>
+                            <SelectItem value="OTHERS">Others</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="supplierName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Supplier Name (Legal Name) *</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="ABC Manufacturing Pvt Ltd" data-testid="input-supplier-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="tradeName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Trade/Brand Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="ABC Brand (if different from legal name)" data-testid="input-trade-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-status">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="ACTIVE">Active</SelectItem>
+                          <SelectItem value="INACTIVE">Inactive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+
+              {/* Section 2: Contact Details */}
+              <TabsContent value="contact" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="contactPersonName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Contact Person Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="John Doe" data-testid="input-contact-person" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="contactPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Contact Phone Number</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="+91 9876543210" data-testid="input-contact-phone" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="contactEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Contact Email</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="email" placeholder="contact@supplier.com" data-testid="input-contact-email" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="fax"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fax (Optional)</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="011-12345678" data-testid="input-fax" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="website"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Website</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="https://www.supplier.com" data-testid="input-website" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+
+              {/* Section 3: Address Information */}
+              <TabsContent value="address" className="space-y-6">
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-gray-900">Registered Address</h4>
+                  <div className="grid grid-cols-1 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="registeredAddressStreet"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Street Address</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="123 Main Street, Building Name" data-testid="input-reg-street" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="registeredAddressCity"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>City</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Mumbai" data-testid="input-reg-city" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="registeredAddressState"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>State</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Maharashtra" data-testid="input-reg-state" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="registeredAddressPostalCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Postal Code</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="400001" data-testid="input-reg-postal" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-gray-900">Shipping Address (if different)</h4>
+                  <div className="grid grid-cols-1 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="shippingAddressStreet"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Street Address</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Same as registered or different address" data-testid="input-ship-street" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="shippingAddressCity"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>City</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-ship-city" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="shippingAddressState"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>State</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-ship-state" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="shippingAddressPostalCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Postal Code</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-ship-postal" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="shippingAddressCountry"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Country</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="India" data-testid="input-ship-country" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Section 4: Financial & Payment Details */}
+              <TabsContent value="financial" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="taxId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tax ID / VAT / GST / PAN</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="22AAAAA0000A1Z5" data-testid="input-tax-id" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="preferredCurrency"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Preferred Currency</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-currency">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="INR">INR (Indian Rupee)</SelectItem>
+                            <SelectItem value="USD">USD (US Dollar)</SelectItem>
+                            <SelectItem value="EUR">EUR (Euro)</SelectItem>
+                            <SelectItem value="GBP">GBP (British Pound)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="bankAccountNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bank Account Number</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="1234567890" data-testid="input-bank-account" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="bankName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bank Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="State Bank of India" data-testid="input-bank-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="bankBranch"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bank Branch</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Main Branch" data-testid="input-bank-branch" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="swiftIbanCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SWIFT / IBAN Code</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="SBININBB123" data-testid="input-swift-code" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="paymentTerms"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Payment Terms (Days)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          type="number" 
+                          placeholder="30" 
+                          onChange={e => field.onChange(parseInt(e.target.value) || 30)}
+                          data-testid="input-payment-terms"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+            </Tabs>
+
+            <DialogFooter className="flex justify-between">
+              <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading} data-testid="button-submit">
+                {isLoading ? "Saving..." : supplier ? "Update Supplier" : "Create Supplier"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
