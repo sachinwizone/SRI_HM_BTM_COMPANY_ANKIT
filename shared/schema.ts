@@ -1727,6 +1727,10 @@ export const insertTourAdvanceSchema = createInsertSchema(tourAdvances).omit({
     if (val == null) return undefined;
     return typeof val === 'string' ? parseFloat(val) || 0 : val;
   }),
+  dailyExpenses: z.record(z.record(z.number())).optional().transform(val => {
+    if (val == null) return undefined;
+    return JSON.stringify(val);
+  }),
 });
 
 export const insertTourSegmentSchema = createInsertSchema(tourSegments).omit({
