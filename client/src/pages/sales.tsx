@@ -3,7 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Edit, Trash2, Search, CalendarDays, FileCheck, Save, X, Package, Truck, BarChart3, Calculator } from "lucide-react";
+import { Plus, Edit, Trash2, Search, CalendarDays, FileCheck, Save, X, Package, Truck, BarChart3, Calculator, Download, Printer } from "lucide-react";
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import { SalesDashboard } from "@/components/analytics/sales-dashboard";
 import { DataTable } from "@/components/ui/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -178,6 +180,119 @@ export default function Sales() {
   const taxAmount = parseFloat(form.watch("taxAmount")?.toString() || '0') || 0;
   const discountAmount = parseFloat(form.watch("discountAmount")?.toString() || '0') || 0;
   const totalAmount = subtotal + taxAmount - discountAmount;
+
+  // PDF Generation Function
+  const generateInvoicePDF = () => {
+    const doc = new jsPDF();
+    const formData = form.getValues();
+    const selectedClient = clients.find(c => c.id === formData.clientId);
+    const selectedTransporter = transporters.find(t => t.id === formData.transporterId);
+    
+    // Company Header
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("BUSINESS INVOICE", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Your Company Name", 105, 30, { align: "center" });
+    doc.text("Company Address Line 1", 105, 37, { align: "center" });
+    doc.text("Company Address Line 2", 105, 44, { align: "center" });
+    doc.text("Phone: +91-XXXXXXXXXX | Email: company@email.com", 105, 51, { align: "center" });
+    
+    // Line separator
+    doc.line(20, 58, 190, 58);
+    
+    // Invoice Info Section
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Invoice Details:", 20, 70);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Invoice No: ${formData.invoiceNumber}`, 20, 78);
+    doc.text(`Sales Order: ${formData.salesOrderNumber}`, 20, 85);
+    doc.text(`Date: ${new Date(formData.date).toLocaleDateString('en-IN')}`, 20, 92);
+    doc.text(`Status: ${formData.deliveryStatus}`, 20, 99);
+    
+    // Client Info Section
+    doc.setFont("helvetica", "bold");
+    doc.text("Bill To:", 120, 70);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${selectedClient?.name || 'N/A'}`, 120, 78);
+    doc.text(`${selectedClient?.billingAddressLine || 'Address not available'}`, 120, 85);
+    doc.text(`Contact: ${selectedClient?.contactPersonName || 'N/A'}`, 120, 92);
+    doc.text(`Phone: ${selectedClient?.mobileNumber || 'N/A'}`, 120, 99);
+    
+    // Transport Details (if available)
+    if (formData.transporterId && selectedTransporter) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Transport Details:", 20, 115);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Transporter: ${selectedTransporter.name}`, 20, 123);
+      doc.text(`Vehicle: ${formData.vehicleNumber || 'N/A'}`, 20, 130);
+      doc.text(`Location: ${formData.location || 'N/A'}`, 20, 137);
+    }
+    
+    // Items Table
+    const tableStartY = formData.transporterId ? 150 : 115;
+    
+    // Prepare table data
+    const tableData = formData.items.map(item => [
+      item.itemCode || 'N/A',
+      item.itemDescription || 'N/A',
+      item.quantity || 0,
+      item.unit || 'PCS',
+      `₹${(item.unitPrice || 0).toFixed(2)}`,
+      `₹${((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)}`
+    ]);
+    
+    // Add table
+    (doc as any).autoTable({
+      startY: tableStartY,
+      head: [['Item Code', 'Description', 'Qty', 'Unit', 'Rate', 'Amount']],
+      body: tableData,
+      theme: 'grid',
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: 255,
+        fontStyle: 'bold'
+      },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 55 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 25 },
+        5: { cellWidth: 25 }
+      }
+    });
+    
+    // Get final Y position after table
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+    
+    // Totals Section
+    const totalsX = 140;
+    doc.setFont("helvetica", "normal");
+    doc.text(`Subtotal: ₹${subtotal.toFixed(2)}`, totalsX, finalY);
+    doc.text(`Tax: ₹${taxAmount.toFixed(2)}`, totalsX, finalY + 7);
+    doc.text(`Discount: ₹${discountAmount.toFixed(2)}`, totalsX, finalY + 14);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text(`Total: ₹${totalAmount.toFixed(2)}`, totalsX, finalY + 21);
+    
+    // Footer
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    doc.text("Thank you for your business!", 105, finalY + 40, { align: "center" });
+    doc.text("This is a computer generated invoice.", 105, finalY + 47, { align: "center" });
+    
+    // Save the PDF
+    const fileName = `Invoice_${formData.invoiceNumber}_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+  };
 
   // Product selection handler
   const handleProductSelection = (index: number, productId: string) => {
@@ -818,7 +933,7 @@ export default function Sales() {
                                 field.onChange(value);
                                 // Auto-fill contact number when transporter is selected
                                 const selectedTransporter = transporters.find(t => t.id === value);
-                                const contactNumber = selectedTransporter?.contactNumber || "";
+                                const contactNumber = selectedTransporter?.phone || "";
                                 console.log("Selected transporter:", selectedTransporter, "Contact:", contactNumber);
                                 form.setValue("transporterContactNumber", contactNumber);
                                 // Force re-render by triggering form change
@@ -1193,6 +1308,16 @@ export default function Sales() {
                 <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>
                   <X className="mr-2 h-4 w-4" />
                   Cancel
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  onClick={generateInvoicePDF}
+                  className="border-green-300 text-green-700 hover:bg-green-50"
+                  data-testid="button-generate-pdf"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Generate PDF
                 </Button>
                 <Button 
                   type="submit" 
