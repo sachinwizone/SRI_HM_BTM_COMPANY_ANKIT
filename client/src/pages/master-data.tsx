@@ -14,7 +14,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit, Building, Factory, Package, Building2, Pencil } from "lucide-react";
+import { Plus, Edit, Building, Factory, Package, Building2, Pencil, Trash2, Eye } from "lucide-react";
 import { CompanyProfileForm } from "@/components/CompanyProfileForm";
 import { ProductMasterForm } from "@/components/ProductMasterForm";
 import type { 
@@ -516,6 +516,8 @@ function ProductMasterSection() {
 function SuppliersSection() {
   const [showForm, setShowForm] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [viewingSupplier, setViewingSupplier] = useState<Supplier | null>(null);
   const queryClient = useQueryClient();
 
   const { data: suppliers, isLoading } = useQuery<Supplier[]>({
@@ -565,6 +567,23 @@ function SuppliersSection() {
     }
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/suppliers/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to delete supplier');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/suppliers'] });
+      toast({ title: "Success", description: "Supplier deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete supplier", variant: "destructive" });
+    }
+  });
+
   return (
     <Card>
       <CardHeader>
@@ -603,9 +622,16 @@ function SuppliersSection() {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
-                      <h4 className="font-semibold text-gray-900" data-testid={`text-supplier-name-${supplier.id}`}>
+                      <button
+                        onClick={() => {
+                          setViewingSupplier(supplier);
+                          setShowDetails(true);
+                        }}
+                        className="font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left"
+                        data-testid={`link-supplier-name-${supplier.id}`}
+                      >
                         {supplier.supplierName || supplier.name}
-                      </h4>
+                      </button>
                       <Badge variant={supplier.status === 'ACTIVE' ? 'default' : 'secondary'}>
                         {supplier.status || 'ACTIVE'}
                       </Badge>
@@ -630,15 +656,48 @@ function SuppliersSection() {
                       </div>
                     </div>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => { setSelectedSupplier(supplier); setShowForm(true); }}
-                    data-testid={`button-edit-supplier-${supplier.id}`}
-                  >
-                    <Pencil className="h-4 w-4 mr-1" />
-                    Edit
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => { setSelectedSupplier(supplier); setShowForm(true); }}
+                      data-testid={`button-edit-supplier-${supplier.id}`}
+                    >
+                      <Pencil className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          data-testid={`button-delete-supplier-${supplier.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Delete Supplier</DialogTitle>
+                          <DialogDescription>
+                            Are you sure you want to delete "{supplier.supplierName || supplier.name}"? This action cannot be undone.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                          <Button variant="outline">Cancel</Button>
+                          <Button 
+                            variant="destructive" 
+                            onClick={() => deleteMutation.mutate(supplier.id)}
+                            disabled={deleteMutation.isPending}
+                            data-testid={`button-confirm-delete-supplier-${supplier.id}`}
+                          >
+                            {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </div>
               </div>
             ))}
@@ -659,6 +718,199 @@ function SuppliersSection() {
             isLoading={createMutation.isPending || updateMutation.isPending}
           />
         )}
+
+        {/* Supplier Details Modal */}
+        <Dialog open={showDetails} onOpenChange={setShowDetails}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center space-x-2">
+                <Building2 className="h-5 w-5" />
+                <span>Supplier Details - {viewingSupplier?.supplierName || viewingSupplier?.name}</span>
+              </DialogTitle>
+              <DialogDescription>
+                Complete supplier information and business details
+              </DialogDescription>
+            </DialogHeader>
+            
+            {viewingSupplier && (
+              <div className="space-y-6">
+                {/* Basic Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Basic Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">Supplier Name</label>
+                      <p className="text-sm">{viewingSupplier.supplierName || '-'}</p>
+                    </div>
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">Supplier Code</label>
+                      <p className="text-sm">{viewingSupplier.supplierCode || '-'}</p>
+                    </div>
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">Type</label>
+                      <p className="text-sm">{viewingSupplier.supplierType || '-'}</p>
+                    </div>
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">Status</label>
+                      <p className="text-sm">{viewingSupplier.status || 'ACTIVE'}</p>
+                    </div>
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">GST Number</label>
+                      <p className="text-sm">{viewingSupplier.gstNumber || '-'}</p>
+                    </div>
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">PAN Number</label>
+                      <p className="text-sm">{viewingSupplier.panNumber || '-'}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Contact Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Contact Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">Contact Person</label>
+                      <p className="text-sm">{viewingSupplier.contactPersonName || '-'}</p>
+                    </div>
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">Designation</label>
+                      <p className="text-sm">{viewingSupplier.contactPersonDesignation || '-'}</p>
+                    </div>
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">Phone Number</label>
+                      <p className="text-sm">{viewingSupplier.contactPhone || '-'}</p>
+                    </div>
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">Email</label>
+                      <p className="text-sm">{viewingSupplier.contactEmail || viewingSupplier.contactPersonEmail || '-'}</p>
+                    </div>
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">Mobile Number</label>
+                      <p className="text-sm">{viewingSupplier.mobileNumber || '-'}</p>
+                    </div>
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">Fax Number</label>
+                      <p className="text-sm">{viewingSupplier.faxNumber || '-'}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Address Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Address Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">Address</label>
+                      <p className="text-sm">{viewingSupplier.address || '-'}</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="font-medium text-sm text-muted-foreground">City</label>
+                        <p className="text-sm">{viewingSupplier.city || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="font-medium text-sm text-muted-foreground">State</label>
+                        <p className="text-sm">{viewingSupplier.state || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="font-medium text-sm text-muted-foreground">PIN Code</label>
+                        <p className="text-sm">{viewingSupplier.pinCode || '-'}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">Country</label>
+                      <p className="text-sm">{viewingSupplier.country || '-'}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Payment & Banking Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Payment & Banking Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">Payment Terms</label>
+                      <p className="text-sm">Net {viewingSupplier.paymentTerms || 30} days</p>
+                    </div>
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">Credit Limit</label>
+                      <p className="text-sm">{viewingSupplier.creditLimit ? `₹${viewingSupplier.creditLimit}` : '-'}</p>
+                    </div>
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">Bank Name</label>
+                      <p className="text-sm">{viewingSupplier.bankName || '-'}</p>
+                    </div>
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">Account Number</label>
+                      <p className="text-sm">{viewingSupplier.bankAccountNumber || '-'}</p>
+                    </div>
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">IFSC Code</label>
+                      <p className="text-sm">{viewingSupplier.bankIFSCCode || '-'}</p>
+                    </div>
+                    <div>
+                      <label className="font-medium text-sm text-muted-foreground">Branch</label>
+                      <p className="text-sm">{viewingSupplier.bankBranch || '-'}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Additional Information */}
+                {(viewingSupplier.notes || viewingSupplier.website) && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Additional Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {viewingSupplier.website && (
+                        <div>
+                          <label className="font-medium text-sm text-muted-foreground">Website</label>
+                          <p className="text-sm">{viewingSupplier.website}</p>
+                        </div>
+                      )}
+                      {viewingSupplier.notes && (
+                        <div>
+                          <label className="font-medium text-sm text-muted-foreground">Notes</label>
+                          <p className="text-sm">{viewingSupplier.notes}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowDetails(false)}
+                data-testid="button-close-supplier-details"
+              >
+                Close
+              </Button>
+              <Button 
+                onClick={() => {
+                  setSelectedSupplier(viewingSupplier);
+                  setShowDetails(false);
+                  setShowForm(true);
+                }}
+                data-testid="button-edit-from-details"
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit Supplier
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
