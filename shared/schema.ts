@@ -665,12 +665,12 @@ export const insertPurchaseOrderSchema = z.object({
 
 export const insertPurchaseOrderItemSchema = z.object({
   purchaseOrderId: z.string(),
-  itemName: z.string(),
-  itemCode: z.string().optional(),
+  itemCode: z.string(),
+  itemDescription: z.string(),
   quantityOrdered: z.number(),
-  unit: z.string(),
+  unitOfMeasure: z.string(),
   unitPrice: z.number(),
-  totalPrice: z.number(),
+  totalLineValue: z.number(),
   productMasterId: z.string().optional(),
   productName: z.string().optional(),
   productFamily: z.string().optional(),

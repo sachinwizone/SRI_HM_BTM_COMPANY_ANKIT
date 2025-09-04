@@ -202,12 +202,12 @@ export function PurchaseOrderForm({ onSubmit, onCancel, isLoading = false }: Pur
 
     const items: InsertPurchaseOrderItem[] = data.items.map(item => ({
       purchaseOrderId: '', // Will be filled by backend
-      itemName: item.itemDescription, // Map itemDescription -> itemName
+      itemDescription: item.itemDescription, // Keep itemDescription as-is
       itemCode: item.itemCode,
       quantityOrdered: item.quantityOrdered, // Use number, not string
-      unit: item.unitOfMeasure, // Map unitOfMeasure -> unit
+      unitOfMeasure: item.unitOfMeasure, // Keep unitOfMeasure as-is  
       unitPrice: item.unitPrice, // Use number, not string
-      totalPrice: item.quantityOrdered * item.unitPrice, // Map totalLineValue -> totalPrice as number
+      totalLineValue: item.quantityOrdered * item.unitPrice, // Keep totalLineValue as-is
       productMasterId: item.productMasterId || undefined,
       productName: item.productName,
       productFamily: item.productFamily,
