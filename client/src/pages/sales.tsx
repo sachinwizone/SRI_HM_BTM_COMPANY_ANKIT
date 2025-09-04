@@ -846,9 +846,20 @@ export default function Sales() {
                             <Button
                               variant="outline"
                               size="sm"
+                              onClick={() => {
+                                previewPDF(sales, false);
+                              }}
+                              className="text-blue-600 hover:text-blue-700"
+                              title="Preview Invoice"
+                            >
+                              <Package className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => generateInvoicePDFForSales(sales)}
                               className="text-green-600 hover:text-green-700"
-                              title="Generate PDF"
+                              title="Download PDF"
                             >
                               <Download className="h-3 w-3" />
                             </Button>
@@ -856,6 +867,7 @@ export default function Sales() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleOpenForm(sales)}
+                              title="Edit Record"
                             >
                               <Edit className="h-3 w-3" />
                             </Button>
@@ -864,6 +876,7 @@ export default function Sales() {
                               size="sm"
                               className="text-red-600 hover:text-red-700"
                               onClick={() => handleDelete(sales.id)}
+                              title="Delete Record"
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>
@@ -1522,44 +1535,64 @@ export default function Sales() {
           <div className="flex-1 overflow-hidden">
             {pdfBlob && (
               <div className="space-y-4">
-                <div className="flex justify-end space-x-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      if (pdfBlob) {
-                        const url = URL.createObjectURL(pdfBlob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.download = `Invoice_${new Date().toISOString().split('T')[0]}.pdf`;
-                        link.click();
-                        URL.revokeObjectURL(url);
-                      }
-                    }}
-                    className="border-green-300 text-green-700 hover:bg-green-50"
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      if (pdfBlob) {
-                        const url = URL.createObjectURL(pdfBlob);
-                        const printWindow = window.open(url, '_blank');
-                        if (printWindow) {
-                          printWindow.onload = () => {
-                            printWindow.print();
-                          };
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-gray-900">Invoice Preview</h3>
+                  <div className="flex space-x-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (pdfBlob) {
+                          const url = URL.createObjectURL(pdfBlob);
+                          const printWindow = window.open(url, '_blank', 'width=900,height=700,scrollbars=yes,resizable=yes');
+                          if (printWindow) {
+                            printWindow.document.title = 'Invoice - Print Layout';
+                          }
                         }
-                      }
-                    }}
-                    className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                  >
-                    <Printer className="mr-2 h-4 w-4" />
-                    Print
-                  </Button>
+                      }}
+                      className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                    >
+                      <FileCheck className="mr-2 h-4 w-4" />
+                      Print Layout View
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (pdfBlob) {
+                          const url = URL.createObjectURL(pdfBlob);
+                          const printWindow = window.open(url, '_blank');
+                          if (printWindow) {
+                            printWindow.onload = () => {
+                              printWindow.print();
+                            };
+                          }
+                        }
+                      }}
+                      className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                    >
+                      <Printer className="mr-2 h-4 w-4" />
+                      Quick Print
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (pdfBlob) {
+                          const url = URL.createObjectURL(pdfBlob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = `Invoice_${new Date().toISOString().split('T')[0]}.pdf`;
+                          link.click();
+                          URL.revokeObjectURL(url);
+                        }
+                      }}
+                      className="border-green-300 text-green-700 hover:bg-green-50"
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Download PDF
+                    </Button>
+                  </div>
                 </div>
                 
                 <div className="border rounded-lg overflow-hidden" style={{ height: '500px' }}>
