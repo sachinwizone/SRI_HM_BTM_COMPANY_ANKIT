@@ -783,7 +783,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedPO = await storage.updatePurchaseOrderWithItems(req.params.id, poData, itemsData);
       res.json(updatedPO);
     } catch (error) {
+      console.error("PUT purchase order error:", error);
       if (error instanceof z.ZodError) {
+        console.error("Validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid purchase order data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to update purchase order" });
@@ -797,6 +799,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedPO = await storage.updatePurchaseOrderStatus(req.params.id, status);
       res.json(updatedPO);
     } catch (error) {
+      console.error("Status update error:", error);
       res.status(500).json({ message: "Failed to update purchase order status" });
     }
   });

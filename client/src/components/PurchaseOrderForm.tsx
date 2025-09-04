@@ -186,42 +186,33 @@ export function PurchaseOrderForm({ onSubmit, onCancel, isLoading = false }: Pur
     
     const purchaseOrder: InsertPurchaseOrder = {
       poNumber: data.poNumber,
-      poDate: new Date(data.poDate),
-      revisionNumber: data.revisionNumber,
-      status: data.status,
+      orderDate: data.poDate, // Map poDate -> orderDate as string
       supplierId: data.supplierId,
-      supplierName: data.supplierName,
-      supplierContactPerson: data.supplierContactPerson,
-      supplierEmail: data.supplierEmail,
-      supplierPhone: data.supplierPhone,
-      buyerName: data.buyerName,
-      department: data.department,
-      costCenter: data.costCenter,
-      approverName: data.approverName,
-      createdBy: currentUser?.id || '',
+      expectedDeliveryDate: data.deliveryDate || data.poDate, // Map deliveryDate -> expectedDeliveryDate
+      status: data.status,
       currency: data.currency,
-      totalAmount: totalAmount.toString(),
-      taxAmount: data.taxAmount?.toString(),
-      discountAmount: data.discountAmount?.toString(),
-      deliveryDate: data.deliveryDate ? new Date(data.deliveryDate) : undefined,
+      subtotal: subtotal, // Use calculated subtotal as number
+      taxAmount: data.taxAmount || 0, // Use number, not string
+      discountAmount: data.discountAmount || 0, // Use number, not string
+      totalAmount: totalAmount, // Use number, not string
       deliveryAddress: data.deliveryAddress,
-      notes: data.notes,
-      terms: data.terms,
+      termsAndConditions: data.terms, // Map terms -> termsAndConditions
+      internalNotes: data.notes, // Map notes -> internalNotes
     };
 
     const items: InsertPurchaseOrderItem[] = data.items.map(item => ({
       purchaseOrderId: '', // Will be filled by backend
-      productMasterId: item.productMasterId || undefined,
+      itemName: item.itemDescription, // Map itemDescription -> itemName
       itemCode: item.itemCode,
-      itemDescription: item.itemDescription,
+      quantityOrdered: item.quantityOrdered, // Use number, not string
+      unit: item.unitOfMeasure, // Map unitOfMeasure -> unit
+      unitPrice: item.unitPrice, // Use number, not string
+      totalPrice: item.quantityOrdered * item.unitPrice, // Map totalLineValue -> totalPrice as number
+      productMasterId: item.productMasterId || undefined,
       productName: item.productName,
       productFamily: item.productFamily,
       productGrade: item.productGrade,
       hsnCode: item.hsnCode,
-      quantityOrdered: item.quantityOrdered.toString(),
-      unitOfMeasure: item.unitOfMeasure,
-      unitPrice: item.unitPrice.toString(),
-      totalLineValue: (item.quantityOrdered * item.unitPrice).toString(),
     }));
 
     onSubmit({ purchaseOrder, items });
