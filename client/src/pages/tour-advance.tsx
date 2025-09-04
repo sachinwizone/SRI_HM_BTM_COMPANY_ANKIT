@@ -42,7 +42,7 @@ const tourAdvanceFormSchema = z.object({
   mainDestination: z.string().min(1, "Main destination is required"),
   modeOfTravel: z.enum(["AIR", "TRAIN", "CAR", "BUS", "OTHER"], { required_error: "Mode of travel is required" }),
   vehicleNumber: z.string().optional(),
-  purposeOfJourney: z.array(z.enum(["CLIENT_VISIT", "PLANT_VISIT", "PARTY_MEETING", "DEPARTMENT_VISIT", "OTHERS"])).min(1, "At least one purpose is required"),
+  purposeOfJourney: z.array(z.enum(["CLIENT_VISIT", "PLANT_VISIT", "PARTY_MEETING", "DEPARTMENT_VISIT", "OTHERS"])).optional(),
   purposeRemarks: z.string().optional(),
   
   advanceRequired: z.boolean().default(false),
@@ -58,9 +58,9 @@ const tourAdvanceFormSchema = z.object({
     departureTime: z.string(),
     arrivalDate: z.date(),
     arrivalTime: z.string(),
-    fromLocation: z.string().min(1, "From location is required"),
-    toLocation: z.string().min(1, "To location is required"),
-  }))
+    fromLocation: z.string().optional(),
+    toLocation: z.string().optional(),
+  })).optional()
 });
 
 type TourAdvanceFormData = z.infer<typeof tourAdvanceFormSchema>;
@@ -245,7 +245,7 @@ export default function TourAdvance() {
       mainDestination: "",
       modeOfTravel: "TRAIN",
       vehicleNumber: "",
-      purposeOfJourney: [],
+      purposeOfJourney: ["CLIENT_VISIT"],
       purposeRemarks: "",
       advanceRequired: false,
       advanceAmountRequested: 0,
@@ -465,19 +465,32 @@ export default function TourAdvance() {
   };
 
   const onSubmit = async (data: TourAdvanceFormData) => {
-    // Convert dates to ISO strings for API
-    const formattedData = {
-      ...data,
-      tourStartDate: data.tourStartDate.toISOString(),
-      tourEndDate: data.tourEndDate.toISOString(),
-      segments: data.segments.map(segment => ({
-        ...segment,
-        departureDate: segment.departureDate.toISOString(),
-        arrivalDate: segment.arrivalDate.toISOString(),
-      }))
-    };
+    console.log("Form submitted with data:", data);
+    console.log("Form errors:", form.formState.errors);
+    
+    try {
+      // Convert dates to ISO strings for API
+      const formattedData = {
+        ...data,
+        tourStartDate: data.tourStartDate.toISOString(),
+        tourEndDate: data.tourEndDate.toISOString(),
+        segments: data.segments?.map(segment => ({
+          ...segment,
+          departureDate: segment.departureDate.toISOString(),
+          arrivalDate: segment.arrivalDate.toISOString(),
+        })) || []
+      };
 
-    createUpdateMutation.mutate(formattedData as any);
+      console.log("Formatted data for API:", formattedData);
+      createUpdateMutation.mutate(formattedData as any);
+    } catch (error) {
+      console.error("Error in onSubmit:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit form. Please check the console for details.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEdit = (tourAdvance: any) => {
