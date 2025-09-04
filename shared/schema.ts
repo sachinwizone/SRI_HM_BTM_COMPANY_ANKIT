@@ -790,6 +790,7 @@ export const sales = pgTable("sales", {
   deliveryStatus: deliveryStatusEnum("delivery_status").notNull().default('RECEIVING'),
   deliveryChallanSigned: boolean("delivery_challan_signed").notNull().default(false),
   deliveryChallanSignedAt: timestamp("delivery_challan_signed_at"),
+  notes: text("notes"), // Store aggregated item descriptions
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
