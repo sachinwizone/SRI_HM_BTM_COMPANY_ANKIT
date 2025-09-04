@@ -621,6 +621,8 @@ export default function Sales() {
       // Parse multiple items from notes field if available, otherwise create legacy item
       let items = [];
       
+      console.log('Parsing sales data:', { notes: sales.notes, drumQuantity: sales.drumQuantity, totalAmount: sales.totalAmount });
+      
       if (sales.notes && sales.notes.startsWith('Items: ')) {
         // Parse multiple items from notes
         const itemDescriptions = sales.notes.replace('Items: ', '').split(', ');
@@ -660,6 +662,8 @@ export default function Sales() {
         if (remainingQty > 0 && items.length > 0) {
           items[items.length - 1].quantity += remainingQty;
         }
+        
+        console.log('Parsed items from notes:', items);
       } else {
         // Create single legacy item for old records
         const legacyItem = {
