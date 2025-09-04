@@ -128,29 +128,33 @@ export default function PurchaseOrdersPage() {
   };
 
   const formatCurrency = (amount: string | number, currency: string = 'INR') => {
-    // Clean the amount - remove any non-numeric characters except decimal point
-    let cleanAmount = amount;
+    // Convert to number first
+    let num: number;
     if (typeof amount === 'string') {
-      cleanAmount = amount.replace(/[^0-9.-]/g, '');
+      // Remove any quotes or non-numeric characters except decimal point and negative sign
+      const cleanStr = amount.replace(/['"]/g, '').replace(/[^0-9.-]/g, '');
+      num = parseFloat(cleanStr) || 0;
+    } else {
+      num = amount || 0;
     }
-    const num = typeof cleanAmount === 'string' ? parseFloat(cleanAmount) || 0 : cleanAmount;
     
-    if (isNaN(num)) return currency === 'INR' ? '₹0.00' : `${currency} 0.00`;
+    if (isNaN(num)) {
+      return currency === 'INR' ? 'Rs 0.00' : `${currency} 0.00`;
+    }
     
-    // Simple manual formatting to avoid locale issues in PDF
+    // Format to 2 decimal places
     const formatted = num.toFixed(2);
-    const parts = formatted.split('.');
-    const integerPart = parts[0];
-    const decimalPart = parts[1];
+    const [integerPart, decimalPart] = formatted.split('.');
     
-    // Add comma separators manually for Indian format
-    const lastThree = integerPart.substring(integerPart.length - 3);
-    const otherNumbers = integerPart.substring(0, integerPart.length - 3);
-    const result = otherNumbers !== '' ? 
-      otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + lastThree :
-      lastThree;
+    // Add Indian-style comma separators
+    let result = integerPart;
+    if (integerPart.length > 3) {
+      const lastThree = integerPart.slice(-3);
+      const remaining = integerPart.slice(0, -3);
+      result = remaining.replace(/(\d)(?=(\d{2})+$)/g, '$1,') + ',' + lastThree;
+    }
     
-    return currency === 'INR' ? `₹${result}.${decimalPart}` : `${currency} ${result}.${decimalPart}`;
+    return currency === 'INR' ? `Rs ${result}.${decimalPart}` : `${currency} ${result}.${decimalPart}`;
   };
 
   // Professional PDF generation function
@@ -384,7 +388,8 @@ export default function PurchaseOrdersPage() {
   const handleDownloadPDF = () => {
     if (!selectedPO) return;
     const doc = generatePDF(selectedPO, purchaseOrderItems);
-    doc.save(`PO_${selectedPO.poNumber}.pdf`);
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    doc.save(`PO_${selectedPO.poNumber}_${timestamp}.pdf`);
     toast({ title: "Success", description: "PDF downloaded successfully" });
   };
 
