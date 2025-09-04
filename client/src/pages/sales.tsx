@@ -279,27 +279,78 @@ export default function Sales() {
         total: subtotal + (parseFloat(salesData.taxAmount?.toString() || '0') || 0) - (parseFloat(salesData.discountAmount?.toString() || '0') || 0)
       };
     } else {
-      // Legacy sales record
-      tableData = [[
-        salesData.productId || 'N/A',
-        'Legacy Product',
-        salesData.drumQuantity || 0,
-        'PCS',
-        `₹${parseFloat(salesData.basicRate?.toString() || '0').toFixed(2)}`,
-        `₹${parseFloat(salesData.totalAmount?.toString() || '0').toFixed(2)}`
-      ]];
-      
-      const totalAmount = parseFloat(salesData.totalAmount?.toString() || '0');
-      const gstPercent = parseFloat(salesData.gstPercent?.toString() || '0');
-      const basicAmount = totalAmount / (1 + gstPercent / 100);
-      const gstAmount = totalAmount - basicAmount;
-      
-      totalsInfo = {
-        subtotal: basicAmount,
-        tax: gstAmount,
-        discount: 0,
-        total: totalAmount
-      };
+      // Sales record - check if it has multiple items in notes field
+      if (salesData.notes && salesData.notes.startsWith('Items: ')) {
+        // Parse multiple items from notes for PDF display
+        const itemDescriptions = salesData.notes.replace('Items: ', '').split(', ');
+        const totalQuantity = salesData.drumQuantity || 1;
+        const totalAmount = parseFloat(salesData.totalAmount?.toString() || '0');
+        const avgPrice = totalQuantity > 0 ? (totalAmount / 1.18) / totalQuantity : 0; // Remove GST and calculate avg
+        const quantityPerItem = Math.floor(totalQuantity / itemDescriptions.length);
+        
+        tableData = itemDescriptions.map((desc, index) => {
+          const trimmedDesc = desc.trim();
+          let itemCode = '';
+          let itemDescription = trimmedDesc;
+          
+          // Extract item code from description
+          const codeMatch = trimmedDesc.match(/^([A-Z0-9-]+)\s+(.+)/);
+          if (codeMatch) {
+            itemCode = codeMatch[1];
+            itemDescription = codeMatch[2];
+          }
+          
+          // Calculate quantity for this item (distribute remaining to last item)
+          const isLastItem = index === itemDescriptions.length - 1;
+          const itemQuantity = isLastItem ? 
+            totalQuantity - (quantityPerItem * index) : 
+            quantityPerItem;
+          
+          const itemTotal = itemQuantity * avgPrice;
+          
+          return [
+            itemCode || 'N/A',
+            itemDescription,
+            itemQuantity,
+            'PCS',
+            `₹${avgPrice.toFixed(2)}`,
+            `₹${itemTotal.toFixed(2)}`
+          ];
+        });
+        
+        const gstPercent = parseFloat(salesData.gstPercent?.toString() || '0');
+        const basicAmount = totalAmount / (1 + gstPercent / 100);
+        const gstAmount = totalAmount - basicAmount;
+        
+        totalsInfo = {
+          subtotal: basicAmount,
+          tax: gstAmount,
+          discount: 0,
+          total: totalAmount
+        };
+      } else {
+        // Legacy single product record
+        tableData = [[
+          salesData.productId || 'N/A',
+          'Legacy Product',
+          salesData.drumQuantity || 0,
+          'PCS',
+          `₹${parseFloat(salesData.basicRate?.toString() || '0').toFixed(2)}`,
+          `₹${parseFloat(salesData.totalAmount?.toString() || '0').toFixed(2)}`
+        ]];
+        
+        const totalAmount = parseFloat(salesData.totalAmount?.toString() || '0');
+        const gstPercent = parseFloat(salesData.gstPercent?.toString() || '0');
+        const basicAmount = totalAmount / (1 + gstPercent / 100);
+        const gstAmount = totalAmount - basicAmount;
+        
+        totalsInfo = {
+          subtotal: basicAmount,
+          tax: gstAmount,
+          discount: 0,
+          total: totalAmount
+        };
+      }
     }
     
     // Add table
