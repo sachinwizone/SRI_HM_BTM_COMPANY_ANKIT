@@ -72,34 +72,81 @@ export default function TAReports() {
       styles: { fontSize: 10, cellPadding: 3 }
     });
 
-    // Expense Categories
+    // Parse daily expenses data
+    let dailyExpenses = {};
+    try {
+      dailyExpenses = ta.dailyExpenses ? (typeof ta.dailyExpenses === 'string' ? JSON.parse(ta.dailyExpenses) : ta.dailyExpenses) : {};
+    } catch (e) {
+      console.error('Error parsing daily expenses:', e);
+      dailyExpenses = {};
+    }
+
+    // Helper function to get expense value for a category and day
+    const getExpenseValue = (category: string, dayIndex: number) => {
+      const value = dailyExpenses[category]?.[dayIndex] || 0;
+      return value.toFixed(2);
+    };
+
+    // Helper function to get total for a category across all days
+    const getCategoryTotal = (category: string) => {
+      const categoryData = dailyExpenses[category] || {};
+      const total = Object.values(categoryData).reduce((sum: number, val: any) => sum + (parseFloat(val) || 0), 0);
+      return total.toFixed(2);
+    };
+
+    // Helper function to get daily total for a specific day
+    const getDayTotal = (dayIndex: number) => {
+      let total = 0;
+      ['FOOD_ACCOMMODATION', 'TRAVEL_OTHER', 'ENTERTAINMENT', 'MISCELLANEOUS'].forEach(category => {
+        total += parseFloat(dailyExpenses[category]?.[dayIndex] || 0);
+      });
+      return total.toFixed(2);
+    };
+
+    // Generate columns for each day
+    const numberOfDays = ta.numberOfDays || 5;
+    const dayColumns = [];
+    for (let i = 0; i < numberOfDays; i++) {
+      dayColumns.push(i);
+    }
+
+    // Expense Categories with actual data
     const expenseCategories = [
-      ['Food and Accommodation Expenses', '', '', '', '', '', '', '', ''],
-      ['Usage of Personal Car in KMS:', '', '', '', '', '', '', '', ''],
-      ['Room Rent:', '', '', '', '', '', '', '', '0.00'],
-      ['Water:', '', '', '', '', '', '', '', '0.00'],
-      ['Breakfast:', '', '', '', '', '', '', '', '0.00'],
-      ['Lunch:', '', '', '', '', '', '', '', '0.00'],
-      ['Dinner:', '', '', '', '', '', '', '', '0.00'],
-      ['Travel & Other Expenses', '', '', '', '', '', '', '', ''],
-      ['Usage Rate Rs./KM', '0.00', '0.00', '0.00', '0.00', '0.00', '0.00', '0.00', '0.00'],
-      ['TRAIN/Air Ticket:', '', '', '', '', '', '', '', '0.00'],
-      ['AUTO/Taxi :', '', '', '', '', '', '', '', '0.00'],
-      ['Rent A Car:', '', '', '', '', '', '', '', '0.00'],
-      ['Other Transport:', '', '', '', '', '', '', '', '0.00'],
-      ['Telephone:', '', '', '', '', '', '', '', '0.00'],
-      ['Tolls:', '', '', '', '', '', '', '', '0.00'],
-      ['Parking:', '', '', '', '', '', '', '', '0.00'],
-      ['Diesel/petrol:', '', '', '', '', '', '', '', '0.00'],
-      ['Other:', '', '', '', '', '', '', '', '0.00'],
-      ['Daily Total', '0.00', '0.00', '0.00', '0.00', '0.00', '0.00', '0.00', '0.00']
+      ['Food and Accommodation Expenses', ...dayColumns.map(() => ''), getCategoryTotal('FOOD_ACCOMMODATION')],
+      ['Usage of Personal Car in KMS:', ...dayColumns.map(() => ''), ''],
+      ['Room Rent:', ...dayColumns.map(i => getExpenseValue('FOOD_ACCOMMODATION', i)), getCategoryTotal('FOOD_ACCOMMODATION')],
+      ['Water:', ...dayColumns.map(() => ''), ''],
+      ['Breakfast:', ...dayColumns.map(() => ''), ''],
+      ['Lunch:', ...dayColumns.map(() => ''), ''],
+      ['Dinner:', ...dayColumns.map(() => ''), ''],
+      ['Travel & Other Expenses', ...dayColumns.map(() => ''), getCategoryTotal('TRAVEL_OTHER')],
+      ['Usage Rate Rs./KM', ...dayColumns.map(i => getExpenseValue('TRAVEL_OTHER', i)), getCategoryTotal('TRAVEL_OTHER')],
+      ['TRAIN/Air Ticket:', ...dayColumns.map(() => ''), ''],
+      ['AUTO/Taxi :', ...dayColumns.map(() => ''), ''],
+      ['Rent A Car:', ...dayColumns.map(() => ''), ''],
+      ['Other Transport:', ...dayColumns.map(() => ''), ''],
+      ['Telephone:', ...dayColumns.map(() => ''), ''],
+      ['Tolls:', ...dayColumns.map(() => ''), ''],
+      ['Parking:', ...dayColumns.map(() => ''), ''],
+      ['Diesel/petrol:', ...dayColumns.map(() => ''), ''],
+      ['Other:', ...dayColumns.map(() => ''), ''],
+      ['Daily Total', ...dayColumns.map(i => getDayTotal(i)), dayColumns.reduce((sum, i) => sum + parseFloat(getDayTotal(i)), 0).toFixed(2)]
     ];
 
     finalY = (doc as any).lastAutoTable.finalY + 10;
     
+    // Generate date headers
+    const dateHeaders = ['Date'];
+    for (let i = 0; i < numberOfDays; i++) {
+      const date = new Date(ta.tourStartDate);
+      date.setDate(date.getDate() + i);
+      dateHeaders.push(format(date, 'MMM dd'));
+    }
+    dateHeaders.push('Total');
+
     autoTable(doc, {
       startY: finalY,
-      head: [['Date', 'Date', 'Date', 'Date', 'DATE', 'Date', 'Date', 'Date', 'Date']],
+      head: [dateHeaders],
       body: expenseCategories,
       theme: 'grid',
       styles: { fontSize: 8, cellPadding: 2 },
@@ -112,8 +159,11 @@ export default function TAReports() {
     // Footer Information
     finalY = (doc as any).lastAutoTable.finalY + 10;
     
+    // Calculate grand total
+    const grandTotal = dayColumns.reduce((sum, i) => sum + parseFloat(getDayTotal(i)), 0);
+    
     const footerData = [
-      ['Date of Submission', '', 'Approved By:', '', 'Total Expense Amount', '0.00'],
+      ['Date of Submission', '', 'Approved By:', '', 'Total Expense Amount', `₹${grandTotal.toFixed(2)}`],
       ['', '', '', '', 'Amount in Words', ''],
       ['Employee Signature', '', 'Senior Accountant', '', '', '']
     ];
