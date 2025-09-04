@@ -758,11 +758,11 @@ function SuppliersSection() {
                     </div>
                     <div>
                       <label className="font-medium text-sm text-muted-foreground">GST Number</label>
-                      <p className="text-sm">{viewingSupplier.gstNumber || '-'}</p>
+                      <p className="text-sm">{viewingSupplier.gstin || viewingSupplier.taxId || '-'}</p>
                     </div>
                     <div>
                       <label className="font-medium text-sm text-muted-foreground">PAN Number</label>
-                      <p className="text-sm">{viewingSupplier.panNumber || '-'}</p>
+                      <p className="text-sm">{viewingSupplier.pan || '-'}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -787,15 +787,15 @@ function SuppliersSection() {
                     </div>
                     <div>
                       <label className="font-medium text-sm text-muted-foreground">Email</label>
-                      <p className="text-sm">{viewingSupplier.contactEmail || viewingSupplier.contactPersonEmail || '-'}</p>
+                      <p className="text-sm">{viewingSupplier.contactEmail || '-'}</p>
                     </div>
                     <div>
                       <label className="font-medium text-sm text-muted-foreground">Mobile Number</label>
-                      <p className="text-sm">{viewingSupplier.mobileNumber || '-'}</p>
+                      <p className="text-sm">{viewingSupplier.mobile || '-'}</p>
                     </div>
                     <div>
                       <label className="font-medium text-sm text-muted-foreground">Fax Number</label>
-                      <p className="text-sm">{viewingSupplier.faxNumber || '-'}</p>
+                      <p className="text-sm">{viewingSupplier.fax || '-'}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -808,25 +808,25 @@ function SuppliersSection() {
                   <CardContent className="space-y-4">
                     <div>
                       <label className="font-medium text-sm text-muted-foreground">Address</label>
-                      <p className="text-sm">{viewingSupplier.address || '-'}</p>
+                      <p className="text-sm">{viewingSupplier.addressLine || viewingSupplier.registeredAddressStreet || '-'}</p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="font-medium text-sm text-muted-foreground">City</label>
-                        <p className="text-sm">{viewingSupplier.city || '-'}</p>
+                        <p className="text-sm">{viewingSupplier.city || viewingSupplier.registeredAddressCity || '-'}</p>
                       </div>
                       <div>
                         <label className="font-medium text-sm text-muted-foreground">State</label>
-                        <p className="text-sm">{viewingSupplier.state || '-'}</p>
+                        <p className="text-sm">{viewingSupplier.state || viewingSupplier.registeredAddressState || '-'}</p>
                       </div>
                       <div>
                         <label className="font-medium text-sm text-muted-foreground">PIN Code</label>
-                        <p className="text-sm">{viewingSupplier.pinCode || '-'}</p>
+                        <p className="text-sm">{viewingSupplier.pincode || viewingSupplier.registeredAddressPostalCode || '-'}</p>
                       </div>
                     </div>
                     <div>
                       <label className="font-medium text-sm text-muted-foreground">Country</label>
-                      <p className="text-sm">{viewingSupplier.country || '-'}</p>
+                      <p className="text-sm">{viewingSupplier.country || viewingSupplier.registeredAddressCountry || '-'}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -854,8 +854,8 @@ function SuppliersSection() {
                       <p className="text-sm">{viewingSupplier.bankAccountNumber || '-'}</p>
                     </div>
                     <div>
-                      <label className="font-medium text-sm text-muted-foreground">IFSC Code</label>
-                      <p className="text-sm">{viewingSupplier.bankIFSCCode || '-'}</p>
+                      <label className="font-medium text-sm text-muted-foreground">SWIFT/IBAN Code</label>
+                      <p className="text-sm">{viewingSupplier.swiftIbanCode || '-'}</p>
                     </div>
                     <div>
                       <label className="font-medium text-sm text-muted-foreground">Branch</label>
