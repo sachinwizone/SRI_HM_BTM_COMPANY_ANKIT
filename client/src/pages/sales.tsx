@@ -473,27 +473,14 @@ export default function Sales() {
   // CRUD Operations - Updated for billing format
   const salesMutation = useMutation({
     mutationFn: async (data: BillingFormData) => {
-      // Convert billing format to legacy sales format
-      // Aggregate all items into totals for backend compatibility
-      const items = data.items || [];
+      // Convert billing format to create separate sales records for each item
+      const items = data.items.filter(item => item.quantity > 0 && item.unitPrice > 0);
       
-      // Calculate aggregated values from all items
-      const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
-      const totalValue = items.reduce((sum, item) => sum + ((item.quantity || 0) * (item.unitPrice || 0)), 0);
-      
-      // Create combined description from all items
-      const itemDescriptions = items
-        .filter(item => item.itemDescription)
-        .map(item => `${item.itemCode || ''} ${item.itemDescription || ''}`.trim())
-        .join(', ');
-      
-      // Use first item for product reference, or find best match
-      const firstItem = items[0];
-      const productMatch = products.find(p => 
-        items.some(item => item.itemDescription?.includes(p.name || ''))
-      ) || products.find(p => p.name === firstItem?.itemDescription) || products[0];
-      
-      const legacyData = {
+      if (items.length === 0) {
+        throw new Error("Please add at least one item with quantity and price");
+      }
+
+      const baseData = {
         date: data.date,
         salesOrderNumber: data.salesOrderNumber,
         invoiceNumber: data.invoiceNumber,
@@ -503,27 +490,78 @@ export default function Sales() {
         vehicleNumber: data.vehicleNumber || "",
         location: data.location || "",
         transporterId: data.transporterId || transporters[0]?.id || "",
-        
-        // Aggregated values from all line items
         grossWeight: "0",
         tareWeight: "0", 
-        netWeight: totalQuantity.toString(),
         entireWeight: "0",
-        drumQuantity: Math.ceil(totalQuantity),
-        perDrumWeight: totalQuantity > 0 ? (totalValue / totalQuantity).toFixed(2) : "0",
-        basicRate: totalQuantity > 0 ? (totalValue / totalQuantity).toFixed(2) : "0",
         gstPercent: "18",
-        totalAmount: totalAmount.toFixed(2),
-        basicRatePurchase: "0",
-        productId: productMatch?.id || "",
-        // Store item descriptions for reference
-        notes: `Items: ${itemDescriptions}`
+        basicRatePurchase: "0"
       };
 
       if (editingSales) {
-        return await apiRequest(`/api/sales/${editingSales.id}`, "PUT", legacyData);
+        // For editing, update the existing record with first item and create new records for additional items
+        const firstItem = items[0];
+        const productMatch = products.find(p => p.name === firstItem.itemDescription) || products[0];
+        
+        const firstItemData = {
+          ...baseData,
+          netWeight: firstItem.quantity.toString(),
+          drumQuantity: Math.ceil(firstItem.quantity),
+          perDrumWeight: firstItem.unitPrice.toFixed(2),
+          basicRate: firstItem.unitPrice.toFixed(2),
+          totalAmount: (firstItem.quantity * firstItem.unitPrice * 1.18).toFixed(2), // Including 18% GST
+          productId: productMatch?.id || ""
+        };
+
+        // Update the existing record
+        await apiRequest(`/api/sales/${editingSales.id}`, "PUT", firstItemData);
+
+        // Create new records for additional items
+        for (let i = 1; i < items.length; i++) {
+          const item = items[i];
+          const productMatch = products.find(p => p.name === item.itemDescription) || products[0];
+          
+          const itemData = {
+            ...baseData,
+            // Generate new numbers for additional items
+            salesOrderNumber: `${data.salesOrderNumber}-${i}`,
+            invoiceNumber: `${data.invoiceNumber}-${i}`,
+            netWeight: item.quantity.toString(),
+            drumQuantity: Math.ceil(item.quantity),
+            perDrumWeight: item.unitPrice.toFixed(2),
+            basicRate: item.unitPrice.toFixed(2),
+            totalAmount: (item.quantity * item.unitPrice * 1.18).toFixed(2),
+            productId: productMatch?.id || ""
+          };
+
+          await apiRequest("/api/sales", "POST", itemData);
+        }
+
+        return firstItemData;
+      } else {
+        // For new records, create separate sales records for each item
+        const results = [];
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          const productMatch = products.find(p => p.name === item.itemDescription) || products[0];
+          
+          const itemData = {
+            ...baseData,
+            // Use base numbers for first item, append suffix for others
+            salesOrderNumber: i === 0 ? data.salesOrderNumber : `${data.salesOrderNumber}-${i}`,
+            invoiceNumber: i === 0 ? data.invoiceNumber : `${data.invoiceNumber}-${i}`,
+            netWeight: item.quantity.toString(),
+            drumQuantity: Math.ceil(item.quantity),
+            perDrumWeight: item.unitPrice.toFixed(2),
+            basicRate: item.unitPrice.toFixed(2),
+            totalAmount: (item.quantity * item.unitPrice * 1.18).toFixed(2),
+            productId: productMatch?.id || ""
+          };
+
+          const result = await apiRequest("/api/sales", "POST", itemData);
+          results.push(result);
+        }
+        return results[0]; // Return first record as reference
       }
-      return await apiRequest("/api/sales", "POST", legacyData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
