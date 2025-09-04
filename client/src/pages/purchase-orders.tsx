@@ -314,7 +314,7 @@ export default function PurchaseOrdersPage() {
         
         const total = formatCurrency(item.totalLineValue || 0, po.currency);
         const totalWidth = doc.getTextWidth(total);
-        doc.text(total, leftMargin + 227 - totalWidth, yPos + 5); // Much more space for Total column
+        doc.text(total, leftMargin + 207 - totalWidth, yPos + 5); // Positioned within page bounds
         
         // Vertical lines - adjusted positions for wider table
         doc.line(leftMargin + 33, yPos, leftMargin + 33, yPos + rowHeight);
