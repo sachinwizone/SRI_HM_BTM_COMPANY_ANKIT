@@ -918,7 +918,7 @@ export default function Sales() {
                           control={form.control}
                           name={`items.${index}.itemDescription`}
                           render={({ field }) => (
-                            <FormItem className="md:col-span-3">
+                            <FormItem className="md:col-span-2">
                               <FormLabel>Description *</FormLabel>
                               <FormControl>
                                 <Input 
@@ -936,7 +936,7 @@ export default function Sales() {
                           control={form.control}
                           name={`items.${index}.quantity`}
                           render={({ field }) => (
-                            <FormItem className="md:col-span-1">
+                            <FormItem className="md:col-span-2">
                               <FormLabel>Qty *</FormLabel>
                               <FormControl>
                                 <Input 
