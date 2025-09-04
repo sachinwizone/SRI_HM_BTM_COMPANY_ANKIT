@@ -9,9 +9,10 @@ import { PurchaseOrderForm } from "@/components/PurchaseOrderForm";
 import { Plus, Package, Eye, Edit, Trash2, Calendar, DollarSign, FileText, Printer, Mail, MessageSquare, Download } from "lucide-react";
 import type { PurchaseOrder, PurchaseOrderItem, InsertPurchaseOrder, InsertPurchaseOrderItem } from "@shared/schema";
 import jsPDF from 'jspdf';
+// Import jspdf-autotable plugin
 import 'jspdf-autotable';
 
-// Declare jsPDF autotable plugin
+// Type declaration for jsPDF autotable plugin
 declare module 'jspdf' {
   interface jsPDF {
     autoTable: (options: any) => void;
