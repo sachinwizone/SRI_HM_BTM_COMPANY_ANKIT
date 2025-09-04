@@ -9,15 +9,6 @@ import { PurchaseOrderForm } from "@/components/PurchaseOrderForm";
 import { Plus, Package, Eye, Edit, Trash2, Calendar, DollarSign, FileText, Printer, Mail, MessageSquare, Download } from "lucide-react";
 import type { PurchaseOrder, PurchaseOrderItem, InsertPurchaseOrder, InsertPurchaseOrderItem } from "@shared/schema";
 import jsPDF from 'jspdf';
-// Import jspdf-autotable plugin
-import 'jspdf-autotable';
-
-// Type declaration for jsPDF autotable plugin
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => void;
-  }
-}
 
 export default function PurchaseOrdersPage() {
   const [showForm, setShowForm] = useState(false);
@@ -128,23 +119,36 @@ export default function PurchaseOrdersPage() {
     
     // Line Items Table
     if (items.length > 0) {
-      const tableData = items.map(item => [
-        item.itemCode || '',
-        item.itemDescription || '',
-        item.quantityOrdered?.toString() || '',
-        item.unitOfMeasure || '',
-        formatCurrency(item.unitPrice || 0, po.currency),
-        formatCurrency(item.totalLineValue || 0, po.currency)
-      ]);
+      let yPosition = 140;
       
-      (doc as any).autoTable({
-        startY: 140,
-        head: [['Item Code', 'Description', 'Quantity', 'Unit', 'Unit Price', 'Total']],
-        body: tableData,
-        theme: 'grid',
-        styles: { fontSize: 10 },
-        headStyles: { fillColor: [41, 128, 185] }
+      // Table header
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text('Item Code', 20, yPosition);
+      doc.text('Description', 60, yPosition);
+      doc.text('Qty', 120, yPosition);
+      doc.text('Unit', 140, yPosition);
+      doc.text('Unit Price', 160, yPosition);
+      doc.text('Total', 180, yPosition);
+      
+      // Draw header line
+      doc.line(20, yPosition + 2, 200, yPosition + 2);
+      yPosition += 10;
+      
+      // Table rows
+      doc.setFont("helvetica", "normal");
+      items.forEach((item) => {
+        doc.text(item.itemCode || '', 20, yPosition);
+        doc.text((item.itemDescription || '').substring(0, 20), 60, yPosition);
+        doc.text((item.quantityOrdered?.toString() || ''), 120, yPosition);
+        doc.text(item.unitOfMeasure || '', 140, yPosition);
+        doc.text(formatCurrency(item.unitPrice || 0, po.currency), 160, yPosition);
+        doc.text(formatCurrency(item.totalLineValue || 0, po.currency), 180, yPosition);
+        yPosition += 10;
       });
+      
+      // Draw bottom line
+      doc.line(20, yPosition - 5, 200, yPosition - 5);
     }
     
     return doc;
