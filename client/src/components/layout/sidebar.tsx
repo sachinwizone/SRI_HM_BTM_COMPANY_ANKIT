@@ -57,6 +57,7 @@ const navigation: NavigationEntry[] = [
       { name: "Sales", href: "/sales", icon: Package },
       { name: "Sales Operations", href: "/sales-operations", icon: Target },
       { name: "Tour Advance", href: "/tour-advance", icon: Plane },
+      { name: "TA Reports", href: "/ta-reports", icon: FileText },
       { name: "Purchase Orders", href: "/purchase-orders", icon: FileText },
       { name: "Team Performance", href: "/team-performance", icon: TrendingUp },
     ],
