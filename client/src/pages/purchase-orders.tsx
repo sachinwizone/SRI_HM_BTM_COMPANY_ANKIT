@@ -246,8 +246,8 @@ export default function PurchaseOrdersPage() {
     // Line Items Table
     yPos += 55;
     
-    // Table Header with better styling - increased width for Total column
-    const tableWidth = 210; // Further increased to accommodate full currency values
+    // Table Header with optimized width to fit page
+    const tableWidth = 170; // Back to original width that fits page
     doc.setFillColor(52, 73, 94); // Dark blue header
     doc.rect(leftMargin, yPos, tableWidth, 10, 'F');
     doc.setDrawColor(0, 0, 0);
@@ -258,21 +258,21 @@ export default function PurchaseOrdersPage() {
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.text('Item Code', leftMargin + 2, yPos + 7);
-    doc.text('Description', leftMargin + 35, yPos + 7);
-    doc.text('Qty', leftMargin + 88, yPos + 7);
-    doc.text('Unit', leftMargin + 105, yPos + 7);
-    doc.text('Unit Price', leftMargin + 125, yPos + 7);
-    doc.text('Total', leftMargin + 170, yPos + 7); // Moved further right
+    doc.text('Description', leftMargin + 30, yPos + 7); // Moved left to save space
+    doc.text('Qty', leftMargin + 75, yPos + 7); // Moved left
+    doc.text('Unit', leftMargin + 95, yPos + 7); // Moved left
+    doc.text('Unit Price', leftMargin + 115, yPos + 7); // Moved left
+    doc.text('Total', leftMargin + 150, yPos + 7); // Optimized position
     
     // Reset text color
     doc.setTextColor(0, 0, 0);
     
-    // Table vertical lines - adjusted positions for wider table
-    doc.line(leftMargin + 33, yPos, leftMargin + 33, yPos + 10);
-    doc.line(leftMargin + 83, yPos, leftMargin + 83, yPos + 10);
-    doc.line(leftMargin + 103, yPos, leftMargin + 103, yPos + 10);
-    doc.line(leftMargin + 123, yPos, leftMargin + 123, yPos + 10);
-    doc.line(leftMargin + 160, yPos, leftMargin + 160, yPos + 10); // Moved further right
+    // Table vertical lines - optimized positions
+    doc.line(leftMargin + 28, yPos, leftMargin + 28, yPos + 10);
+    doc.line(leftMargin + 73, yPos, leftMargin + 73, yPos + 10);
+    doc.line(leftMargin + 93, yPos, leftMargin + 93, yPos + 10);
+    doc.line(leftMargin + 113, yPos, leftMargin + 113, yPos + 10);
+    doc.line(leftMargin + 145, yPos, leftMargin + 145, yPos + 10);
     
     yPos += 10;
     
@@ -289,39 +289,39 @@ export default function PurchaseOrdersPage() {
         // Alternate row background
         if (index % 2 === 1) {
           doc.setFillColor(248, 248, 248);
-          doc.rect(leftMargin, yPos, 210, rowHeight, 'F'); // Further increased width
+          doc.rect(leftMargin, yPos, 170, rowHeight, 'F'); // Back to original width
         }
         
         // Row border
         doc.setDrawColor(200, 200, 200);
-        doc.rect(leftMargin, yPos, 210, rowHeight); // Further increased width
+        doc.rect(leftMargin, yPos, 170, rowHeight); // Back to original width
         
         // Cell data with proper alignment
         doc.setTextColor(0, 0, 0);
         doc.text(item.itemCode || '-', leftMargin + 2, yPos + 5);
-        doc.text((item.itemDescription || '-').substring(0, 25), leftMargin + 35, yPos + 5);
+        doc.text((item.itemDescription || '-').substring(0, 20), leftMargin + 30, yPos + 5); // Shorter description
         
         // Right-align numbers
         const qty = (item.quantityOrdered?.toString() || '0');
         const qtyWidth = doc.getTextWidth(qty);
-        doc.text(qty, leftMargin + 100 - qtyWidth, yPos + 5);
+        doc.text(qty, leftMargin + 90 - qtyWidth, yPos + 5); // Adjusted position
         
-        doc.text(item.unitOfMeasure || '-', leftMargin + 105, yPos + 5);
+        doc.text(item.unitOfMeasure || '-', leftMargin + 95, yPos + 5); // Adjusted position
         
         const unitPrice = formatCurrency(item.unitPrice || 0, po.currency);
         const unitPriceWidth = doc.getTextWidth(unitPrice);
-        doc.text(unitPrice, leftMargin + 157 - unitPriceWidth, yPos + 5); // Adjusted for wider table
+        doc.text(unitPrice, leftMargin + 142 - unitPriceWidth, yPos + 5); // Adjusted position
         
         const total = formatCurrency(item.totalLineValue || 0, po.currency);
         const totalWidth = doc.getTextWidth(total);
-        doc.text(total, leftMargin + 207 - totalWidth, yPos + 5); // Positioned within page bounds
+        doc.text(total, leftMargin + 187 - totalWidth, yPos + 5); // Within page bounds
         
-        // Vertical lines - adjusted positions for wider table
-        doc.line(leftMargin + 33, yPos, leftMargin + 33, yPos + rowHeight);
-        doc.line(leftMargin + 83, yPos, leftMargin + 83, yPos + rowHeight);
-        doc.line(leftMargin + 103, yPos, leftMargin + 103, yPos + rowHeight);
-        doc.line(leftMargin + 123, yPos, leftMargin + 123, yPos + rowHeight);
-        doc.line(leftMargin + 160, yPos, leftMargin + 160, yPos + rowHeight); // Moved further right
+        // Vertical lines - optimized positions
+        doc.line(leftMargin + 28, yPos, leftMargin + 28, yPos + rowHeight);
+        doc.line(leftMargin + 73, yPos, leftMargin + 73, yPos + rowHeight);
+        doc.line(leftMargin + 93, yPos, leftMargin + 93, yPos + rowHeight);
+        doc.line(leftMargin + 113, yPos, leftMargin + 113, yPos + rowHeight);
+        doc.line(leftMargin + 145, yPos, leftMargin + 145, yPos + rowHeight);
         
         totalAmount += parseFloat(item.totalLineValue?.toString() || '0');
         yPos += rowHeight;
@@ -329,10 +329,10 @@ export default function PurchaseOrdersPage() {
     } else {
       // Show "No items" row
       doc.setFillColor(248, 248, 248);
-      doc.rect(leftMargin, yPos, 210, 8, 'F'); // Further increased width
+      doc.rect(leftMargin, yPos, 170, 8, 'F'); // Back to original width
       doc.setDrawColor(200, 200, 200);
-      doc.rect(leftMargin, yPos, 210, 8); // Further increased width
-      doc.text('No line items found', leftMargin + 95, yPos + 5); // Adjusted center position for wider table
+      doc.rect(leftMargin, yPos, 170, 8); // Back to original width
+      doc.text('No line items found', leftMargin + 75, yPos + 5); // Centered for original width
       yPos += 8;
     }
     
