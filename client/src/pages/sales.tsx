@@ -818,7 +818,11 @@ export default function Sales() {
                                 field.onChange(value);
                                 // Auto-fill contact number when transporter is selected
                                 const selectedTransporter = transporters.find(t => t.id === value);
-                                form.setValue("transporterContactNumber", selectedTransporter?.contactNumber || "");
+                                const contactNumber = selectedTransporter?.contactNumber || "";
+                                console.log("Selected transporter:", selectedTransporter, "Contact:", contactNumber);
+                                form.setValue("transporterContactNumber", contactNumber);
+                                // Force re-render by triggering form change
+                                form.trigger("transporterContactNumber");
                               }} value={field.value || ""}>
                                 <FormControl>
                                   <SelectTrigger>
@@ -858,7 +862,8 @@ export default function Sales() {
                               <FormLabel>Contact Number</FormLabel>
                               <FormControl>
                                 <Input 
-                                  {...field} 
+                                  {...field}
+                                  value={field.value || ""}
                                   placeholder="Auto-filled from transporter"
                                   readOnly
                                   className="bg-gray-100"
