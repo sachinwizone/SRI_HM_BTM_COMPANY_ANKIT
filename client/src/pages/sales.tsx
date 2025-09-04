@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Edit, Trash2, Search, CalendarDays, FileCheck, Save, X, Package, Truck, BarChart3, Calculator, Download, Printer } from "lucide-react";
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { SalesDashboard } from "@/components/analytics/sales-dashboard";
 import { DataTable } from "@/components/ui/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -245,7 +245,7 @@ export default function Sales() {
     ]];
     
     // Add table
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: tableStartY,
       head: [['Item Code', 'Description', 'Qty', 'Unit', 'Rate', 'Amount']],
       body: tableData,
@@ -362,7 +362,7 @@ export default function Sales() {
     ]);
     
     // Add table
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: tableStartY,
       head: [['Item Code', 'Description', 'Qty', 'Unit', 'Rate', 'Amount']],
       body: tableData,
