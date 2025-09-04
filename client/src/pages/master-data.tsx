@@ -525,7 +525,15 @@ function SuppliersSection() {
   const { toast } = useToast();
 
   const createMutation = useMutation({
-    mutationFn: (data: InsertSupplier) => apiRequest('/api/suppliers', { method: 'POST', body: data }),
+    mutationFn: async (data: InsertSupplier) => {
+      const response = await fetch('/api/suppliers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) throw new Error('Failed to create supplier');
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/suppliers'] });
       setShowForm(false);
@@ -537,8 +545,15 @@ function SuppliersSection() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<InsertSupplier> }) => 
-      apiRequest(`/api/suppliers/${id}`, { method: 'PUT', body: data }),
+    mutationFn: async ({ id, data }: { id: string; data: Partial<InsertSupplier> }) => {
+      const response = await fetch(`/api/suppliers/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) throw new Error('Failed to update supplier');
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/suppliers'] });
       setShowForm(false);
@@ -675,12 +690,7 @@ function SupplierForm({
     contactEmail: z.string().email().optional().or(z.literal('')),
     contactPhone: z.string().optional(),
     fax: z.string().optional(),
-    website: z.string().optional().refine((val) => {
-      if (!val || val === '') return true;
-      // Allow URLs with or without protocol
-      const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
-      return urlPattern.test(val);
-    }, { message: "Please enter a valid website URL" }),
+    website: z.string().optional(),
     registeredAddressStreet: z.string().optional(),
     registeredAddressCity: z.string().optional(),
     registeredAddressState: z.string().optional(),
