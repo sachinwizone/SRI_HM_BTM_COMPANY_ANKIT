@@ -83,6 +83,7 @@ export default function Sales() {
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [isClientDetailsOpen, setIsClientDetailsOpen] = useState(false);
   const [selectedClientForDetails, setSelectedClientForDetails] = useState<Client | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState("");
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1203,31 +1204,23 @@ export default function Sales() {
                   {/* Product Selection Area */}
                   <div className="bg-green-50 p-4 rounded-lg">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <FormField
-                        control={form.control}
-                        name={`items.0.productMasterId`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Select Product to Add</FormLabel>
-                            <Select value={field.value} onValueChange={(value) => handleProductSelection(fields.length - 1, value)}>
-                              <FormControl>
-                                <SelectTrigger data-testid="select-product-new">
-                                  <SelectValue placeholder="Choose product to add to bill" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="manual">Manual Entry</SelectItem>
-                                {productMasters?.map((product) => (
-                                  <SelectItem key={product.id} value={product.id}>
-                                    {product.productCode} - {product.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <div>
+                        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                          Select Product to Add
+                        </label>
+                        <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                          <SelectTrigger data-testid="select-product-new" className="mt-2">
+                            <SelectValue placeholder="Choose product to add to bill" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {productMasters?.map((product) => (
+                              <SelectItem key={product.id} value={product.id}>
+                                {product.productCode} - {product.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                       <div className="flex items-end">
                         <Button type="button" onClick={addSelectedProductToBill} size="default" className="w-full" data-testid="button-add-selected-product">
                           <Plus className="h-4 w-4 mr-2" />
