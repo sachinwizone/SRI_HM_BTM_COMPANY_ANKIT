@@ -891,6 +891,9 @@ export const productMaster = pgTable("product_master", {
   minOrderQuantity: decimal("min_order_quantity", { precision: 10, scale: 2 }),
   maxOrderQuantity: decimal("max_order_quantity", { precision: 10, scale: 2 }),
   reorderLevel: decimal("reorder_level", { precision: 10, scale: 2 }),
+  totalQuantity: text("total_quantity"), // Total Quantity/KG/TON as text field
+  rate: decimal("rate", { precision: 15, scale: 2 }), // Rate field
+  totalAmount: decimal("total_amount", { precision: 15, scale: 2 }), // Total Amount field
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),

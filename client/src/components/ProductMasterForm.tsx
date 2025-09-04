@@ -25,7 +25,10 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Package, Plus, Edit, Trash2, Search } from "lucide-react";
+import { Package, Plus, Edit, Trash2, Search, Check, ChevronsUpDown } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -60,10 +63,103 @@ const productMasterSchema = z.object({
   minOrderQuantity: z.string().optional(),
   maxOrderQuantity: z.string().optional(),
   reorderLevel: z.string().optional(),
+  totalQuantity: z.string().optional(),
+  rate: z.string().optional(),
+  totalAmount: z.string().optional(),
   isActive: z.boolean().optional(),
 });
 
 type ProductMasterFormData = z.infer<typeof productMasterSchema>;
+
+// SearchableSelect component for dropdown fields with manual add functionality
+interface SearchableSelectProps {
+  value: string;
+  onValueChange: (value: string) => void;
+  options: string[];
+  placeholder: string;
+  allowCustom?: boolean;
+}
+
+function SearchableSelect({ value, onValueChange, options, placeholder, allowCustom = true }: SearchableSelectProps) {
+  const [open, setOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+
+  const filteredOptions = options.filter(option =>
+    option.toLowerCase().includes(searchValue.toLowerCase())
+  );
+
+  const handleSelect = (selectedValue: string) => {
+    onValueChange(selectedValue);
+    setOpen(false);
+    setSearchValue("");
+  };
+
+  const handleCustomAdd = () => {
+    if (searchValue.trim() && !options.includes(searchValue.trim())) {
+      onValueChange(searchValue.trim());
+      setOpen(false);
+      setSearchValue("");
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+        >
+          {value || placeholder}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <Command>
+          <CommandInput 
+            placeholder={`Search ${placeholder.toLowerCase()}...`}
+            value={searchValue}
+            onValueChange={setSearchValue}
+          />
+          <CommandEmpty>
+            {allowCustom && searchValue.trim() ? (
+              <div className="p-2">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={handleCustomAdd}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add "{searchValue.trim()}"
+                </Button>
+              </div>
+            ) : (
+              "No options found."
+            )}
+          </CommandEmpty>
+          <CommandGroup>
+            {filteredOptions.map((option) => (
+              <CommandItem
+                key={option}
+                value={option}
+                onSelect={() => handleSelect(option)}
+              >
+                <Check
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    value === option ? "opacity-100" : "opacity-0"
+                  )}
+                />
+                {option}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export function ProductMasterForm() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -71,6 +167,12 @@ export function ProductMasterForm() {
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Predefined options for searchable dropdowns
+  const productFamilyOptions = ["VG_BITUMEN", "EMULSION", "BULK", "ACCESSORIES"];
+  const packagingOptions = ["BULK", "DRUM", "EMBOSSED", "UNIT"];
+  const unitOptions = ["MT", "KL", "DRUM", "UNIT"];
+  const gradeOptions = ["VG-10", "VG-30", "VG-40", "CRS", "SS", "RS-1", "RS-2"];
 
   const form = useForm<ProductMasterFormData>({
     resolver: zodResolver(productMasterSchema),
@@ -80,6 +182,9 @@ export function ProductMasterForm() {
       unit: "MT",
       taxRate: "5.00",
       batchTracking: false,
+      totalQuantity: "",
+      rate: "",
+      totalAmount: "",
       isActive: true,
     },
   });
@@ -254,19 +359,14 @@ export function ProductMasterForm() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Product Family *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select product family" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="VG_BITUMEN">VG Bitumen</SelectItem>
-                            <SelectItem value="EMULSION">Emulsion</SelectItem>
-                            <SelectItem value="BULK">Bulk</SelectItem>
-                            <SelectItem value="ACCESSORIES">Accessories</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            options={productFamilyOptions}
+                            placeholder="Select or add product family"
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -279,7 +379,12 @@ export function ProductMasterForm() {
                       <FormItem>
                         <FormLabel>Grade</FormLabel>
                         <FormControl>
-                          <Input placeholder="VG-30, RS-1, etc." {...field} />
+                          <SearchableSelect
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            options={gradeOptions}
+                            placeholder="Select or add grade"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -292,19 +397,14 @@ export function ProductMasterForm() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Packaging *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select packaging" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="BULK">Bulk</SelectItem>
-                            <SelectItem value="DRUM">Drum</SelectItem>
-                            <SelectItem value="EMBOSSED">Embossed</SelectItem>
-                            <SelectItem value="UNIT">Unit</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            options={packagingOptions}
+                            placeholder="Select or add packaging"
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -316,19 +416,14 @@ export function ProductMasterForm() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Unit *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select unit" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="MT">MT (Metric Ton)</SelectItem>
-                            <SelectItem value="KL">KL (Kiloliter)</SelectItem>
-                            <SelectItem value="DRUM">Drum</SelectItem>
-                            <SelectItem value="UNIT">Unit</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            options={unitOptions}
+                            placeholder="Select or add unit"
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -440,6 +535,48 @@ export function ProductMasterForm() {
                         <FormLabel>Shelf Life (Days)</FormLabel>
                         <FormControl>
                           <Input placeholder="365" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="totalQuantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Total Quantity/KG/TON</FormLabel>
+                        <FormControl>
+                          <Input placeholder="100 MT" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="rate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Rate</FormLabel>
+                        <FormControl>
+                          <Input placeholder="45000.00" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="totalAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Total Amount</FormLabel>
+                        <FormControl>
+                          <Input placeholder="4500000.00" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
