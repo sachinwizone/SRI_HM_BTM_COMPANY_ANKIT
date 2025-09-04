@@ -128,8 +128,26 @@ export default function PurchaseOrdersPage() {
   };
 
   const formatCurrency = (amount: string | number, currency: string = 'INR') => {
-    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return currency === 'INR' ? `₹${num.toFixed(2)}` : `${currency} ${num.toFixed(2)}`;
+    // Clean the amount - remove any non-numeric characters except decimal point
+    let cleanAmount = amount;
+    if (typeof amount === 'string') {
+      cleanAmount = amount.replace(/[^0-9.-]/g, '');
+    }
+    const num = typeof cleanAmount === 'string' ? parseFloat(cleanAmount) || 0 : cleanAmount;
+    
+    if (isNaN(num)) return currency === 'INR' ? '₹0.00' : `${currency} 0.00`;
+    
+    // Format with proper Indian numbering system for INR
+    if (currency === 'INR') {
+      return `₹${num.toLocaleString('en-IN', { 
+        minimumFractionDigits: 2, 
+        maximumFractionDigits: 2 
+      })}`;
+    }
+    return `${currency} ${num.toLocaleString('en-US', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    })}`;
   };
 
   // Professional PDF generation function
@@ -221,21 +239,25 @@ export default function PurchaseOrdersPage() {
     // Line Items Table
     yPos += 55;
     
-    // Table Header
-    doc.setFillColor(240, 240, 240);
+    // Table Header with better styling
+    doc.setFillColor(52, 73, 94); // Dark blue header
     doc.rect(leftMargin, yPos, 170, 10, 'F');
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.3);
     doc.rect(leftMargin, yPos, 170, 10);
     
+    doc.setTextColor(255, 255, 255); // White text for header
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.text('Item Code', leftMargin + 2, yPos + 7);
     doc.text('Description', leftMargin + 35, yPos + 7);
-    doc.text('Qty', leftMargin + 85, yPos + 7);
+    doc.text('Qty', leftMargin + 88, yPos + 7);
     doc.text('Unit', leftMargin + 105, yPos + 7);
-    doc.text('Unit Price', leftMargin + 125, yPos + 7);
-    doc.text('Total', leftMargin + 155, yPos + 7);
+    doc.text('Unit Price', leftMargin + 130, yPos + 7);
+    doc.text('Total', leftMargin + 160, yPos + 7);
+    
+    // Reset text color
+    doc.setTextColor(0, 0, 0);
     
     // Table vertical lines
     doc.line(leftMargin + 33, yPos, leftMargin + 33, yPos + 10);
@@ -266,14 +288,25 @@ export default function PurchaseOrdersPage() {
         doc.setDrawColor(200, 200, 200);
         doc.rect(leftMargin, yPos, 170, rowHeight);
         
-        // Cell data
+        // Cell data with proper alignment
         doc.setTextColor(0, 0, 0);
         doc.text(item.itemCode || '-', leftMargin + 2, yPos + 5);
         doc.text((item.itemDescription || '-').substring(0, 25), leftMargin + 35, yPos + 5);
-        doc.text((item.quantityOrdered?.toString() || '0'), leftMargin + 85, yPos + 5);
+        
+        // Right-align numbers
+        const qty = (item.quantityOrdered?.toString() || '0');
+        const qtyWidth = doc.getTextWidth(qty);
+        doc.text(qty, leftMargin + 100 - qtyWidth, yPos + 5);
+        
         doc.text(item.unitOfMeasure || '-', leftMargin + 105, yPos + 5);
-        doc.text(formatCurrency(item.unitPrice || 0, po.currency), leftMargin + 125, yPos + 5);
-        doc.text(formatCurrency(item.totalLineValue || 0, po.currency), leftMargin + 155, yPos + 5);
+        
+        const unitPrice = formatCurrency(item.unitPrice || 0, po.currency);
+        const unitPriceWidth = doc.getTextWidth(unitPrice);
+        doc.text(unitPrice, leftMargin + 150 - unitPriceWidth, yPos + 5);
+        
+        const total = formatCurrency(item.totalLineValue || 0, po.currency);
+        const totalWidth = doc.getTextWidth(total);
+        doc.text(total, leftMargin + 185 - totalWidth, yPos + 5);
         
         // Vertical lines
         doc.line(leftMargin + 33, yPos, leftMargin + 33, yPos + rowHeight);
@@ -311,21 +344,27 @@ export default function PurchaseOrdersPage() {
     doc.setFontSize(9);
     
     yPos += 15;
-    if (po.discountAmount && parseFloat(po.discountAmount) > 0) {
+    if (po.discountAmount && parseFloat(po.discountAmount.toString()) > 0) {
       doc.text('Discount:', 122, yPos);
-      doc.text(formatCurrency(po.discountAmount, po.currency), 165, yPos);
+      const discountText = formatCurrency(po.discountAmount, po.currency);
+      const discountWidth = doc.getTextWidth(discountText);
+      doc.text(discountText, 185 - discountWidth, yPos);
       yPos += 5;
     }
     
-    if (po.taxAmount && parseFloat(po.taxAmount) > 0) {
+    if (po.taxAmount && parseFloat(po.taxAmount.toString()) > 0) {
       doc.text('Tax:', 122, yPos);
-      doc.text(formatCurrency(po.taxAmount, po.currency), 165, yPos);
+      const taxText = formatCurrency(po.taxAmount, po.currency);
+      const taxWidth = doc.getTextWidth(taxText);
+      doc.text(taxText, 185 - taxWidth, yPos);
       yPos += 5;
     }
     
     doc.setFont("helvetica", "bold");
     doc.text('Total Amount:', 122, yPos);
-    doc.text(formatCurrency(po.totalAmount, po.currency), 165, yPos);
+    const totalText = formatCurrency(po.totalAmount, po.currency);
+    const totalWidth = doc.getTextWidth(totalText);
+    doc.text(totalText, 185 - totalWidth, yPos);
     
     // Footer
     yPos = 270;
