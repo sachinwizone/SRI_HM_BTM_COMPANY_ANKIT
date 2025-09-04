@@ -1595,12 +1595,35 @@ export default function Sales() {
                   </div>
                 </div>
                 
-                <div className="border rounded-lg overflow-hidden" style={{ height: '500px' }}>
-                  <iframe
-                    src={URL.createObjectURL(pdfBlob)}
-                    className="w-full h-full"
-                    title="Invoice Preview"
-                  />
+                <div className="border rounded-lg overflow-hidden bg-gray-50" style={{ height: '500px' }}>
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="text-center space-y-4">
+                      <div className="text-6xl text-blue-500">📄</div>
+                      <div>
+                        <h4 className="text-lg font-medium text-gray-900">Invoice Ready</h4>
+                        <p className="text-sm text-gray-600 mt-2">
+                          Your invoice has been generated successfully.<br/>
+                          Use the buttons above to view, print, or download.
+                        </p>
+                      </div>
+                      <div className="flex flex-col space-y-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            if (pdfBlob) {
+                              const url = URL.createObjectURL(pdfBlob);
+                              window.open(url, '_blank', 'width=900,height=700,scrollbars=yes,resizable=yes');
+                            }
+                          }}
+                          className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                        >
+                          <FileCheck className="mr-2 h-4 w-4" />
+                          Open Full View
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
