@@ -1656,6 +1656,9 @@ export const insertTourAdvanceSchema = createInsertSchema(tourAdvances).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+  submittedBy: true,
+  createdBy: true,
+  updatedBy: true,
 }).extend({
   tourStartDate: z.union([z.string(), z.date()]).transform(val => typeof val === 'string' ? new Date(val) : val),
   tourEndDate: z.union([z.string(), z.date()]).transform(val => typeof val === 'string' ? new Date(val) : val),
