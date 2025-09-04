@@ -720,13 +720,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Received PO data:", JSON.stringify(purchaseOrder, null, 2));
       console.log("Received items data:", JSON.stringify(items, null, 2));
       
-      // Validate purchase order data
-      const poData = insertPurchaseOrderSchema.parse(purchaseOrder);
+      // Convert date strings to Date objects for purchase order
+      const poDataWithDates = {
+        ...purchaseOrder,
+        orderDate: new Date(purchaseOrder.orderDate),
+        expectedDeliveryDate: new Date(purchaseOrder.expectedDeliveryDate),
+      };
       
-      // Validate items data
+      // Validate purchase order data
+      const poData = insertPurchaseOrderSchema.parse(poDataWithDates);
+      
+      // Validate items data and convert dates
       const itemsData = items.map((item: any, index: number) => {
         try {
-          return insertPurchaseOrderItemSchema.parse(item);
+          const itemWithDates = {
+            ...item,
+            deliveryDate: item.deliveryDate ? new Date(item.deliveryDate) : undefined,
+          };
+          return insertPurchaseOrderItemSchema.parse(itemWithDates);
         } catch (itemError) {
           console.error(`Item ${index} validation error:`, itemError);
           throw itemError;
