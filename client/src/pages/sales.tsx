@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Edit, Trash2, Search, CalendarDays, FileCheck, Save, X, Package, Truck, BarChart3 } from "lucide-react";
+import { z } from "zod";
+import { Plus, Edit, Trash2, Search, CalendarDays, FileCheck, Save, X, Package, Truck, BarChart3, Calculator } from "lucide-react";
 import { SalesDashboard } from "@/components/analytics/sales-dashboard";
 import { DataTable } from "@/components/ui/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 // Hooks and Utils
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { insertSalesSchema, type Sales, type InsertSales, type User, type Client, type Product, type Transporter } from "@shared/schema";
+import { insertSalesSchema, type Sales, type InsertSales, type User, type Client, type Product, type Transporter, type ProductMaster } from "@shared/schema";
 
 const statusColors = {
   RECEIVING: "bg-orange-100 text-orange-800",
@@ -28,6 +29,41 @@ const statusColors = {
   APPROVED: "bg-green-100 text-green-800",
   DELIVERED: "bg-purple-100 text-purple-800"
 };
+
+// Billing format schema with line items
+const billingFormSchema = z.object({
+  // Basic Information
+  date: z.string().min(1, "Date is required"),
+  salesOrderNumber: z.string().min(1, "Sales Order Number is required"),
+  invoiceNumber: z.string().min(1, "Invoice Number is required"),
+  clientId: z.string().min(1, "Client is required"),
+  salespersonId: z.string().optional(),
+  deliveryStatus: z.enum(['RECEIVING', 'OK', 'APPROVED', 'DELIVERED']).default('RECEIVING'),
+  
+  // Transport Details (optional for billing)
+  vehicleNumber: z.string().optional(),
+  location: z.string().optional(),
+  transporterId: z.string().optional(),
+  
+  // Financial Information
+  taxAmount: z.number().min(0).optional(),
+  discountAmount: z.number().min(0).optional(),
+  
+  // Billing Line Items
+  items: z.array(z.object({
+    productMasterId: z.string().optional(),
+    itemCode: z.string().min(1, "Item code is required"),
+    itemDescription: z.string().min(1, "Item description is required"),
+    productFamily: z.string().optional(),
+    productGrade: z.string().optional(),
+    hsnCode: z.string().optional(),
+    quantity: z.number().min(0.001, "Quantity must be greater than 0"),
+    unit: z.string().min(1, "Unit is required"),
+    unitPrice: z.number().min(0.01, "Unit price must be greater than 0"),
+  })).min(1, "At least one item is required")
+});
+
+type BillingFormData = z.infer<typeof billingFormSchema>;
 
 export default function Sales() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -61,6 +97,11 @@ export default function Sales() {
     queryKey: ["/api/products"],
   });
 
+  // Fetch Product Master for billing format
+  const { data: productMasters = [] } = useQuery<ProductMaster[]>({
+    queryKey: ["/api/product-master"],
+  });
+
   const { data: transporters = [] } = useQuery<Transporter[]>({
     queryKey: ["/api/transporters"],
   });
@@ -89,32 +130,95 @@ export default function Sales() {
     },
   });
 
-  // Form Setup
-  const form = useForm<InsertSales>({
-    resolver: zodResolver(insertSalesSchema),
+  // Form Setup - Updated for billing format
+  const form = useForm<BillingFormData>({
+    resolver: zodResolver(billingFormSchema),
     defaultValues: {
       date: new Date().toISOString().split('T')[0],
       salesOrderNumber: "",
       invoiceNumber: "",
+      clientId: "",
+      salespersonId: "",
+      deliveryStatus: "RECEIVING",
       vehicleNumber: "",
       location: "",
       transporterId: "",
-      grossWeight: "0",
-      tareWeight: "0",
-      netWeight: "0",
-      entireWeight: "0",
-      drumQuantity: 0,
-      perDrumWeight: "0",
-      clientId: "",
-      basicRate: "0",
-      gstPercent: "18",
-      totalAmount: "0",
-      basicRatePurchase: "0",
-      productId: "",
-      salespersonId: "",
-      deliveryStatus: "RECEIVING"
+      taxAmount: 0,
+      discountAmount: 0,
+      items: [{
+        productMasterId: "",
+        itemCode: "",
+        itemDescription: "",
+        productFamily: "",
+        productGrade: "",
+        hsnCode: "",
+        quantity: 1,
+        unit: "PCS",
+        unitPrice: 0
+      }]
     },
   });
+
+  // Field array for managing billing items
+  const { fields, append, remove, replace } = useFieldArray({
+    control: form.control,
+    name: "items"
+  });
+
+  // Watch items for calculations
+  const watchedItems = form.watch("items");
+
+  // Calculate totals
+  const subtotal = watchedItems.reduce((sum, item) => {
+    return sum + (item.quantity || 0) * (item.unitPrice || 0);
+  }, 0);
+  
+  const taxAmount = parseFloat(form.watch("taxAmount")?.toString() || '0') || 0;
+  const discountAmount = parseFloat(form.watch("discountAmount")?.toString() || '0') || 0;
+  const totalAmount = subtotal + taxAmount - discountAmount;
+
+  // Product selection handler
+  const handleProductSelection = (index: number, productId: string) => {
+    if (productId === "manual") {
+      // Clear product fields for manual entry
+      form.setValue(`items.${index}.productMasterId`, "");
+      form.setValue(`items.${index}.itemCode`, "");
+      form.setValue(`items.${index}.itemDescription`, "");
+      form.setValue(`items.${index}.productFamily`, "");
+      form.setValue(`items.${index}.productGrade`, "");
+      form.setValue(`items.${index}.hsnCode`, "");
+      form.setValue(`items.${index}.unit`, "PCS");
+      form.setValue(`items.${index}.unitPrice`, 0);
+      return;
+    }
+
+    const product = productMasters?.find(p => p.id === productId);
+    if (product) {
+      form.setValue(`items.${index}.productMasterId`, productId);
+      form.setValue(`items.${index}.itemCode`, product.productCode || "");
+      form.setValue(`items.${index}.itemDescription`, product.name || "");
+      form.setValue(`items.${index}.productFamily`, product.productFamily || "");
+      form.setValue(`items.${index}.productGrade`, product.grade || "");
+      form.setValue(`items.${index}.hsnCode`, product.hsnCode || "");
+      form.setValue(`items.${index}.unit`, product.unit || "PCS");
+      form.setValue(`items.${index}.unitPrice`, parseFloat(product.rate?.toString() || '0') || 0);
+    }
+  };
+
+  // Add new item
+  const addItem = () => {
+    append({
+      productMasterId: "",
+      itemCode: "",
+      itemDescription: "",
+      productFamily: "",
+      productGrade: "",
+      hsnCode: "",
+      quantity: 1,
+      unit: "PCS",
+      unitPrice: 0
+    });
+  };
 
   // Generate auto numbers
   const generateNumbers = async () => {
@@ -134,32 +238,42 @@ export default function Sales() {
     }
   };
 
-  // CRUD Operations
+  // CRUD Operations - Updated for billing format
   const salesMutation = useMutation({
-    mutationFn: async (data: InsertSales) => {
-      // Calculate values
-      const gross = parseFloat(data.grossWeight);
-      const tare = parseFloat(data.tareWeight);
-      const net = gross - tare;
-      const rate = parseFloat(data.basicRate);
-      const gst = parseFloat(data.gstPercent);
-      const subtotal = rate * net;
-      const total = subtotal + (subtotal * gst / 100);
-      const drums = data.drumQuantity || 1;
-      const perDrum = drums > 0 ? net / drums : 0;
-
-      const finalData = {
-        ...data,
-        netWeight: net.toString(),
-        entireWeight: gross.toString(),
-        totalAmount: total.toFixed(2),
-        perDrumWeight: perDrum.toFixed(2)
+    mutationFn: async (data: BillingFormData) => {
+      // For now, convert billing format to legacy sales format
+      // This maintains compatibility with existing backend
+      const firstItem = data.items[0];
+      
+      const legacyData = {
+        date: data.date,
+        salesOrderNumber: data.salesOrderNumber,
+        invoiceNumber: data.invoiceNumber,
+        clientId: data.clientId,
+        salespersonId: data.salespersonId || "",
+        deliveryStatus: data.deliveryStatus,
+        vehicleNumber: data.vehicleNumber || "",
+        location: data.location || "",
+        transporterId: data.transporterId || transporters[0]?.id || "",
+        
+        // Calculate totals from line items
+        grossWeight: "0",
+        tareWeight: "0", 
+        netWeight: firstItem?.quantity?.toString() || "0",
+        entireWeight: "0",
+        drumQuantity: Math.ceil(firstItem?.quantity || 1),
+        perDrumWeight: "0",
+        basicRate: firstItem?.unitPrice?.toString() || "0",
+        gstPercent: "18",
+        totalAmount: totalAmount.toFixed(2),
+        basicRatePurchase: "0",
+        productId: products.find(p => p.name === firstItem?.itemDescription)?.id || products[0]?.id || ""
       };
 
       if (editingSales) {
-        return await apiRequest(`/api/sales/${editingSales.id}`, "PUT", finalData);
+        return await apiRequest(`/api/sales/${editingSales.id}`, "PUT", legacyData);
       }
-      return await apiRequest("/api/sales", "POST", finalData);
+      return await apiRequest("/api/sales", "POST", legacyData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
@@ -560,8 +674,8 @@ export default function Sales() {
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit((data) => salesMutation.mutate(data))} className="space-y-6">
+              {/* Header Information */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Basic Information */}
                 <div className="space-y-4">
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <h3 className="text-sm font-semibold text-gray-900 mb-3">Order Information</h3>
@@ -660,30 +774,6 @@ export default function Sales() {
                       />
                       <FormField
                         control={form.control}
-                        name="productId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Product</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select product" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {products.map((product) => (
-                                  <SelectItem key={product.id} value={product.id}>
-                                    {product.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
                         name="salespersonId"
                         render={({ field }) => (
                           <FormItem>
@@ -710,10 +800,10 @@ export default function Sales() {
                   </div>
                 </div>
 
-                {/* Transport & Weight */}
+                {/* Additional Optional Fields */}
                 <div className="space-y-4">
                   <div className="bg-orange-50 p-4 rounded-lg">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Transport Details</h3>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Transport Details (Optional)</h3>
                     <div className="space-y-4">
                       <FormField
                         control={form.control}
@@ -722,7 +812,7 @@ export default function Sales() {
                           <FormItem>
                             <FormLabel>Vehicle Number</FormLabel>
                             <FormControl>
-                              <Input {...field} />
+                              <Input {...field} placeholder="Optional" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -735,29 +825,68 @@ export default function Sales() {
                           <FormItem>
                             <FormLabel>Location</FormLabel>
                             <FormControl>
-                              <Input {...field} />
+                              <Input {...field} placeholder="Optional" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      <div className="space-y-2">
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Billing Line Items - Full Width */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Calculator className="h-5 w-5" />
+                      <span>Order Line Items</span>
+                    </div>
+                    <Button type="button" onClick={addItem} size="sm" data-testid="button-add-item">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Item
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {fields.map((field, index) => (
+                    <div key={field.id} className="border rounded-lg p-4 space-y-4 bg-gray-50/50">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-medium text-lg">Item {index + 1}</h4>
+                        {fields.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => remove(index)}
+                            data-testid={`button-remove-item-${index}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                         <FormField
                           control={form.control}
-                          name="transporterId"
+                          name={`items.${index}.productMasterId`}
                           render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Transporter</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                            <FormItem className="md:col-span-3">
+                              <FormLabel>Select Product</FormLabel>
+                              <Select value={field.value} onValueChange={(value) => handleProductSelection(index, value)}>
                                 <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select transporter" />
+                                  <SelectTrigger data-testid={`select-product-${index}`}>
+                                    <SelectValue placeholder="Choose product" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  {transporters.map((transporter) => (
-                                    <SelectItem key={transporter.id} value={transporter.id}>
-                                      {transporter.name}
+                                  <SelectItem value="manual">Manual Entry</SelectItem>
+                                  {productMasters?.map((product) => (
+                                    <SelectItem key={product.id} value={product.id}>
+                                      {product.productCode} - {product.name}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -766,117 +895,221 @@ export default function Sales() {
                             </FormItem>
                           )}
                         />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setIsTransporterDialogOpen(true)}
-                          className="w-full text-blue-600 border-blue-300 hover:bg-blue-50"
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add New Transporter
-                        </Button>
+
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.itemCode`}
+                          render={({ field }) => (
+                            <FormItem className="md:col-span-2">
+                              <FormLabel>Item Code *</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  {...field} 
+                                  placeholder="Auto-filled"
+                                  data-testid={`input-item-code-${index}`}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.itemDescription`}
+                          render={({ field }) => (
+                            <FormItem className="md:col-span-3">
+                              <FormLabel>Description *</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  {...field} 
+                                  placeholder="Auto-filled"
+                                  data-testid={`input-description-${index}`}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.quantity`}
+                          render={({ field }) => (
+                            <FormItem className="md:col-span-1">
+                              <FormLabel>Qty *</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number" 
+                                  step="0.001"
+                                  min="0"
+                                  {...field}
+                                  onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                                  data-testid={`input-quantity-${index}`}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.unit`}
+                          render={({ field }) => (
+                            <FormItem className="md:col-span-1">
+                              <FormLabel>Unit *</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid={`select-unit-${index}`}>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="PCS">PCS</SelectItem>
+                                  <SelectItem value="KG">KG</SelectItem>
+                                  <SelectItem value="MT">MT</SelectItem>
+                                  <SelectItem value="LTR">LTR</SelectItem>
+                                  <SelectItem value="DRUM">DRUM</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.unitPrice`}
+                          render={({ field }) => (
+                            <FormItem className="md:col-span-2">
+                              <FormLabel>Unit Price *</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number" 
+                                  step="0.01"
+                                  min="0"
+                                  {...field}
+                                  onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                                  data-testid={`input-unit-price-${index}`}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {/* Product Master Details */}
+                      {watchedItems[index]?.productMasterId && watchedItems[index]?.productMasterId !== "manual" && (
+                        <div className="bg-green-50 p-3 rounded border">
+                          <div className="grid grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <span className="font-medium text-gray-600">Family:</span>
+                              <div>{watchedItems[index]?.productFamily || '-'}</div>
+                            </div>
+                            <div>
+                              <span className="font-medium text-gray-600">Grade:</span>
+                              <div>{watchedItems[index]?.productGrade || '-'}</div>
+                            </div>
+                            <div>
+                              <span className="font-medium text-gray-600">HSN Code:</span>
+                              <div>{watchedItems[index]?.hsnCode || '-'}</div>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="mt-2 bg-green-100 text-green-800">
+                            Product Master Data
+                          </Badge>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-end">
+                        <Badge variant="outline" className="text-lg px-3 py-1">
+                          Line Total: ₹{((watchedItems[index]?.quantity || 0) * (watchedItems[index]?.unitPrice || 0)).toFixed(2)}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Financial Summary */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Financial Summary</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="taxAmount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tax Amount</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              step="0.01"
+                              min="0"
+                              {...field}
+                              onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                              data-testid="input-tax-amount"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="discountAmount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Discount Amount</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              step="0.01"
+                              min="0"
+                              {...field}
+                              onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                              data-testid="input-discount-amount"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <div className="flex flex-col justify-end">
+                      <label className="text-sm font-medium mb-2">Total Amount</label>
+                      <div className="h-10 border rounded-md px-3 flex items-center font-semibold text-lg bg-muted">
+                        ₹{totalAmount.toFixed(2)}
                       </div>
                     </div>
                   </div>
-
-                  <div className="bg-purple-50 p-4 rounded-lg">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Weight & Quantity</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="grossWeight"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Gross Weight (kg)</FormLabel>
-                            <FormControl>
-                              <Input type="number" step="0.01" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="tareWeight"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Tare Weight (kg)</FormLabel>
-                            <FormControl>
-                              <Input type="number" step="0.01" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="drumQuantity"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Drum Quantity</FormLabel>
-                            <FormControl>
-                              <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value) || 0)} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="basicRate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Basic Rate (per kg)</FormLabel>
-                            <FormControl>
-                              <Input type="number" step="0.01" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                  
+                  <div className="text-sm space-y-1">
+                    <div className="flex justify-between">
+                      <span>Subtotal:</span>
+                      <span>₹{subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Tax:</span>
+                      <span>₹{taxAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Discount:</span>
+                      <span>-₹{discountAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold text-lg border-t pt-2">
+                      <span>Total:</span>
+                      <span>₹{totalAmount.toFixed(2)}</span>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              {/* Financial Details - Full Width */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Financial Details</h3>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="basicRatePurchase"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Purchase Rate</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.01" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="gstPercent"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>GST %</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.01" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className="col-span-2 text-right">
-                    <div className="text-sm font-medium text-gray-600">
-                      Auto-calculated values will be saved
-                    </div>
-                  </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
 
               {/* Form Actions */}
               <div className="flex items-center justify-end space-x-4 pt-4 border-t">
