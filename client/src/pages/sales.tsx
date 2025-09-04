@@ -264,8 +264,8 @@ export default function Sales() {
         item.itemDescription || 'N/A',
         item.quantity || 0,
         item.unit || 'PCS',
-        `₹${(item.unitPrice || 0).toFixed(2)}`,
-        `₹${((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)}`
+        `Rs ${(item.unitPrice || 0).toFixed(2)}`,
+        `Rs ${((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)}`
       ]);
       
       const subtotal = salesData.items.reduce((sum: number, item: any) => {
@@ -293,11 +293,21 @@ export default function Sales() {
           let itemCode = '';
           let itemDescription = trimmedDesc;
           
-          // Extract item code from description
+          // Extract item code from description (look for pattern like "VG40 BITUMEN VG-40")
           const codeMatch = trimmedDesc.match(/^([A-Z0-9-]+)\s+(.+)/);
-          if (codeMatch) {
+          if (codeMatch && codeMatch[1].length <= 15) { // Only use if reasonable length
             itemCode = codeMatch[1];
             itemDescription = codeMatch[2];
+          } else {
+            // If no pattern match, use first few chars as code
+            const words = trimmedDesc.split(' ');
+            if (words.length > 1 && words[0].length <= 15) {
+              itemCode = words[0];
+              itemDescription = words.slice(1).join(' ');
+            } else {
+              itemCode = 'ITEM';
+              itemDescription = trimmedDesc;
+            }
           }
           
           // Calculate quantity for this item (distribute remaining to last item)
@@ -309,12 +319,12 @@ export default function Sales() {
           const itemTotal = itemQuantity * avgPrice;
           
           return [
-            itemCode || 'N/A',
+            itemCode,
             itemDescription,
-            itemQuantity,
+            itemQuantity.toString(),
             'PCS',
-            `₹${avgPrice.toFixed(2)}`,
-            `₹${itemTotal.toFixed(2)}`
+            `Rs ${avgPrice.toFixed(2)}`,
+            `Rs ${itemTotal.toFixed(2)}`
           ];
         });
         
@@ -335,8 +345,8 @@ export default function Sales() {
           'Legacy Product',
           salesData.drumQuantity || 0,
           'PCS',
-          `₹${parseFloat(salesData.basicRate?.toString() || '0').toFixed(2)}`,
-          `₹${parseFloat(salesData.totalAmount?.toString() || '0').toFixed(2)}`
+          `Rs ${parseFloat(salesData.basicRate?.toString() || '0').toFixed(2)}`,
+          `Rs ${parseFloat(salesData.totalAmount?.toString() || '0').toFixed(2)}`
         ]];
         
         const totalAmount = parseFloat(salesData.totalAmount?.toString() || '0');
@@ -369,12 +379,12 @@ export default function Sales() {
         fontStyle: 'bold'
       },
       columnStyles: {
-        0: { cellWidth: 25 },
-        1: { cellWidth: 55 },
-        2: { cellWidth: 20 },
-        3: { cellWidth: 20 },
-        4: { cellWidth: 25 },
-        5: { cellWidth: 25 }
+        0: { cellWidth: 22 },  // Item Code
+        1: { cellWidth: 50 },  // Description  
+        2: { cellWidth: 18 },  // Qty
+        3: { cellWidth: 18 },  // Unit
+        4: { cellWidth: 28, halign: 'right' as const },  // Rate (right aligned)
+        5: { cellWidth: 30, halign: 'right' as const }   // Amount (right aligned)
       }
     });
     
@@ -385,12 +395,12 @@ export default function Sales() {
     const totalsX = 140;
     
     doc.setFont("helvetica", "normal");
-    doc.text(`Subtotal: ₹${totalsInfo.subtotal.toFixed(2)}`, totalsX, finalY);
-    doc.text(`Tax: ₹${totalsInfo.tax.toFixed(2)}`, totalsX, finalY + 7);
-    doc.text(`Discount: ₹${totalsInfo.discount.toFixed(2)}`, totalsX, finalY + 14);
+    doc.text(`Subtotal: Rs ${totalsInfo.subtotal.toFixed(2)}`, totalsX, finalY);
+    doc.text(`Tax: Rs ${totalsInfo.tax.toFixed(2)}`, totalsX, finalY + 7);
+    doc.text(`Discount: Rs ${totalsInfo.discount.toFixed(2)}`, totalsX, finalY + 14);
     
     doc.setFont("helvetica", "bold");
-    doc.text(`Total: ₹${totalsInfo.total.toFixed(2)}`, totalsX, finalY + 21);
+    doc.text(`Total: Rs ${totalsInfo.total.toFixed(2)}`, totalsX, finalY + 21);
     
     // Footer
     doc.setFontSize(8);
