@@ -4,7 +4,7 @@ import {
   transporters, products, shippingAddresses, followUps, leadFollowUps, clientAssignments,
   companyProfile, branches, productMaster, suppliers, banks, vehicles,
   leads, opportunities, quotations, quotationItems, salesOrders, salesOrderItems,
-  deliveryPlans, dispatches, deliveryChallans,
+  deliveryPlans, dispatches, deliveryChallans, tourAdvances, tourSegments,
   type User, type InsertUser, type Client, type InsertClient,
   type Order, type InsertOrder, type Payment, type InsertPayment,
   type Task, type InsertTask, type EwayBill, type InsertEwayBill,
@@ -22,7 +22,8 @@ import {
   type Quotation, type InsertQuotation, type QuotationItem, type InsertQuotationItem,
   type SalesOrder, type InsertSalesOrder, type SalesOrderItem, type InsertSalesOrderItem,
   type DeliveryPlan, type InsertDeliveryPlan, type Dispatch, type InsertDispatch,
-  type DeliveryChallan, type InsertDeliveryChallan
+  type DeliveryChallan, type InsertDeliveryChallan, type TourAdvance, type InsertTourAdvance,
+  type TourSegment, type InsertTourSegment
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, gte, lte, count, or, ilike } from "drizzle-orm";
@@ -299,6 +300,23 @@ export interface IStorage {
   getDeliveryChallansbyDispatch(dispatchId: string): Promise<DeliveryChallan[]>;
   createDeliveryChallan(challan: InsertDeliveryChallan): Promise<DeliveryChallan>;
   updateDeliveryChallan(id: string, challan: Partial<InsertDeliveryChallan>): Promise<DeliveryChallan>;
+
+  // Tour Advance (TA) Module
+  getTourAdvance(id: string): Promise<TourAdvance | undefined>;
+  getAllTourAdvances(): Promise<TourAdvance[]>;
+  getTourAdvancesByEmployee(employeeId: string): Promise<TourAdvance[]>;
+  getTourAdvancesByStatus(status: string): Promise<TourAdvance[]>;
+  createTourAdvance(tourAdvance: InsertTourAdvance): Promise<TourAdvance>;
+  updateTourAdvance(id: string, tourAdvance: Partial<InsertTourAdvance>): Promise<TourAdvance>;
+  deleteTourAdvance(id: string): Promise<void>;
+
+  // Tour Segments
+  getTourSegment(id: string): Promise<TourSegment | undefined>;
+  getTourSegmentsByTourAdvance(tourAdvanceId: string): Promise<TourSegment[]>;
+  createTourSegment(segment: InsertTourSegment): Promise<TourSegment>;
+  updateTourSegment(id: string, segment: Partial<InsertTourSegment>): Promise<TourSegment>;
+  deleteTourSegment(id: string): Promise<void>;
+  createTourSegments(segments: InsertTourSegment[]): Promise<TourSegment[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1912,6 +1930,146 @@ export class DatabaseStorage implements IStorage {
       .where(eq(deliveryChallans.id, id))
       .returning();
     return challan;
+  }
+
+  // Tour Advance (TA) Module Implementation
+  async getTourAdvance(id: string): Promise<TourAdvance | undefined> {
+    try {
+      const [tourAdvance] = await db.select().from(tourAdvances).where(eq(tourAdvances.id, id));
+      return tourAdvance || undefined;
+    } catch (error) {
+      console.error('Error getting tour advance:', error);
+      return undefined;
+    }
+  }
+
+  async getAllTourAdvances(): Promise<TourAdvance[]> {
+    try {
+      return await db.select().from(tourAdvances).orderBy(desc(tourAdvances.createdAt));
+    } catch (error) {
+      console.error('Error getting all tour advances:', error);
+      return [];
+    }
+  }
+
+  async getTourAdvancesByEmployee(employeeId: string): Promise<TourAdvance[]> {
+    try {
+      return await db.select().from(tourAdvances)
+        .where(eq(tourAdvances.employeeId, employeeId))
+        .orderBy(desc(tourAdvances.createdAt));
+    } catch (error) {
+      console.error('Error getting tour advances by employee:', error);
+      return [];
+    }
+  }
+
+  async getTourAdvancesByStatus(status: string): Promise<TourAdvance[]> {
+    try {
+      return await db.select().from(tourAdvances)
+        .where(eq(tourAdvances.status, status as any))
+        .orderBy(desc(tourAdvances.createdAt));
+    } catch (error) {
+      console.error('Error getting tour advances by status:', error);
+      return [];
+    }
+  }
+
+  async createTourAdvance(tourAdvanceData: InsertTourAdvance): Promise<TourAdvance> {
+    try {
+      const [tourAdvance] = await db.insert(tourAdvances).values(tourAdvanceData).returning();
+      return tourAdvance;
+    } catch (error) {
+      console.error('Error creating tour advance:', error);
+      throw new Error('Failed to create tour advance');
+    }
+  }
+
+  async updateTourAdvance(id: string, tourAdvanceData: Partial<InsertTourAdvance>): Promise<TourAdvance> {
+    try {
+      const [tourAdvance] = await db
+        .update(tourAdvances)
+        .set(tourAdvanceData)
+        .where(eq(tourAdvances.id, id))
+        .returning();
+      return tourAdvance;
+    } catch (error) {
+      console.error('Error updating tour advance:', error);
+      throw new Error('Failed to update tour advance');
+    }
+  }
+
+  async deleteTourAdvance(id: string): Promise<void> {
+    try {
+      await db.delete(tourAdvances).where(eq(tourAdvances.id, id));
+    } catch (error) {
+      console.error('Error deleting tour advance:', error);
+      throw new Error('Failed to delete tour advance');
+    }
+  }
+
+  // Tour Segments Implementation
+  async getTourSegment(id: string): Promise<TourSegment | undefined> {
+    try {
+      const [segment] = await db.select().from(tourSegments).where(eq(tourSegments.id, id));
+      return segment || undefined;
+    } catch (error) {
+      console.error('Error getting tour segment:', error);
+      return undefined;
+    }
+  }
+
+  async getTourSegmentsByTourAdvance(tourAdvanceId: string): Promise<TourSegment[]> {
+    try {
+      return await db.select().from(tourSegments)
+        .where(eq(tourSegments.tourAdvanceId, tourAdvanceId))
+        .orderBy(asc(tourSegments.segmentNumber));
+    } catch (error) {
+      console.error('Error getting tour segments:', error);
+      return [];
+    }
+  }
+
+  async createTourSegment(segmentData: InsertTourSegment): Promise<TourSegment> {
+    try {
+      const [segment] = await db.insert(tourSegments).values(segmentData).returning();
+      return segment;
+    } catch (error) {
+      console.error('Error creating tour segment:', error);
+      throw new Error('Failed to create tour segment');
+    }
+  }
+
+  async updateTourSegment(id: string, segmentData: Partial<InsertTourSegment>): Promise<TourSegment> {
+    try {
+      const [segment] = await db
+        .update(tourSegments)
+        .set(segmentData)
+        .where(eq(tourSegments.id, id))
+        .returning();
+      return segment;
+    } catch (error) {
+      console.error('Error updating tour segment:', error);
+      throw new Error('Failed to update tour segment');
+    }
+  }
+
+  async deleteTourSegment(id: string): Promise<void> {
+    try {
+      await db.delete(tourSegments).where(eq(tourSegments.id, id));
+    } catch (error) {
+      console.error('Error deleting tour segment:', error);
+      throw new Error('Failed to delete tour segment');
+    }
+  }
+
+  async createTourSegments(segmentsData: InsertTourSegment[]): Promise<TourSegment[]> {
+    try {
+      const segments = await db.insert(tourSegments).values(segmentsData).returning();
+      return segments;
+    } catch (error) {
+      console.error('Error creating tour segments:', error);
+      throw new Error('Failed to create tour segments');
+    }
   }
 }
 

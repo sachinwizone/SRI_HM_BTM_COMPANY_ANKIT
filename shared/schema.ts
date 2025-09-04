@@ -34,6 +34,11 @@ export const approvalStatusEnum = pgEnum('approval_status', ['PENDING', 'APPROVE
 export const assignmentTypeEnum = pgEnum('assignment_type', ['PRIMARY', 'SECONDARY', 'BACKUP']);
 export const supplierTypeEnum = pgEnum('supplier_type', ['MANUFACTURER', 'DISTRIBUTOR', 'SERVICE_PROVIDER', 'CONTRACTOR', 'VENDOR', 'OTHERS']);
 
+// Tour Advance (TA) Module Enums
+export const travelModeEnum = pgEnum('travel_mode', ['AIR', 'TRAIN', 'CAR', 'BUS', 'OTHER']);
+export const journeyPurposeEnum = pgEnum('journey_purpose', ['CLIENT_VISIT', 'PLANT_VISIT', 'PARTY_MEETING', 'DEPARTMENT_VISIT', 'OTHERS']);
+export const taStatusEnum = pgEnum('ta_status', ['DRAFT', 'SUBMITTED', 'RECOMMENDED', 'APPROVED', 'REJECTED', 'SETTLED']);
+
 // Users table (Enhanced for ERP system)
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1543,4 +1548,141 @@ export type Dispatch = typeof dispatches.$inferSelect;
 
 export type InsertDeliveryChallan = z.infer<typeof insertDeliveryChallanSchema>;
 export type DeliveryChallan = typeof deliveryChallans.$inferSelect;
+
+// =============================================================================
+// TOUR ADVANCE (TA) MODULE TABLES
+// =============================================================================
+
+// Tour Advance main table
+export const tourAdvances = pgTable("tour_advances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Employee Details
+  employeeId: varchar("employee_id").notNull().references(() => users.id),
+  employeeCode: text("employee_code"),
+  employeeName: text("employee_name").notNull(),
+  designation: text("designation"),
+  department: text("department"),
+  phoneNo: text("phone_no"),
+  
+  // Tour Details
+  tourStartDate: timestamp("tour_start_date").notNull(),
+  tourEndDate: timestamp("tour_end_date").notNull(),
+  numberOfDays: integer("number_of_days").notNull(),
+  
+  // Travel Details
+  mainDestination: text("main_destination").notNull(),
+  modeOfTravel: travelModeEnum("mode_of_travel").notNull(),
+  vehicleNumber: text("vehicle_number"),
+  purposeOfJourney: journeyPurposeEnum("purpose_of_journey").array(),
+  purposeRemarks: text("purpose_remarks"),
+  
+  // Advance/Financials
+  advanceRequired: boolean("advance_required").notNull().default(false),
+  advanceAmountRequested: decimal("advance_amount_requested", { precision: 15, scale: 2 }),
+  sanctionAmountApproved: decimal("sanction_amount_approved", { precision: 15, scale: 2 }),
+  sanctionAuthority: text("sanction_authority"),
+  
+  // Approval Workflow
+  submittedBy: varchar("submitted_by").notNull().references(() => users.id),
+  recommendedBy: varchar("recommended_by").references(() => users.id),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  status: taStatusEnum("status").notNull().default('DRAFT'),
+  dateOfApproval: timestamp("date_of_approval"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Audit Fields
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  createdBy: varchar("created_by").notNull().references(() => users.id),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+  updatedBy: varchar("updated_by").references(() => users.id),
+});
+
+// Tour Segments table (for multi-row travel segments)
+export const tourSegments = pgTable("tour_segments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tourAdvanceId: varchar("tour_advance_id").notNull().references(() => tourAdvances.id, { onDelete: "cascade" }),
+  
+  segmentNumber: integer("segment_number").notNull(), // Order of segments
+  departureDate: timestamp("departure_date").notNull(),
+  departureTime: text("departure_time"), // Store as HH:MM string
+  arrivalDate: timestamp("arrival_date").notNull(),
+  arrivalTime: text("arrival_time"), // Store as HH:MM string
+  fromLocation: text("from_location").notNull(),
+  toLocation: text("to_location").notNull(),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Relations for Tour Advance module
+export const tourAdvanceRelations = relations(tourAdvances, ({ one, many }) => ({
+  employee: one(users, {
+    fields: [tourAdvances.employeeId],
+    references: [users.id],
+    relationName: "tourAdvanceEmployee"
+  }),
+  submittedByUser: one(users, {
+    fields: [tourAdvances.submittedBy],
+    references: [users.id],
+    relationName: "tourAdvanceSubmittedBy"
+  }),
+  recommendedByUser: one(users, {
+    fields: [tourAdvances.recommendedBy],
+    references: [users.id],
+    relationName: "tourAdvanceRecommendedBy"
+  }),
+  approvedByUser: one(users, {
+    fields: [tourAdvances.approvedBy],
+    references: [users.id],
+    relationName: "tourAdvanceApprovedBy"
+  }),
+  createdByUser: one(users, {
+    fields: [tourAdvances.createdBy],
+    references: [users.id],
+    relationName: "tourAdvanceCreatedBy"
+  }),
+  segments: many(tourSegments)
+}));
+
+export const tourSegmentRelations = relations(tourSegments, ({ one }) => ({
+  tourAdvance: one(tourAdvances, {
+    fields: [tourSegments.tourAdvanceId],
+    references: [tourAdvances.id]
+  })
+}));
+
+// Insert schemas for Tour Advance
+export const insertTourAdvanceSchema = createInsertSchema(tourAdvances).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  tourStartDate: z.union([z.string(), z.date()]).transform(val => typeof val === 'string' ? new Date(val) : val),
+  tourEndDate: z.union([z.string(), z.date()]).transform(val => typeof val === 'string' ? new Date(val) : val),
+  numberOfDays: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseInt(val) || 0 : val || 0),
+  advanceAmountRequested: z.union([z.string(), z.number()]).optional().transform(val => {
+    if (val == null) return undefined;
+    return typeof val === 'string' ? parseFloat(val) || 0 : val;
+  }),
+  sanctionAmountApproved: z.union([z.string(), z.number()]).optional().transform(val => {
+    if (val == null) return undefined;
+    return typeof val === 'string' ? parseFloat(val) || 0 : val;
+  }),
+});
+
+export const insertTourSegmentSchema = createInsertSchema(tourSegments).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  departureDate: z.union([z.string(), z.date()]).transform(val => typeof val === 'string' ? new Date(val) : val),
+  arrivalDate: z.union([z.string(), z.date()]).transform(val => typeof val === 'string' ? new Date(val) : val),
+  segmentNumber: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseInt(val) || 0 : val || 0),
+});
+
+// Tour Advance Types
+export type InsertTourAdvance = z.infer<typeof insertTourAdvanceSchema>;
+export type TourAdvance = typeof tourAdvances.$inferSelect;
+
+export type InsertTourSegment = z.infer<typeof insertTourSegmentSchema>;
+export type TourSegment = typeof tourSegments.$inferSelect;
 

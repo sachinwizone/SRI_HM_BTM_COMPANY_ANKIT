@@ -13,7 +13,7 @@ import {
   insertSupplierSchema, insertBankSchema, insertVehicleSchema,
   insertLeadSchema, insertOpportunitySchema, insertQuotationSchema, insertQuotationItemSchema,
   insertSalesOrderSchema, insertSalesOrderItemSchema, insertDeliveryPlanSchema,
-  insertDispatchSchema, insertDeliveryChallanSchema
+  insertDispatchSchema, insertDeliveryChallanSchema, insertTourAdvanceSchema, insertTourSegmentSchema
 } from "@shared/schema";
 import { z } from "zod";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
@@ -2966,6 +2966,186 @@ M/S SRI HM BITUMEN CO
     } catch (error) {
       console.error("Error updating client attachment:", error);
       res.status(500).json({ error: "Failed to update client attachment" });
+    }
+  });
+
+  // =============================================================================
+  // TOUR ADVANCE (TA) MODULE ROUTES
+  // =============================================================================
+
+  // Get all tour advances
+  app.get("/api/tour-advances", requireAuth, async (req, res) => {
+    try {
+      const tourAdvances = await storage.getAllTourAdvances();
+      res.json(tourAdvances);
+    } catch (error) {
+      console.error("Failed to fetch tour advances:", error);
+      res.status(500).json({ error: "Failed to fetch tour advances" });
+    }
+  });
+
+  // Get tour advance by ID
+  app.get("/api/tour-advances/:id", requireAuth, async (req, res) => {
+    try {
+      const tourAdvance = await storage.getTourAdvance(req.params.id);
+      if (!tourAdvance) {
+        return res.status(404).json({ error: "Tour advance not found" });
+      }
+      res.json(tourAdvance);
+    } catch (error) {
+      console.error("Failed to fetch tour advance:", error);
+      res.status(500).json({ error: "Failed to fetch tour advance" });
+    }
+  });
+
+  // Get tour advances by employee
+  app.get("/api/tour-advances/employee/:employeeId", requireAuth, async (req, res) => {
+    try {
+      const tourAdvances = await storage.getTourAdvancesByEmployee(req.params.employeeId);
+      res.json(tourAdvances);
+    } catch (error) {
+      console.error("Failed to fetch tour advances by employee:", error);
+      res.status(500).json({ error: "Failed to fetch tour advances by employee" });
+    }
+  });
+
+  // Get tour advances by status
+  app.get("/api/tour-advances/status/:status", requireAuth, async (req, res) => {
+    try {
+      const tourAdvances = await storage.getTourAdvancesByStatus(req.params.status);
+      res.json(tourAdvances);
+    } catch (error) {
+      console.error("Failed to fetch tour advances by status:", error);
+      res.status(500).json({ error: "Failed to fetch tour advances by status" });
+    }
+  });
+
+  // Create new tour advance
+  app.post("/api/tour-advances", requireAuth, async (req, res) => {
+    try {
+      const tourAdvanceData = insertTourAdvanceSchema.parse(req.body);
+      
+      // Add created/updated by from authenticated user
+      const fullTourAdvanceData = {
+        ...tourAdvanceData,
+        createdBy: req.user.id,
+        updatedBy: req.user.id,
+        submittedBy: req.user.id  // Default to current user as submitter
+      };
+
+      const tourAdvance = await storage.createTourAdvance(fullTourAdvanceData);
+      res.status(201).json(tourAdvance);
+    } catch (error) {
+      console.error("Failed to create tour advance:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid tour advance data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create tour advance" });
+    }
+  });
+
+  // Update tour advance
+  app.put("/api/tour-advances/:id", requireAuth, async (req, res) => {
+    try {
+      const tourAdvanceData = insertTourAdvanceSchema.partial().parse(req.body);
+      
+      // Add updated by from authenticated user
+      const updateData = {
+        ...tourAdvanceData,
+        updatedBy: req.user.id,
+        updatedAt: new Date()
+      };
+
+      const tourAdvance = await storage.updateTourAdvance(req.params.id, updateData);
+      res.json(tourAdvance);
+    } catch (error) {
+      console.error("Failed to update tour advance:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid tour advance data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update tour advance" });
+    }
+  });
+
+  // Delete tour advance
+  app.delete("/api/tour-advances/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteTourAdvance(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Failed to delete tour advance:", error);
+      res.status(500).json({ error: "Failed to delete tour advance" });
+    }
+  });
+
+  // =============================================================================
+  // TOUR SEGMENTS ROUTES
+  // =============================================================================
+
+  // Get tour segments by tour advance ID
+  app.get("/api/tour-advances/:tourAdvanceId/segments", requireAuth, async (req, res) => {
+    try {
+      const segments = await storage.getTourSegmentsByTourAdvance(req.params.tourAdvanceId);
+      res.json(segments);
+    } catch (error) {
+      console.error("Failed to fetch tour segments:", error);
+      res.status(500).json({ error: "Failed to fetch tour segments" });
+    }
+  });
+
+  // Create tour segment
+  app.post("/api/tour-segments", requireAuth, async (req, res) => {
+    try {
+      const segmentData = insertTourSegmentSchema.parse(req.body);
+      const segment = await storage.createTourSegment(segmentData);
+      res.status(201).json(segment);
+    } catch (error) {
+      console.error("Failed to create tour segment:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid segment data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create tour segment" });
+    }
+  });
+
+  // Create multiple tour segments
+  app.post("/api/tour-segments/bulk", requireAuth, async (req, res) => {
+    try {
+      const segmentsData = z.array(insertTourSegmentSchema).parse(req.body);
+      const segments = await storage.createTourSegments(segmentsData);
+      res.status(201).json(segments);
+    } catch (error) {
+      console.error("Failed to create tour segments:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid segments data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create tour segments" });
+    }
+  });
+
+  // Update tour segment
+  app.put("/api/tour-segments/:id", requireAuth, async (req, res) => {
+    try {
+      const segmentData = insertTourSegmentSchema.partial().parse(req.body);
+      const segment = await storage.updateTourSegment(req.params.id, segmentData);
+      res.json(segment);
+    } catch (error) {
+      console.error("Failed to update tour segment:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid segment data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update tour segment" });
+    }
+  });
+
+  // Delete tour segment
+  app.delete("/api/tour-segments/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteTourSegment(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Failed to delete tour segment:", error);
+      res.status(500).json({ error: "Failed to delete tour segment" });
     }
   });
 

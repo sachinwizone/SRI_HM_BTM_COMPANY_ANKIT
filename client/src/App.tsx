@@ -20,6 +20,7 @@ import SalesRates from "@/pages/sales-rates";
 import Pricing from "@/pages/pricing";
 import Sales from "@/pages/sales";
 import SalesOperations from "@/pages/sales-operations";
+import TourAdvance from "@/pages/tour-advance";
 
 import UserManagement from "@/pages/user-management";
 import MasterData from "@/pages/master-data";
@@ -63,6 +64,7 @@ function Router() {
             <Route path="/eway-bills" component={EwayBills} />
             <Route path="/sales" component={Sales} />
             <Route path="/sales-operations" component={SalesOperations} />
+            <Route path="/tour-advance" component={TourAdvance} />
             <Route path="/purchase-orders" component={PurchaseOrders} />
             <Route path="/team-performance" component={TeamPerformance} />
             <Route path="/sales-rates" component={SalesRates} />

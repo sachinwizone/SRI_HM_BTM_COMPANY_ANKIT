@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { 
   Home, CreditCard, Bell, Users, MapPin, BarChart3, 
   CheckSquare, ShoppingCart, File, Receipt, 
-  FileText, TrendingUp, DollarSign, Database, Settings, LucideIcon, Package, Clock, LogOut, Target
+  FileText, TrendingUp, DollarSign, Database, Settings, LucideIcon, Package, Clock, LogOut, Target, Plane
 } from "lucide-react";
 import logoImage from "@assets/Jpeg-01_1756898940585.jpg";
 
@@ -56,6 +56,7 @@ const navigation: NavigationEntry[] = [
     items: [
       { name: "Sales", href: "/sales", icon: Package },
       { name: "Sales Operations", href: "/sales-operations", icon: Target },
+      { name: "Tour Advance", href: "/tour-advance", icon: Plane },
       { name: "Purchase Orders", href: "/purchase-orders", icon: FileText },
       { name: "Team Performance", href: "/team-performance", icon: TrendingUp },
     ],
