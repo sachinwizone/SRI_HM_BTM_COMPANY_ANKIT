@@ -874,7 +874,7 @@ export default function Sales() {
                           control={form.control}
                           name={`items.${index}.productMasterId`}
                           render={({ field }) => (
-                            <FormItem className="md:col-span-3">
+                            <FormItem className="md:col-span-2">
                               <FormLabel>Select Product</FormLabel>
                               <Select value={field.value} onValueChange={(value) => handleProductSelection(index, value)}>
                                 <FormControl>
@@ -957,7 +957,7 @@ export default function Sales() {
                           control={form.control}
                           name={`items.${index}.unit`}
                           render={({ field }) => (
-                            <FormItem className="md:col-span-1">
+                            <FormItem className="md:col-span-2">
                               <FormLabel>Unit *</FormLabel>
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
