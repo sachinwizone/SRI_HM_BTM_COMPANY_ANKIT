@@ -1316,10 +1316,10 @@ export default function Sales() {
                                         type="number" 
                                         step="0.001"
                                         min="0"
-                                        {...field}
+                                        value={field.value === 0 ? '' : field.value}
                                         onChange={e => {
                                           const value = e.target.value;
-                                          if (value === '') {
+                                          if (value === '' || value === '0') {
                                             field.onChange(0);
                                           } else {
                                             const num = parseFloat(value);
@@ -1330,7 +1330,7 @@ export default function Sales() {
                                         }}
                                         data-testid={`input-quantity-${index}`}
                                         className="text-center"
-                                        placeholder="0"
+                                        placeholder="Enter quantity"
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -1374,10 +1374,10 @@ export default function Sales() {
                                         type="number" 
                                         step="0.01"
                                         min="0"
-                                        {...field}
+                                        value={field.value === 0 ? '' : field.value}
                                         onChange={e => {
                                           const value = e.target.value;
-                                          if (value === '') {
+                                          if (value === '' || value === '0') {
                                             field.onChange(0);
                                           } else {
                                             const num = parseFloat(value);
@@ -1388,7 +1388,7 @@ export default function Sales() {
                                         }}
                                         data-testid={`input-unit-price-${index}`}
                                         className="text-center"
-                                        placeholder="0.00"
+                                        placeholder="Enter price"
                                       />
                                     </FormControl>
                                     <FormMessage />
