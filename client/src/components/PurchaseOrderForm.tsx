@@ -141,8 +141,8 @@ export function PurchaseOrderForm({ onSubmit, onCancel, isLoading = false, exist
       form.setValue("costCenter", existingPO.costCenter || '');
       form.setValue("approverName", existingPO.approverName || '');
       form.setValue("currency", existingPO.currency || 'INR');
-      form.setValue("taxAmount", existingPO.taxAmount || 0);
-      form.setValue("discountAmount", existingPO.discountAmount || 0);
+      form.setValue("taxAmount", parseFloat(existingPO.taxAmount?.toString() || '0') || 0);
+      form.setValue("discountAmount", parseFloat(existingPO.discountAmount?.toString() || '0') || 0);
       form.setValue("deliveryDate", formattedDeliveryDate);
       form.setValue("deliveryAddress", existingPO.deliveryAddress || '');
       form.setValue("notes", existingPO.notes || '');
@@ -182,8 +182,8 @@ export function PurchaseOrderForm({ onSubmit, onCancel, isLoading = false, exist
     return sum + (item.quantityOrdered || 0) * (item.unitPrice || 0);
   }, 0);
   
-  const taxAmount = form.watch("taxAmount") || 0;
-  const discountAmount = form.watch("discountAmount") || 0;
+  const taxAmount = parseFloat(form.watch("taxAmount")?.toString() || '0') || 0;
+  const discountAmount = parseFloat(form.watch("discountAmount")?.toString() || '0') || 0;
   const totalAmount = subtotal + taxAmount - discountAmount;
 
   const handleSupplierChange = (supplierId: string) => {
