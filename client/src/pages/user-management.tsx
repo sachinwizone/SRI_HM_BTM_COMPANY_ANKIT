@@ -262,23 +262,39 @@ export default function UserManagement() {
     });
   };
 
-  const handleEditUser = (user: User) => {
+  const handleEditUser = async (user: User) => {
     setEditingUser(user);
     setIsEditDialogOpen(true);
     
-    // Initialize edit permissions from user's existing permissions
-    const userPermissions: {[key: string]: string[]} = {};
-    if (user.permissions) {
-      user.permissions.forEach(permission => {
-        if (!userPermissions[permission.module]) {
-          userPermissions[permission.module] = [];
-        }
-        if (permission.granted) {
-          userPermissions[permission.module].push(permission.action);
-        }
+    // Fetch user's current permissions from API
+    try {
+      const response = await fetch(`/api/users/${user.id}/permissions`, {
+        credentials: "include"
       });
+      
+      if (response.ok) {
+        const permissions = await response.json();
+        const userPermissions: {[key: string]: string[]} = {};
+        
+        permissions.forEach((permission: any) => {
+          if (!userPermissions[permission.module]) {
+            userPermissions[permission.module] = [];
+          }
+          if (permission.granted) {
+            userPermissions[permission.module].push(permission.action);
+          }
+        });
+        
+        setEditPermissions(userPermissions);
+      } else {
+        // Fallback to empty permissions if fetch fails
+        setEditPermissions({});
+      }
+    } catch (error) {
+      console.error("Failed to fetch user permissions:", error);
+      setEditPermissions({});
     }
-    setEditPermissions(userPermissions);
+    
     editForm.reset({
       username: user.username,
       firstName: user.firstName,
@@ -298,9 +314,18 @@ export default function UserManagement() {
       delete updateData.password;
     }
     
+    // Include permissions in the update
+    const permissionsArray = Object.entries(editPermissions)
+      .flatMap(([module, actions]) => 
+        actions.map(action => ({ module, action, granted: true }))
+      );
+    
     updateUserMutation.mutate({ 
       id: editingUser.id, 
-      data: updateData 
+      data: {
+        ...updateData,
+        permissions: permissionsArray
+      }
     });
   };
 
@@ -684,6 +709,65 @@ export default function UserManagement() {
                     {editForm.formState.errors.password.message}
                   </p>
                 )}
+              </div>
+
+              {/* Permissions Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold">Module Permissions</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditPermissions({})}
+                  >
+                    Reset All
+                  </Button>
+                </div>
+                
+                <div className="border rounded-lg p-4 max-h-96 overflow-y-auto">
+                  <div className="grid gap-4">
+                    {MODULES.map((module) => (
+                      <div key={module.value} className="border rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            <Checkbox
+                              id={`edit-module-${module.value}`}
+                              checked={ACTIONS.every(action => 
+                                editPermissions[module.value]?.includes(action.value)
+                              )}
+                              onCheckedChange={() => toggleAllActionsForModule(module.value, false)}
+                            />
+                            <Label htmlFor={`edit-module-${module.value}`} className="font-medium">
+                              {module.label}
+                            </Label>
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            {editPermissions[module.value]?.length || 0} of {ACTIONS.length}
+                          </Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 ml-6">
+                          {ACTIONS.map((action) => (
+                            <div key={action.value} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`edit-permission-${module.value}-${action.value}`}
+                                checked={editPermissions[module.value]?.includes(action.value) || false}
+                                onCheckedChange={() => togglePermission(module.value, action.value, false)}
+                              />
+                              <Label 
+                                htmlFor={`edit-permission-${module.value}-${action.value}`}
+                                className="text-sm text-gray-600 dark:text-gray-400"
+                              >
+                                {action.label}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <DialogFooter>

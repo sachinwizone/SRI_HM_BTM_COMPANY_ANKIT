@@ -107,6 +107,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/users/:id/permissions", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const permissions = await AuthService.getUserPermissions(id);
+      res.json(permissions);
+    } catch (error: any) {
+      console.error("Get user permissions error:", error);
+      res.status(500).json({ error: "Failed to get user permissions" });
+    }
+  });
+
   // User Management Routes (Protected)
   app.get("/api/users", requireAuth, async (req, res) => {
     try {
@@ -167,7 +178,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Insufficient permissions" });
       }
 
-      const updates = req.body;
+      const { permissions, ...updates } = req.body;
       // Don't allow role changes unless admin
       if (updates.role && currentUser.role !== 'ADMIN') {
         delete updates.role;
@@ -176,6 +187,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedUser = await AuthService.updateUser(id, updates);
       if (!updatedUser) {
         return res.status(404).json({ error: "User not found" });
+      }
+
+      // Update permissions if provided and user is admin
+      if (permissions && Array.isArray(permissions) && currentUser.role === 'ADMIN') {
+        try {
+          await AuthService.setUserPermissions(id, permissions);
+        } catch (permError) {
+          console.error("Error updating permissions:", permError);
+          // Continue with user update even if permissions fail
+        }
       }
 
       const { password: _, ...userWithoutPassword } = updatedUser;
