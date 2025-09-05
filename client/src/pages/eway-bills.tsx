@@ -1,10 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ExternalLink } from "lucide-react";
 
 export default function ewaybillsPage() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["/api/data"],
-  });
+  const handleOpenEwayBillPortal = () => {
+    window.open("https://ewaybillgst.gov.in/Login.aspx", "_blank", "noopener,noreferrer");
+  };
 
   return (
     <div className="space-y-6">
@@ -15,16 +16,38 @@ export default function ewaybillsPage() {
       
       <Card>
         <CardHeader>
-          <h3 className="text-lg font-semibold text-gray-900">Content</h3>
+          <h3 className="text-lg font-semibold text-gray-900">GST E-way Bill Portal</h3>
         </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center py-8">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"></div>
+        <CardContent className="space-y-4">
+          <p className="text-gray-600">
+            Access the official GST E-way Bill portal to generate, manage, and track your E-way bills for goods transportation.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Button 
+              onClick={handleOpenEwayBillPortal}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              data-testid="button-open-eway-portal"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Open E-way Bill Portal
+            </Button>
+            
+            <div className="text-sm text-gray-500 flex items-center">
+              Opens ewaybillgst.gov.in in a new tab
             </div>
-          ) : (
-            <p className="text-gray-600">Module content will be displayed here.</p>
-          )}
+          </div>
+          
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+            <h4 className="font-medium text-gray-900 mb-2">Portal Features:</h4>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li>• Generate E-way bills for goods transportation</li>
+              <li>• Track and manage existing E-way bills</li>
+              <li>• Update vehicle numbers and transporter details</li>
+              <li>• Extend validity and cancel E-way bills</li>
+              <li>• Download E-way bill reports and summaries</li>
+            </ul>
+          </div>
         </CardContent>
       </Card>
     </div>
