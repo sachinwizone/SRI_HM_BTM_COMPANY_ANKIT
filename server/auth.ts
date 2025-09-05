@@ -177,6 +177,14 @@ export class AuthService {
   // Memory store for permissions (temporary until database is ready)
   private static userPermissionsStore: Map<string, Array<{userId: string, module: string, action: string, granted: boolean}>> = new Map();
 
+  // Method to clear user permissions (for debugging)
+  static async clearUserPermissions(userId: string): Promise<void> {
+    if (this.userPermissionsStore) {
+      this.userPermissionsStore.delete(userId);
+      console.log('Cleared permissions for user:', userId);
+    }
+  }
+
   static async getUserPermissions(userId: string): Promise<Array<{module: string, action: string, granted: boolean}>> {
     try {
       // Check memory store first

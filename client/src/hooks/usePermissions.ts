@@ -37,6 +37,9 @@ export function usePermissions() {
   });
 
   const hasPermission = (module: ModuleName, action: ActionType = 'VIEW'): boolean => {
+    // If still loading permissions, don't show anything
+    if (isLoading) return false;
+    
     // Check if user has explicit permission for this module and action
     const permission = permissions.find(
       p => p.module === module && p.action === action && p.granted

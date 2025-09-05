@@ -118,6 +118,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/users/:id/permissions", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await AuthService.clearUserPermissions(id);
+      res.json({ message: "Permissions cleared successfully" });
+    } catch (error: any) {
+      console.error("Clear user permissions error:", error);
+      res.status(500).json({ error: "Failed to clear user permissions" });
+    }
+  });
+
   // User Management Routes (Protected)
   app.get("/api/users", requireAuth, async (req, res) => {
     try {
