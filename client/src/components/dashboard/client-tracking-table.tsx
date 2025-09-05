@@ -3,11 +3,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Eye } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
+import { useState } from "react";
 
 export default function ClientTrackingTable() {
+  const [showFilters, setShowFilters] = useState(false);
   const { data: trackingData, isLoading } = useQuery({
     queryKey: ['/api/client-tracking'],
   });
+
+  const handleFilterClick = () => {
+    setShowFilters(!showFilters);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -70,21 +77,29 @@ export default function ClientTrackingTable() {
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <h3 className="text-lg font-semibold text-gray-900">Live Client Tracking</h3>
         <div className="flex items-center space-x-3">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleFilterClick} data-testid="button-filter-tracking">
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
-            Filter
+            {showFilters ? 'Hide Filters' : 'Filter'}
           </Button>
-          <Button size="sm">
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add Tracking
-          </Button>
+          <Link href="/client-tracking">
+            <Button size="sm" data-testid="button-add-tracking">
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Tracking
+            </Button>
+          </Link>
         </div>
       </CardHeader>
       <CardContent>
+        {showFilters && (
+          <div className="mb-4 p-4 bg-gray-50 rounded-lg border">
+            <p className="text-sm text-gray-600">Filter options: Status, Location, Date range</p>
+            <p className="text-xs text-gray-500 mt-1">Advanced filtering available in the full Client Tracking page</p>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -154,10 +169,12 @@ export default function ClientTrackingTable() {
                       </Badge>
                     </td>
                     <td className="py-4">
-                      <Button variant="link" size="sm" className="text-primary hover:text-primary/80">
-                        <Eye size={16} className="mr-1" />
-                        Track
-                      </Button>
+                      <Link href={`/client-tracking?id=${tracking.id}`}>
+                        <Button variant="link" size="sm" className="text-primary hover:text-primary/80" data-testid={`button-track-${index}`}>
+                          <Eye size={16} className="mr-1" />
+                          Track
+                        </Button>
+                      </Link>
                     </td>
                   </tr>
                 ))

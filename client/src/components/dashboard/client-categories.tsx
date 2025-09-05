@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 
 export default function ClientCategories() {
   const { data: stats } = useQuery({
@@ -56,9 +57,11 @@ export default function ClientCategories() {
         </div>
         
         <div className="mt-6 pt-4 border-t border-gray-200">
-          <Button variant="link" className="w-full text-primary hover:text-primary/80 text-sm font-medium">
-            Manage Categories
-          </Button>
+          <Link href="/client-management">
+            <Button variant="link" className="w-full text-primary hover:text-primary/80 text-sm font-medium" data-testid="button-manage-categories">
+              Manage Categories
+            </Button>
+          </Link>
         </div>
       </CardContent>
     </Card>

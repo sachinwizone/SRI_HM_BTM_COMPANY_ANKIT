@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Clock, Info } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 
 export default function PaymentAlerts() {
   const { data: overduePayments } = useQuery({
@@ -37,9 +38,11 @@ export default function PaymentAlerts() {
     <Card className="lg:col-span-2">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <h3 className="text-lg font-semibold text-gray-900">Payment Alerts</h3>
-        <Button variant="link" className="text-primary hover:text-primary/80 text-sm font-medium">
-          View All
-        </Button>
+        <Link href="/payment-alerts">
+          <Button variant="link" className="text-primary hover:text-primary/80 text-sm font-medium" data-testid="button-view-all-payments">
+            View All
+          </Button>
+        </Link>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

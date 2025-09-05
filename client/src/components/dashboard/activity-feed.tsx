@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
 import { 
   User, 
   CreditCard, 
@@ -160,9 +161,11 @@ export function ActivityFeed() {
         })}
         
         <div className="pt-3 border-t">
-          <Button variant="ghost" className="w-full text-sm">
-            View All Activity
-          </Button>
+          <Link href="/user-management">
+            <Button variant="ghost" className="w-full text-sm" data-testid="button-view-all-activity">
+              View All Activity
+            </Button>
+          </Link>
         </div>
       </CardContent>
     </Card>

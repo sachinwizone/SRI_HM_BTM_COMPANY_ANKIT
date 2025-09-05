@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CalendarCheck, RotateCcw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 
 export default function TaskClassification() {
   const { data: oneTimeTasks } = useQuery({
@@ -21,9 +22,11 @@ export default function TaskClassification() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <h3 className="text-lg font-semibold text-gray-900">Task Classification</h3>
-        <Button variant="link" className="text-primary hover:text-primary/80 text-sm font-medium">
-          Manage Tasks
-        </Button>
+        <Link href="/task-management">
+          <Button variant="link" className="text-primary hover:text-primary/80 text-sm font-medium" data-testid="button-manage-tasks">
+            Manage Tasks
+          </Button>
+        </Link>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
