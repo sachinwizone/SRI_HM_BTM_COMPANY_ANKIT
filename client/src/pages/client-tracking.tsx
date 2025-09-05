@@ -1,16 +1,79 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Filter, Plus, MapPin, Truck, Clock, Navigation } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+
+// Tracking form schema
+const trackingFormSchema = z.object({
+  clientName: z.string().min(1, "Client name is required"),
+  orderId: z.string().min(1, "Order ID is required"),
+  vehicleNumber: z.string().min(1, "Vehicle number is required"),
+  driverName: z.string().min(1, "Driver name is required"),
+  currentLocation: z.string().min(1, "Current location is required"),
+  destinationLocation: z.string().min(1, "Destination is required"),
+  status: z.enum(["LOADING", "IN_TRANSIT", "DELIVERED"]),
+});
+
+type TrackingFormData = z.infer<typeof trackingFormSchema>;
 
 export default function ClientTracking() {
   const [searchValue, setSearchValue] = useState("");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const { toast } = useToast();
+
   const { data: trackingData, isLoading } = useQuery({
     queryKey: ["/api/client-tracking"],
   });
+
+  // Form setup
+  const form = useForm<TrackingFormData>({
+    resolver: zodResolver(trackingFormSchema),
+    defaultValues: {
+      clientName: "",
+      orderId: "",
+      vehicleNumber: "",
+      driverName: "",
+      currentLocation: "",
+      destinationLocation: "",
+      status: "LOADING",
+    },
+  });
+
+  // Create mutation
+  const createMutation = useMutation({
+    mutationFn: (data: TrackingFormData) => apiRequest("/api/client-tracking", "POST", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client-tracking"] });
+      toast({
+        title: "Success",
+        description: "Tracking entry added successfully.",
+      });
+      setIsAddDialogOpen(false);
+      form.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add tracking entry.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: TrackingFormData) => {
+    createMutation.mutate(data);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -100,7 +163,7 @@ export default function ClientTracking() {
                 <Filter size={16} className="mr-2" />
                 Filter
               </Button>
-              <Button size="sm">
+              <Button size="sm" onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-tracking">
                 <Plus size={16} className="mr-2" />
                 Add Tracking
               </Button>
@@ -193,6 +256,144 @@ export default function ClientTracking() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Add Tracking Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Tracking</DialogTitle>
+          </DialogHeader>
+          
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="clientName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Client Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter client name" {...field} data-testid="input-client-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="orderId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Order ID</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter order ID" {...field} data-testid="input-order-id" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="vehicleNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Vehicle Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter vehicle number" {...field} data-testid="input-vehicle-number" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="driverName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Driver Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter driver name" {...field} data-testid="input-driver-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="currentLocation"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Current Location</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter current location" {...field} data-testid="input-current-location" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="destinationLocation"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Destination</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter destination" {...field} data-testid="input-destination" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-status">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="LOADING">Loading</SelectItem>
+                        <SelectItem value="IN_TRANSIT">In Transit</SelectItem>
+                        <SelectItem value="DELIVERED">Delivered</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsAddDialogOpen(false)}
+                  data-testid="button-cancel"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createMutation.isPending}
+                  data-testid="button-submit"
+                >
+                  {createMutation.isPending ? "Adding..." : "Add Tracking"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
