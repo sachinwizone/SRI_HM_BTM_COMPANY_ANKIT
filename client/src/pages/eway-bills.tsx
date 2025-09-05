@@ -88,10 +88,8 @@ export default function ewaybillsPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Redirect to official government E-way Bill portal
-    if (credentials.username && credentials.password && credentials.captcha) {
-      window.location.href = "https://ewaybillgst.gov.in/Login.aspx";
-    }
+    // Always redirect to official government E-way Bill portal
+    window.open("https://ewaybillgst.gov.in/Login.aspx", "_blank");
   };
 
   const handleLogout = () => {
@@ -295,7 +293,7 @@ export default function ewaybillsPage() {
 
                 {/* Note about portal connection */}
                 <div className="text-center text-xs text-gray-500 mt-4 p-3 bg-blue-50 rounded">
-                  Redirects to official Government E-way Bill portal (ewaybillgst.gov.in)
+                  <strong>Live Link:</strong> Opens official Government E-way Bill portal (ewaybillgst.gov.in) in new tab
                 </div>
               </form>
             </CardContent>
