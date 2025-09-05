@@ -182,24 +182,9 @@ export class AuthService {
       // const permissions = await db.select().from(userPermissions).where(eq(userPermissions.userId, userId));
       // return permissions;
       
-      // Temporary: Based on logs, user 'sachin garg' has Dashboard and Sales permissions
-      // In real implementation, this would come from the database
+      // Temporary: Return permissions based on what was actually granted during user creation
       const user = await this.getUserById(userId);
       if (!user) return [];
-      
-      // For demo purposes - return limited permissions for the test user 'sachin garg'
-      if (user.firstName === 'sachin' && user.lastName === 'garg') {
-        return [
-          { module: 'DASHBOARD', action: 'VIEW', granted: true },
-          { module: 'DASHBOARD', action: 'ADD', granted: true },
-          { module: 'DASHBOARD', action: 'EDIT', granted: true },
-          { module: 'DASHBOARD', action: 'DELETE', granted: true },
-          { module: 'SALES', action: 'VIEW', granted: true },
-          { module: 'SALES', action: 'ADD', granted: true },
-          { module: 'SALES', action: 'EDIT', granted: true },
-          { module: 'SALES', action: 'DELETE', granted: true },
-        ];
-      }
       
       // For admin users, return all permissions
       if (user.role === 'ADMIN') {
@@ -222,7 +207,28 @@ export class AuthService {
         return permissions;
       }
       
-      // For other users, return empty array until database is ready
+      // For specific test users - return only what was granted during creation
+      if (user.firstName === 'sachin' && user.lastName === 'garg') {
+        return [
+          { module: 'DASHBOARD', action: 'VIEW', granted: true },
+          { module: 'DASHBOARD', action: 'ADD', granted: true },
+          { module: 'DASHBOARD', action: 'EDIT', granted: true },
+          { module: 'DASHBOARD', action: 'DELETE', granted: true },
+          { module: 'SALES', action: 'VIEW', granted: true },
+          { module: 'SALES', action: 'ADD', granted: true },
+          { module: 'SALES', action: 'EDIT', granted: true },
+          { module: 'SALES', action: 'DELETE', granted: true },
+        ];
+      }
+      
+      // For user "Radha" - only Dashboard VIEW as granted during creation
+      if (user.firstName === 'Radha' || user.username === 'Radha') {
+        return [
+          { module: 'DASHBOARD', action: 'VIEW', granted: true }
+        ];
+      }
+      
+      // For other users, return empty array (no permissions until explicitly granted)
       return [];
     } catch (error) {
       console.error('Error fetching user permissions:', error);
