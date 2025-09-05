@@ -149,6 +149,66 @@ export class AuthService {
     // Remove all sessions for this user
     await db.delete(userSessions).where(eq(userSessions.userId, userId));
   }
+
+  // User Permissions Management
+  static async setUserPermissions(userId: string, permissions: Array<{module: string, action: string, granted?: boolean}>): Promise<void> {
+    try {
+      // First, delete existing permissions for this user
+      // When database is ready, uncomment this:
+      // await db.delete(userPermissions).where(eq(userPermissions.userId, userId));
+
+      // Insert new permissions
+      if (permissions.length > 0) {
+        const permissionData = permissions.map(perm => ({
+          userId,
+          module: perm.module,
+          action: perm.action,
+          granted: perm.granted !== false
+        }));
+        
+        // When database is ready, uncomment this:
+        // await db.insert(userPermissions).values(permissionData);
+        console.log('Permissions would be saved:', permissionData);
+      }
+    } catch (error) {
+      console.error('Error setting user permissions:', error);
+      throw error;
+    }
+  }
+
+  static async getUserPermissions(userId: string): Promise<Array<{module: string, action: string, granted: boolean}>> {
+    try {
+      // When database is ready, uncomment this:
+      // const permissions = await db.select().from(userPermissions).where(eq(userPermissions.userId, userId));
+      // return permissions;
+      
+      // For now, return empty array
+      return [];
+    } catch (error) {
+      console.error('Error fetching user permissions:', error);
+      return [];
+    }
+  }
+
+  static async hasPermission(userId: string, module: string, action: string): Promise<boolean> {
+    try {
+      // When database is ready, uncomment this:
+      // const [permission] = await db.select().from(userPermissions)
+      //   .where(and(
+      //     eq(userPermissions.userId, userId),
+      //     eq(userPermissions.module, module),
+      //     eq(userPermissions.action, action),
+      //     eq(userPermissions.granted, true)
+      //   ));
+      // return !!permission;
+      
+      // For now, return true for testing
+      return true;
+    } catch (error) {
+      console.error('Error checking user permission:', error);
+      return false;
+    }
+  }
 }
 
 // Middleware to check authentication

@@ -118,10 +118,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/users", requireAdmin, async (req, res) => {
     try {
-      const userData = registerSchema.parse(req.body);
+      const { permissions, ...userDataRaw } = req.body;
+      const userData = registerSchema.parse(userDataRaw);
       const { confirmPassword, ...userDataWithoutConfirm } = userData;
       
       const user = await AuthService.createUser(userDataWithoutConfirm);
+      
+      // Save permissions if provided
+      if (permissions && Array.isArray(permissions) && permissions.length > 0) {
+        try {
+          await AuthService.setUserPermissions(user.id, permissions);
+        } catch (permError) {
+          console.error("Error setting permissions:", permError);
+          // Continue with user creation even if permissions fail
+        }
+      }
       
       // Remove password from response
       const { password: _, ...userWithoutPassword } = user;

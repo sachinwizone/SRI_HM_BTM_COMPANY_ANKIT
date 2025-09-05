@@ -9,11 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { registerSchema, type RegisterRequest } from "@shared/schema";
 import { apiCall } from "@/lib/queryClient";
-import { UserIcon, PlusIcon, PencilIcon, TrashIcon } from "lucide-react";
+import { UserIcon, PlusIcon, PencilIcon, TrashIcon, Shield, Eye, Plus, Edit, Trash2 } from "lucide-react";
 
 interface User {
   id: string;
@@ -26,7 +29,47 @@ interface User {
   lastLogin: string | null;
   createdAt: string;
   updatedAt: string;
+  permissions?: UserPermission[];
 }
+
+interface UserPermission {
+  id: string;
+  userId: string;
+  module: string;
+  action: string;
+  granted: boolean;
+}
+
+// Modules and Actions for permissions
+const MODULES = [
+  { value: 'DASHBOARD', label: 'Dashboard' },
+  { value: 'CLIENT_MANAGEMENT', label: 'Client Management' },
+  { value: 'CLIENT_TRACKING', label: 'Client Tracking' },
+  { value: 'ORDER_WORKFLOW', label: 'Order Workflow' },
+  { value: 'SALES', label: 'Sales' },
+  { value: 'SALES_OPERATIONS', label: 'Sales Operations' },
+  { value: 'PURCHASE_ORDERS', label: 'Purchase Orders' },
+  { value: 'TASK_MANAGEMENT', label: 'Task Management' },
+  { value: 'FOLLOW_UP_HUB', label: 'Follow-up Hub' },
+  { value: 'LEAD_FOLLOW_UP_HUB', label: 'Lead Follow-up Hub' },
+  { value: 'CREDIT_PAYMENTS', label: 'Credit Payments' },
+  { value: 'CREDIT_AGREEMENTS', label: 'Credit Agreements' },
+  { value: 'EWAY_BILLS', label: 'E-way Bills' },
+  { value: 'SALES_RATES', label: 'Sales Rates' },
+  { value: 'TEAM_PERFORMANCE', label: 'Team Performance' },
+  { value: 'TOUR_ADVANCE', label: 'Tour Advance' },
+  { value: 'TA_REPORTS', label: 'TA Reports' },
+  { value: 'MASTER_DATA', label: 'Master Data' },
+  { value: 'USER_MANAGEMENT', label: 'User Management' },
+  { value: 'PRICING', label: 'Pricing' },
+];
+
+const ACTIONS = [
+  { value: 'VIEW', label: 'View', icon: Eye },
+  { value: 'ADD', label: 'Add', icon: Plus },
+  { value: 'EDIT', label: 'Edit', icon: Edit },
+  { value: 'DELETE', label: 'Delete', icon: Trash2 },
+];
 
 // Edit user schema (password is optional)
 interface EditUserRequest {
@@ -42,6 +85,8 @@ export default function UserManagement() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [selectedPermissions, setSelectedPermissions] = useState<{[key: string]: string[]}>({});
+  const [editPermissions, setEditPermissions] = useState<{[key: string]: string[]}>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
@@ -99,6 +144,7 @@ export default function UserManagement() {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setIsCreateDialogOpen(false);
       form.reset();
+      setSelectedPermissions({});
     },
     onError: (error: any) => {
       toast({
@@ -174,13 +220,65 @@ export default function UserManagement() {
     },
   });
 
+  // Permission helper functions
+  const togglePermission = (module: string, action: string, isCreate = true) => {
+    const currentPermissions = isCreate ? selectedPermissions : editPermissions;
+    const setPermissions = isCreate ? setSelectedPermissions : setEditPermissions;
+    
+    const modulePermissions = currentPermissions[module] || [];
+    const updated = modulePermissions.includes(action)
+      ? modulePermissions.filter(a => a !== action)
+      : [...modulePermissions, action];
+    
+    setPermissions({
+      ...currentPermissions,
+      [module]: updated
+    });
+  };
+
+  const toggleAllActionsForModule = (module: string, isCreate = true) => {
+    const currentPermissions = isCreate ? selectedPermissions : editPermissions;
+    const setPermissions = isCreate ? setSelectedPermissions : setEditPermissions;
+    
+    const modulePermissions = currentPermissions[module] || [];
+    const allActions = ACTIONS.map(a => a.value);
+    const hasAllActions = allActions.every(action => modulePermissions.includes(action));
+    
+    setPermissions({
+      ...currentPermissions,
+      [module]: hasAllActions ? [] : allActions
+    });
+  };
+
   const onCreateSubmit = (data: RegisterRequest) => {
-    createUserMutation.mutate(data);
+    const permissionsArray = Object.entries(selectedPermissions)
+      .flatMap(([module, actions]) => 
+        actions.map(action => ({ module, action, granted: true }))
+      );
+    
+    createUserMutation.mutate({
+      ...data,
+      permissions: permissionsArray
+    });
   };
 
   const handleEditUser = (user: User) => {
     setEditingUser(user);
     setIsEditDialogOpen(true);
+    
+    // Initialize edit permissions from user's existing permissions
+    const userPermissions: {[key: string]: string[]} = {};
+    if (user.permissions) {
+      user.permissions.forEach(permission => {
+        if (!userPermissions[permission.module]) {
+          userPermissions[permission.module] = [];
+        }
+        if (permission.granted) {
+          userPermissions[permission.module].push(permission.action);
+        }
+      });
+    }
+    setEditPermissions(userPermissions);
     editForm.reset({
       username: user.username,
       firstName: user.firstName,
@@ -260,7 +358,13 @@ export default function UserManagement() {
           </p>
         </div>
         
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
+          setIsCreateDialogOpen(open);
+          if (!open) {
+            form.reset();
+            setSelectedPermissions({});
+          }
+        }}>
           <DialogTrigger asChild>
             <Button>
               <PlusIcon className="mr-2 h-4 w-4" />
@@ -355,6 +459,79 @@ export default function UserManagement() {
                     {form.formState.errors.role.message}
                   </p>
                 )}
+              </div>
+
+              {/* Permissions Management */}
+              <div className="space-y-4">
+                <Separator />
+                <div className="flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-blue-600" />
+                  <Label className="text-base font-semibold">Module Permissions</Label>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Select which modules and actions this user can access. Admins have full access by default.
+                </p>
+                
+                <ScrollArea className="h-64 w-full border rounded-md p-4">
+                  <div className="space-y-4">
+                    {MODULES.map((module) => {
+                      const modulePermissions = selectedPermissions[module.value] || [];
+                      const hasAllActions = ACTIONS.every(action => modulePermissions.includes(action.value));
+                      const hasViewPermission = modulePermissions.includes('VIEW');
+                      
+                      return (
+                        <div key={module.value} className="space-y-2 p-3 border rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`module-${module.value}`}
+                                checked={hasAllActions}
+                                onCheckedChange={() => toggleAllActionsForModule(module.value, true)}
+                                data-testid={`checkbox-module-${module.value}`}
+                              />
+                              <Label 
+                                htmlFor={`module-${module.value}`} 
+                                className="font-medium cursor-pointer"
+                              >
+                                {module.label}
+                              </Label>
+                            </div>
+                            <Badge variant={hasViewPermission ? "default" : "secondary"}>
+                              {modulePermissions.length} actions
+                            </Badge>
+                          </div>
+                          
+                          <div className="grid grid-cols-4 gap-2 ml-6">
+                            {ACTIONS.map((action) => {
+                              const Icon = action.icon;
+                              const isChecked = modulePermissions.includes(action.value);
+                              
+                              return (
+                                <div key={action.value} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`${module.value}-${action.value}`}
+                                    checked={isChecked}
+                                    onCheckedChange={() => togglePermission(module.value, action.value, true)}
+                                    data-testid={`checkbox-${module.value}-${action.value}`}
+                                  />
+                                  <div className="flex items-center space-x-1">
+                                    <Icon className="h-3 w-3" />
+                                    <Label 
+                                      htmlFor={`${module.value}-${action.value}`}
+                                      className="text-xs cursor-pointer"
+                                    >
+                                      {action.label}
+                                    </Label>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
               </div>
 
               <div>

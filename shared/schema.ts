@@ -39,6 +39,31 @@ export const travelModeEnum = pgEnum('travel_mode', ['AIR', 'TRAIN', 'CAR', 'BUS
 export const journeyPurposeEnum = pgEnum('journey_purpose', ['CLIENT_VISIT', 'PLANT_VISIT', 'PARTY_MEETING', 'DEPARTMENT_VISIT', 'OTHERS']);
 export const taStatusEnum = pgEnum('ta_status', ['DRAFT', 'SUBMITTED', 'RECOMMENDED', 'APPROVED', 'REJECTED', 'SETTLED']);
 
+// Permissions System Enums
+export const moduleEnum = pgEnum('module', [
+  'DASHBOARD',
+  'CLIENT_MANAGEMENT', 
+  'CLIENT_TRACKING',
+  'ORDER_WORKFLOW',
+  'SALES',
+  'SALES_OPERATIONS',
+  'PURCHASE_ORDERS',
+  'TASK_MANAGEMENT',
+  'FOLLOW_UP_HUB',
+  'LEAD_FOLLOW_UP_HUB',
+  'CREDIT_PAYMENTS',
+  'CREDIT_AGREEMENTS',
+  'EWAY_BILLS',
+  'SALES_RATES',
+  'TEAM_PERFORMANCE',
+  'TOUR_ADVANCE',
+  'TA_REPORTS',
+  'MASTER_DATA',
+  'USER_MANAGEMENT',
+  'PRICING'
+]);
+export const actionEnum = pgEnum('action', ['VIEW', 'ADD', 'EDIT', 'DELETE']);
+
 // Users table (Enhanced for ERP system)
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -69,6 +94,20 @@ export const userSessions = pgTable("user_sessions", {
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
+
+// User Permissions table for granular access control
+export const userPermissions = pgTable("user_permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  module: moduleEnum("module").notNull(),
+  action: actionEnum("action").notNull(),
+  granted: boolean("granted").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+}, (table) => ({
+  // Ensure unique permissions per user-module-action combination
+  uniqueUserModuleAction: sql`UNIQUE(${table.userId}, ${table.module}, ${table.action})`
+}));
 
 // Clients table
 export const clients = pgTable("clients", {
@@ -385,6 +424,14 @@ export const usersRelations = relations(users, ({ many }) => ({
   clientAssignments: many(clientAssignments),
   assignedClientAssignments: many(clientAssignments, {
     relationName: "assignedBy"
+  }),
+  permissions: many(userPermissions),
+}));
+
+export const userPermissionsRelations = relations(userPermissions, ({ one }) => ({
+  user: one(users, {
+    fields: [userPermissions.userId],
+    references: [users.id],
   }),
 }));
 
@@ -1759,4 +1806,14 @@ export type TourSegment = typeof tourSegments.$inferSelect;
 
 export type InsertTAExpense = z.infer<typeof insertTAExpenseSchema>;
 export type TAExpense = typeof taExpenses.$inferSelect;
+
+// User Permissions Schema and Types
+export const insertUserPermissionSchema = createInsertSchema(userPermissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertUserPermission = z.infer<typeof insertUserPermissionSchema>;
+export type UserPermission = typeof userPermissions.$inferSelect;
 
