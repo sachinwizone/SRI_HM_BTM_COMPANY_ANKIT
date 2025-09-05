@@ -1645,7 +1645,7 @@ export const tourAdvances = pgTable("tour_advances", {
   purposeOfTrip: text("purpose_of_trip"),
   
   // Daily Expenses Tracking (JSON format)
-  dailyExpenses: text("daily_expenses", { mode: "json" }),
+  dailyExpenses: text("daily_expenses"),
   
   // Audit Fields
   createdAt: timestamp("created_at").notNull().default(sql`now()`),

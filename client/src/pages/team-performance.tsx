@@ -75,7 +75,7 @@ export default function TeamPerformancePage() {
   });
 
   // Extract data from API response
-  const performanceData: UserPerformance[] = (performanceResponse?.performanceData || [])
+  const performanceData: UserPerformance[] = ((performanceResponse as any)?.performanceData || [])
     .filter((user: UserPerformance) => {
       const matchesSearch = searchQuery === '' || 
         `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -88,7 +88,7 @@ export default function TeamPerformancePage() {
   const roles = Array.from(new Set(performanceData.map(user => user.role)));
 
   // Use summary stats from API or calculate defaults
-  const summaryStats = performanceResponse?.summary || {
+  const summaryStats = (performanceResponse as any)?.summary || {
     totalUsers: 0,
     avgActivityScore: 0,
     totalRevenue: 0,

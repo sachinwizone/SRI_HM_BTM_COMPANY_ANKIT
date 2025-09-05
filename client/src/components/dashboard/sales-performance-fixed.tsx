@@ -7,7 +7,7 @@ export default function SalesPerformance() {
     queryKey: ['/api/users'],
   });
 
-  const salesTeam = (users || []).filter((user: any) => 
+  const salesTeam = ((users as any[]) || []).filter((user: any) => 
     user.role === 'SALES_EXECUTIVE' || user.role === 'SALES_MANAGER'
   ).slice(0, 3);
 

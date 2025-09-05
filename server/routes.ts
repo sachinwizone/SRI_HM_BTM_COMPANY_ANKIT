@@ -2041,7 +2041,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid company profile data", errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to create company profile", error: error.message });
+      res.status(500).json({ message: "Failed to create company profile", error: (error as any).message });
     }
   });
 
@@ -2059,7 +2059,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid company profile data", errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to update company profile", error: error.message });
+      res.status(500).json({ message: "Failed to update company profile", error: (error as any).message });
     }
   });
 
@@ -2160,10 +2160,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid product master data", errors: error.errors });
       }
       // Handle duplicate key constraint
-      if (error.code === '23505') {
+      if ((error as any).code === '23505') {
         return res.status(400).json({ message: "Product code already exists. Please use a different product code." });
       }
-      res.status(500).json({ message: "Failed to create product master", error: error.message });
+      res.status(500).json({ message: "Failed to create product master", error: (error as any).message });
     }
   });
 
@@ -2194,7 +2194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid product master data", errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to update product master", error: error.message });
+      res.status(500).json({ message: "Failed to update product master", error: (error as any).message });
     }
   });
 
@@ -2543,12 +2543,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientData = {
         name: lead.companyName,
         contactPersonName: lead.contactPersonName,
-        mobileNumber: lead.mobileNumber,
+        mobileNumber: lead.mobileNumber || '',
         email: lead.email,
-        category: 'DELTA', // New clients start as DELTA
+        category: 'DELTA' as const, // New clients start as DELTA
         primarySalesPersonId: lead.assignedToUserId || currentUser.id,
         paymentTerms: 30, // Default payment terms
         poRequired: false, // Default PO requirement
+        billingAddressLine: '',
+        billingCity: '',
+        billingPincode: '',
+        billingState: '',
+        billingCountry: 'India',
+        shippingAddressLine: '',
+        shippingCity: '',
+        shippingPincode: '',
+        shippingState: '',
+        shippingCountry: 'India',
+        gstNumber: '',
+        panNumber: '',
+        invoicingEmails: lead.email ? [lead.email] : [],
+        gstCertificateUploaded: false,
+        panCopyUploaded: false,
+        msmeNumber: '',
+        incorporationCertNumber: '',
+        securityChequeUploaded: false,
+        aadharCardUploaded: false,
+        vendorCodeAssigned: false,
+        creditLimitAssigned: false,
+        agreementUploaded: false,
+        poRateContractUploaded: false
       };
       
       const client = await storage.createClient(clientData);
@@ -2812,8 +2835,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const newClient = await storage.createClient({
               name: lead.companyName || lead.leadSource,
               contactPersonName: lead.contactPersonName || 'N/A',
-              mobileNumber: lead.mobileNumber,
-              email: lead.email,
+              mobileNumber: lead.mobileNumber || '',
+              email: lead.email || undefined,
               category: 'DELTA', // Default category for converted leads
               primarySalesPersonId: quotation.preparedByUserId,
               paymentTerms: 30,
@@ -2822,10 +2845,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
               invoicingEmails: lead.email ? [lead.email] : [],
               gstCertificateUploaded: false,
               panCopyUploaded: false,
-              addressLine1: '',
-              city: '',
-              state: '',
-              pinCode: ''
+              billingAddressLine: '',
+              billingCity: '',
+              billingState: '',
+              billingPincode: '',
+              shippingAddressLine: '',
+              shippingCity: '',
+              shippingState: '',
+              shippingPincode: '',
+              shippingCountry: 'India',
+              gstNumber: '',
+              panNumber: '',
+              msmeNumber: '',
+              incorporationCertNumber: '',
+              securityChequeUploaded: false,
+              aadharCardUploaded: false,
+              vendorCodeAssigned: false,
+              creditLimitAssigned: false,
+              agreementUploaded: false,
+              poRateContractUploaded: false
             });
             actualClientId = newClient.id;
           } else {
@@ -2844,9 +2882,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         clientId: actualClientId,
         orderDate: new Date(),
         expectedDeliveryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        status: 'DRAFT',
+        status: 'DRAFT' as const,
         totalAmount: quotation.totalAmount,
-        creditCheckStatus: 'PENDING',
+        creditCheckStatus: 'PENDING' as const,
         paymentTerms: quotation.paymentTerms,
         specialInstructions: quotation.specialInstructions,
         salesPersonId: quotation.preparedByUserId
@@ -2863,19 +2901,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (item.productId) {
             const product = await storage.getProduct(item.productId);
             if (!product) {
-              // Product doesn't exist, set to null to avoid foreign key constraint
-              actualProductId = null;
+              // Product doesn't exist, set to undefined to avoid foreign key constraint
+              actualProductId = undefined;
               console.warn(`Product ${item.productId} not found, creating sales order item with description only`);
             }
           }
         } catch (error) {
           console.warn(`Error checking product ${item.productId}:`, error);
-          actualProductId = null;
+          actualProductId = undefined;
         }
         
         await storage.createSalesOrderItem({
           salesOrderId: salesOrder.id,
-          productId: actualProductId,
+          productId: actualProductId || '',
           description: item.description,
           quantity: item.quantity,
           unit: item.unit,
