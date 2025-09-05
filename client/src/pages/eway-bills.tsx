@@ -50,9 +50,10 @@ export default function ewaybillsPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate login
-    if (credentials.gstin && credentials.username && credentials.password) {
-      setIsLoggedIn(true);
+    // Redirect to actual government E-way Bill portal
+    if (credentials.username && credentials.password) {
+      // Open the official E-way Bill portal in the same window
+      window.location.href = "https://ewaybillgst.gov.in/Login.aspx";
     }
   };
 
@@ -172,6 +173,7 @@ export default function ewaybillsPage() {
                 <div className="flex justify-between text-sm pt-4">
                   <button 
                     type="button" 
+                    onClick={() => window.open("https://ewaybillgst.gov.in/Registration.aspx", "_blank")}
                     className="text-blue-600 hover:text-blue-800"
                     data-testid="link-new-registration"
                   >
@@ -179,6 +181,7 @@ export default function ewaybillsPage() {
                   </button>
                   <button 
                     type="button" 
+                    onClick={() => window.open("https://ewaybillgst.gov.in/ForgotPassword.aspx", "_blank")}
                     className="text-blue-600 hover:text-blue-800"
                     data-testid="link-forgot-credentials"
                   >
@@ -189,6 +192,11 @@ export default function ewaybillsPage() {
                 {/* Help Text */}
                 <div className="text-center text-sm text-orange-600 pt-4">
                   If you are unable to Login, you can follow the steps given in this document.
+                </div>
+
+                {/* Note about portal connection */}
+                <div className="text-center text-xs text-gray-500 mt-4 p-3 bg-blue-50 rounded">
+                  This will redirect you to the official Government E-way Bill portal (ewaybillgst.gov.in)
                 </div>
               </form>
             </CardContent>
