@@ -16,7 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 
 // Tracking form schema
 const trackingFormSchema = z.object({
-  clientName: z.string().min(1, "Client name is required"),
+  clientId: z.string().min(1, "Client is required"),
+  clientName: z.string().optional(),
   orderId: z.string().min(1, "Order ID is required"),
   vehicleNumber: z.string().min(1, "Vehicle number is required"),
   driverName: z.string().min(1, "Driver name is required"),
@@ -36,10 +37,16 @@ export default function ClientTracking() {
     queryKey: ["/api/client-tracking"],
   });
 
+  // Fetch clients for dropdown
+  const { data: clients = [] } = useQuery({
+    queryKey: ["/api/clients"],
+  });
+
   // Form setup
   const form = useForm<TrackingFormData>({
     resolver: zodResolver(trackingFormSchema),
     defaultValues: {
+      clientId: "",
       clientName: "",
       orderId: "",
       vehicleNumber: "",
@@ -268,13 +275,33 @@ export default function ClientTracking() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="clientName"
+                name="clientId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Client Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter client name" {...field} data-testid="input-client-name" />
-                    </FormControl>
+                    <Select 
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        const selectedClient = clients.find((client: any) => client.id === value);
+                        if (selectedClient) {
+                          form.setValue("clientName", selectedClient.name);
+                        }
+                      }} 
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-client">
+                          <SelectValue placeholder="Select client" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {clients.map((client: any) => (
+                          <SelectItem key={client.id} value={client.id}>
+                            {client.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
