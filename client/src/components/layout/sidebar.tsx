@@ -81,10 +81,10 @@ export default function Sidebar() {
   const { hasViewPermission } = usePermissions();
 
   // Filter navigation based on permissions
-  const filteredNavigation = navigation.filter(item => {
+  const filteredNavigation = navigation.map(item => {
     if ('href' in item) {
       // Single item - check if user has permission for the module
-      return !item.module || hasViewPermission(item.module);
+      return !item.module || hasViewPermission(item.module) ? item : null;
     } else {
       // Section - filter items and only show section if it has any visible items
       const visibleItems = item.items.filter(subItem => 
