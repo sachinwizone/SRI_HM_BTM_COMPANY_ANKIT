@@ -2629,7 +2629,7 @@ function QuotationSection() {
   });
 
   const { data: products = [] } = useQuery({
-    queryKey: ["/api/products"],
+    queryKey: ["/api/product-master"],
     retry: false,
   });
 
