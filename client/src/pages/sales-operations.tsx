@@ -75,10 +75,16 @@ function EditSalesOrderForm({ salesOrder, onClose, onSave }: any) {
 
   const handleSave = async () => {
     try {
+      // Convert date string to ISO format for the API
+      const updateData = {
+        ...formData,
+        expectedDeliveryDate: formData.expectedDeliveryDate ? new Date(formData.expectedDeliveryDate).toISOString() : null
+      };
+
       const response = await fetch(`/api/sales-orders/${salesOrder.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(updateData)
       });
 
       if (response.ok) {
