@@ -2899,23 +2899,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const item of quotationItems) {
         // Check if the product exists before creating the sales order item
         let actualProductId = item.productId;
+        console.log(`Processing item with productId: ${item.productId}`);
         try {
           if (item.productId) {
-            const product = await storage.getProduct(item.productId);
+            const product = await storage.getProductMaster(item.productId);
+            console.log(`Product lookup result:`, product);
             if (!product) {
-              // Product doesn't exist, set to undefined to avoid foreign key constraint
-              actualProductId = undefined;
-              console.warn(`Product ${item.productId} not found, creating sales order item with description only`);
+              // Product doesn't exist, throw error since productId is required
+              throw new Error(`Product ${item.productId} not found in product_master table`);
             }
+          } else {
+            throw new Error(`Missing productId in quotation item`);
           }
         } catch (error) {
-          console.warn(`Error checking product ${item.productId}:`, error);
-          actualProductId = undefined;
+          console.error(`Error checking product ${item.productId}:`, error);
+          throw error; // Re-throw the error instead of setting to undefined
         }
         
         await storage.createSalesOrderItem({
           salesOrderId: salesOrder.id,
-          productId: actualProductId || '',
+          productId: actualProductId!,
           description: item.description,
           quantity: item.quantity,
           unit: item.unit,
