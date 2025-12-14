@@ -1,14 +1,16 @@
 import { 
-  users, clients, orders, payments, tasks, ewayBills, clientTracking, 
+  users, clients, orders, payments, tasks, ewayBills, clientTracking, trackingLogs,
   salesRates, creditAgreements, purchaseOrders, purchaseOrderItems, sales, numberSeries,
   transporters, products, shippingAddresses, followUps, leadFollowUps, clientAssignments,
   companyProfile, branches, productMaster, suppliers, banks, vehicles,
   leads, opportunities, quotations, quotationItems, salesOrders, salesOrderItems,
   deliveryPlans, dispatches, deliveryChallans, tourAdvances, tourSegments,
+  taExpenses, invoiceCompanies, invoiceParties, invoiceProducts, salesInvoices,
   type User, type InsertUser, type Client, type InsertClient,
   type Order, type InsertOrder, type Payment, type InsertPayment,
   type Task, type InsertTask, type EwayBill, type InsertEwayBill,
-  type ClientTracking, type InsertClientTracking, type SalesRate, type InsertSalesRate,
+  type ClientTracking, type InsertClientTracking, type TrackingLog, type InsertTrackingLog,
+  type SalesRate, type InsertSalesRate,
   type CreditAgreement, type InsertCreditAgreement, type PurchaseOrder, type InsertPurchaseOrder,
   type PurchaseOrderItem, type InsertPurchaseOrderItem,
   type Sales, type InsertSales, type NumberSeries, type InsertNumberSeries,
@@ -23,7 +25,8 @@ import {
   type SalesOrder, type InsertSalesOrder, type SalesOrderItem, type InsertSalesOrderItem,
   type DeliveryPlan, type InsertDeliveryPlan, type Dispatch, type InsertDispatch,
   type DeliveryChallan, type InsertDeliveryChallan, type TourAdvance, type InsertTourAdvance,
-  type TourSegment, type InsertTourSegment
+  type TourSegment, type InsertTourSegment,
+  type TAExpense, type InsertTAExpense
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, gte, lte, count, or, ilike } from "drizzle-orm";
@@ -142,6 +145,10 @@ export interface IStorage {
   createClientTracking(tracking: InsertClientTracking): Promise<ClientTracking>;
   updateClientTracking(id: string, tracking: Partial<InsertClientTracking>): Promise<ClientTracking>;
 
+  // Tracking Logs
+  createTrackingLog(log: InsertTrackingLog): Promise<TrackingLog>;
+  getTrackingLogs(trackingId: string): Promise<TrackingLog[]>;
+
   // Sales Rates
   getSalesRate(id: string): Promise<SalesRate | undefined>;
   getSalesRatesByClient(clientId: string): Promise<SalesRate[]>;
@@ -178,17 +185,12 @@ export interface IStorage {
   updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product>;
 
   // Dashboard Stats
-  getDashboardStats(): Promise<{
-    pendingPayments: string;
-    activeClients: number;
-    openTasks: number;
-    inTransit: number;
-    clientCategories: {
-      ALFA: number;
-      BETA: number;
-      GAMMA: number;
-      DELTA: number;
-    };
+  getDashboardStats(userId?: string): Promise<{
+    pendingPayments: any;
+    activeClients: any;
+    openTasks: any;
+    inTransit: any;
+    clientCategories: Record<string, number>;
   }>;
 
   // ==================== MASTER DATA ====================
@@ -273,6 +275,7 @@ export interface IStorage {
   getSalesOrdersByQuotation(quotationId: string): Promise<SalesOrder[]>;
   createSalesOrder(salesOrder: InsertSalesOrder): Promise<SalesOrder>;
   updateSalesOrder(id: string, salesOrder: Partial<InsertSalesOrder>): Promise<SalesOrder>;
+  deleteSalesOrder(id: string): Promise<void>;
   
   // Sales Order Items
   getSalesOrderItem(id: string): Promise<SalesOrderItem | undefined>;
@@ -355,7 +358,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getFilteredClients(filters: { category?: string; search?: string; dateFrom?: string; dateTo?: string; assignedToUserId?: string }): Promise<Client[]> {
-    let query = db.select().from(clients);
+    let query: any = db.select().from(clients);
     const conditions = [];
 
     // Category filter
@@ -397,7 +400,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getClientCategoryStats(assignedToUserId?: string): Promise<{ ALFA: number; BETA: number; GAMMA: number; DELTA: number; total: number }> {
-    let query = db.select({
+    let query: any = db.select({
       category: clients.category,
       count: sql<number>`count(*)::int`
     }).from(clients);
@@ -504,7 +507,7 @@ export class DatabaseStorage implements IStorage {
     return assignment || undefined;
   }
 
-  async getMyClients(salesPersonId: string): Promise<Client[]> {
+  async getMyClients(salesPersonId: string): Promise<any[]> {
     return await db.select({
       id: clients.id,
       name: clients.name,
@@ -687,14 +690,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPurchaseOrder(insertPO: InsertPurchaseOrder): Promise<PurchaseOrder> {
-    const [po] = await db.insert(purchaseOrders).values(insertPO).returning();
+    const [po] = await db.insert(purchaseOrders).values(insertPO as any).returning();
     return po;
   }
 
   async createPurchaseOrderWithItems(insertPO: InsertPurchaseOrder, items: InsertPurchaseOrderItem[]): Promise<PurchaseOrder> {
     return await db.transaction(async (tx) => {
       // Create the purchase order
-      const [po] = await tx.insert(purchaseOrders).values(insertPO).returning();
+      const [po] = await tx.insert(purchaseOrders).values(insertPO as any).returning();
       
       // Create the items with the purchase order ID
       if (items && items.length > 0) {
@@ -702,7 +705,7 @@ export class DatabaseStorage implements IStorage {
           ...item,
           purchaseOrderId: po.id
         }));
-        await tx.insert(purchaseOrderItems).values(itemsWithPOId);
+        await tx.insert(purchaseOrderItems).values(itemsWithPOId as any);
       }
       
       return po;
@@ -713,7 +716,7 @@ export class DatabaseStorage implements IStorage {
     return await db.transaction(async (tx) => {
       // Update the purchase order
       const [po] = await tx.update(purchaseOrders)
-        .set({ ...updatePO, updatedAt: sql`now()` })
+        .set({ ...updatePO, updatedAt: sql`now()` } as any)
         .where(eq(purchaseOrders.id, id))
         .returning();
       
@@ -728,7 +731,7 @@ export class DatabaseStorage implements IStorage {
             ...item,
             purchaseOrderId: id
           }));
-          await tx.insert(purchaseOrderItems).values(itemsWithPOId);
+          await tx.insert(purchaseOrderItems).values(itemsWithPOId as any);
         }
       }
       
@@ -761,13 +764,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPurchaseOrderItem(insertItem: InsertPurchaseOrderItem): Promise<PurchaseOrderItem> {
-    const [item] = await db.insert(purchaseOrderItems).values(insertItem).returning();
+    const [item] = await db.insert(purchaseOrderItems).values(insertItem as any).returning();
     return item;
   }
 
   async updatePurchaseOrderItem(id: string, updateItem: Partial<InsertPurchaseOrderItem>): Promise<PurchaseOrderItem> {
     const [item] = await db.update(purchaseOrderItems)
-      .set(updateItem)
+      .set(updateItem as any)
       .where(eq(purchaseOrderItems.id, id))
       .returning();
     return item;
@@ -1057,6 +1060,18 @@ export class DatabaseStorage implements IStorage {
     return tracking;
   }
 
+  // Tracking Logs
+  async createTrackingLog(insertLog: InsertTrackingLog): Promise<TrackingLog> {
+    const [log] = await db.insert(trackingLogs).values(insertLog).returning();
+    return log;
+  }
+
+  async getTrackingLogs(trackingId: string): Promise<TrackingLog[]> {
+    return await db.select().from(trackingLogs)
+      .where(eq(trackingLogs.trackingId, trackingId))
+      .orderBy(desc(trackingLogs.createdAt));
+  }
+
   // Sales Rates
   async getSalesRate(id: string): Promise<SalesRate | undefined> {
     const [salesRate] = await db.select().from(salesRates).where(eq(salesRates.id, id));
@@ -1243,7 +1258,7 @@ export class DatabaseStorage implements IStorage {
     const userFilter = userId ? eq(clients.primarySalesPersonId, userId) : undefined;
     
     // Pending payments for user's assigned clients
-    let pendingPaymentsQuery = db.select({
+    let pendingPaymentsQuery: any = db.select({
       total: sql<string>`COALESCE(SUM(${payments.amount}), 0)`
     }).from(payments);
     
@@ -1259,7 +1274,7 @@ export class DatabaseStorage implements IStorage {
     const [pendingPaymentsResult] = await pendingPaymentsQuery;
 
     // Active clients
-    let activeClientsQuery = db.select({
+    let activeClientsQuery: any = db.select({
       count: count()
     }).from(clients);
     
@@ -1270,7 +1285,7 @@ export class DatabaseStorage implements IStorage {
     const [activeClientsResult] = await activeClientsQuery;
 
     // Open tasks for user's assigned clients
-    let openTasksQuery = db.select({
+    let openTasksQuery: any = db.select({
       count: count()
     }).from(tasks);
     
@@ -1285,7 +1300,7 @@ export class DatabaseStorage implements IStorage {
     const [openTasksResult] = await openTasksQuery;
 
     // In transit items for user's assigned clients
-    let inTransitQuery = db.select({
+    let inTransitQuery: any = db.select({
       count: count()
     }).from(clientTracking);
     
@@ -1300,7 +1315,7 @@ export class DatabaseStorage implements IStorage {
     const [inTransitResult] = await inTransitQuery;
 
     // Category stats for user's assigned clients
-    let categoryStatsQuery = db.select({
+    let categoryStatsQuery: any = db.select({
       category: clients.category,
       count: count()
     }).from(clients).groupBy(clients.category);
@@ -1311,11 +1326,12 @@ export class DatabaseStorage implements IStorage {
     
     const categoryStats = await categoryStatsQuery;
 
-    const clientCategories = {
+    const clientCategories: Record<string, number> = {
       ALFA: 0,
       BETA: 0,
       GAMMA: 0,
-      DELTA: 0
+      DELTA: 0,
+      ALPHA: 0
     };
 
     categoryStats.forEach(stat => {
@@ -1591,7 +1607,7 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(leads)
-      .where(eq(leads.leadStatus, status))
+      .where(eq(leads.leadStatus, status as any))
       .orderBy(desc(leads.createdAt));
   }
 
@@ -1629,7 +1645,7 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(leads)
-      .where(and(eq(leads.leadStatus, status), eq(leads.assignedToUserId, userId)))
+      .where(and(eq(leads.leadStatus, status as any), eq(leads.assignedToUserId, userId)))
       .orderBy(desc(leads.createdAt));
   }
 
@@ -1710,7 +1726,7 @@ export class DatabaseStorage implements IStorage {
   async createQuotation(quotationData: InsertQuotation): Promise<Quotation> {
     const [quotation] = await db
       .insert(quotations)
-      .values(quotationData)
+      .values(quotationData as any)
       .returning();
     return quotation;
   }
@@ -1718,7 +1734,7 @@ export class DatabaseStorage implements IStorage {
   async updateQuotation(id: string, quotationData: Partial<InsertQuotation>): Promise<Quotation> {
     const [quotation] = await db
       .update(quotations)
-      .set({ ...quotationData, updatedAt: new Date() })
+      .set({ ...quotationData, updatedAt: new Date() } as any)
       .where(eq(quotations.id, id))
       .returning();
     return quotation;
@@ -1762,7 +1778,7 @@ export class DatabaseStorage implements IStorage {
   async createQuotationItem(itemData: InsertQuotationItem): Promise<QuotationItem> {
     const [item] = await db
       .insert(quotationItems)
-      .values(itemData)
+      .values(itemData as any)
       .returning();
     return item;
   }
@@ -1770,7 +1786,7 @@ export class DatabaseStorage implements IStorage {
   async updateQuotationItem(id: string, itemData: Partial<InsertQuotationItem>): Promise<QuotationItem> {
     const [item] = await db
       .update(quotationItems)
-      .set(itemData)
+      .set(itemData as any)
       .where(eq(quotationItems.id, id))
       .returning();
     return item;
@@ -1816,6 +1832,28 @@ export class DatabaseStorage implements IStorage {
       .where(eq(salesOrders.id, id))
       .returning();
     return salesOrder;
+  }
+
+  async deleteSalesOrder(id: string): Promise<void> {
+    // First get all client tracking records related to this sales order
+    const relatedTracking = await db
+      .select({ id: clientTracking.id })
+      .from(clientTracking)
+      .where(eq(clientTracking.orderId, id));
+    
+    // Delete tracking logs for each tracking record (they have cascade but let's be explicit)
+    for (const tracking of relatedTracking) {
+      await db.delete(trackingLogs).where(eq(trackingLogs.trackingId, tracking.id));
+    }
+    
+    // Delete client tracking records that reference this sales order
+    await db.delete(clientTracking).where(eq(clientTracking.orderId, id));
+    
+    // Delete all related sales order items
+    await db.delete(salesOrderItems).where(eq(salesOrderItems.salesOrderId, id));
+    
+    // Finally delete the sales order
+    await db.delete(salesOrders).where(eq(salesOrders.id, id));
   }
   
   // Sales Order Items
@@ -2004,7 +2042,7 @@ export class DatabaseStorage implements IStorage {
 
   async createTourAdvance(tourAdvanceData: InsertTourAdvance): Promise<TourAdvance> {
     try {
-      const [tourAdvance] = await db.insert(tourAdvances).values(tourAdvanceData).returning();
+      const [tourAdvance] = await db.insert(tourAdvances).values(tourAdvanceData as any).returning();
       return tourAdvance;
     } catch (error) {
       console.error('Error creating tour advance:', error);
@@ -2016,7 +2054,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const [tourAdvance] = await db
         .update(tourAdvances)
-        .set(tourAdvanceData)
+        .set(tourAdvanceData as any)
         .where(eq(tourAdvances.id, id))
         .returning();
       return tourAdvance;
@@ -2200,9 +2238,94 @@ export async function initializeBitumenProducts() {
         minOrderQuantity: '1.00',
         isActive: true
       });
-    } catch (error) {
+    } catch (error: any) {
       // Product might already exist, skip
-      console.log(`Product ${product.productCode} might already exist:`, error.message);
+      console.log(`Product ${product.productCode} might already exist:`, error?.message || error);
     }
   }
+}
+
+
+// Sales Operations Storage Methods
+// Company Management
+export async function getInvoiceCompany() {
+  const companies = await db.select().from(invoiceCompanies).limit(1);
+  return companies[0] || null;
+}
+
+export async function createInvoiceCompany(data: any) {
+  const [company] = await db.insert(invoiceCompanies).values(data).returning();
+  return company;
+}
+
+// Party Management
+export async function getInvoiceParties() {
+  return await db.select().from(invoiceParties).orderBy(invoiceParties.partyName);
+}
+
+export async function getInvoicePartyById(id: string) {
+  const parties = await db.select().from(invoiceParties).where(eq(invoiceParties.id, id));
+  return parties[0] || null;
+}
+
+export async function createInvoiceParty(data: any) {
+  const [party] = await db.insert(invoiceParties).values(data).returning();
+  return party;
+}
+
+export async function updateInvoiceParty(id: string, data: any) {
+  const [party] = await db.update(invoiceParties).set(data).where(eq(invoiceParties.id, id)).returning();
+  return party;
+}
+
+export async function deleteInvoiceParty(id: string) {
+  await db.delete(invoiceParties).where(eq(invoiceParties.id, id));
+}
+
+// Product Management
+export async function getInvoiceProducts() {
+  return await db.select().from(invoiceProducts).orderBy(invoiceProducts.productName);
+}
+
+export async function getInvoiceProductById(id: string) {
+  const products = await db.select().from(invoiceProducts).where(eq(invoiceProducts.id, id));
+  return products[0] || null;
+}
+
+export async function createInvoiceProduct(data: any) {
+  const [product] = await db.insert(invoiceProducts).values(data).returning();
+  return product;
+}
+
+export async function updateInvoiceProduct(id: string, data: any) {
+  const [product] = await db.update(invoiceProducts).set(data).where(eq(invoiceProducts.id, id)).returning();
+  return product;
+}
+
+export async function deleteInvoiceProduct(id: string) {
+  await db.delete(invoiceProducts).where(eq(invoiceProducts.id, id));
+}
+
+// Sales Invoice Management
+export async function getSalesInvoices() {
+  return await db.select().from(salesInvoices).orderBy(desc(salesInvoices.createdAt));
+}
+
+export async function getSalesInvoiceById(id: string) {
+  const invoices = await db.select().from(salesInvoices).where(eq(salesInvoices.id, id));
+  return invoices[0] || null;
+}
+
+export async function createSalesInvoice(data: any) {
+  const [invoice] = await db.insert(salesInvoices).values(data).returning();
+  return invoice;
+}
+
+export async function updateSalesInvoice(id: string, data: any) {
+  const [invoice] = await db.update(salesInvoices).set(data).where(eq(salesInvoices.id, id)).returning();
+  return invoice;
+}
+
+export async function deleteSalesInvoice(id: string) {
+  await db.delete(salesInvoices).where(eq(salesInvoices.id, id));
 }

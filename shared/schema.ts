@@ -37,7 +37,7 @@ export const supplierTypeEnum = pgEnum('supplier_type', ['MANUFACTURER', 'DISTRI
 // Tour Advance (TA) Module Enums
 export const travelModeEnum = pgEnum('travel_mode', ['AIR', 'TRAIN', 'CAR', 'BUS', 'OTHER']);
 export const journeyPurposeEnum = pgEnum('journey_purpose', ['CLIENT_VISIT', 'PLANT_VISIT', 'PARTY_MEETING', 'DEPARTMENT_VISIT', 'OTHERS']);
-export const taStatusEnum = pgEnum('ta_status', ['DRAFT', 'SUBMITTED', 'RECOMMENDED', 'APPROVED', 'REJECTED', 'SETTLED']);
+export const taStatusEnum = pgEnum('ta_status', ['DRAFT', 'SUBMITTED', 'RECOMMENDED', 'APPROVED', 'REJECTED', 'PROCESSING', 'SETTLED']);
 
 // Permissions System Enums
 export const moduleEnum = pgEnum('module', [
@@ -373,7 +373,7 @@ export const ewayBills = pgTable("eway_bills", {
 export const clientTracking = pgTable("client_tracking", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   clientId: varchar("client_id").notNull().references(() => clients.id),
-  orderId: varchar("order_id").notNull().references(() => orders.id),
+  orderId: varchar("order_id").notNull().references(() => salesOrders.id),
   vehicleNumber: text("vehicle_number").notNull(),
   driverName: text("driver_name").notNull(),
   driverPhone: text("driver_phone"),
@@ -381,9 +381,27 @@ export const clientTracking = pgTable("client_tracking", {
   destinationLocation: text("destination_location"),
   distanceRemaining: integer("distance_remaining"), // km
   estimatedArrival: timestamp("estimated_arrival"),
+  // New fields for enhanced tracking
+  productName: text("product_name"), // Auto-fill from order (legacy)
+  productQty: text("product_qty"), // Auto-fill from order (legacy)
+  products: text("products"), // JSON string of product array for multiple products
+  clientNumber: text("client_number"), // Auto-fill from client mobile number
+  ewayBillNumber: text("eway_bill_number"), // Auto-fill from eway bills
   status: trackingStatusEnum("status").notNull().default('LOADING'),
   lastUpdated: timestamp("last_updated").notNull().default(sql`now()`),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Tracking Logs table for status history
+export const trackingLogs = pgTable("tracking_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  trackingId: varchar("tracking_id").notNull().references(() => clientTracking.id, { onDelete: 'cascade' }),
+  status: trackingStatusEnum("status").notNull(),
+  location: text("location").notNull(),
+  notes: text("notes"),
+  estimatedArrival: timestamp("estimated_arrival"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedBy: varchar("updated_by").references(() => users.id),
 });
 
 // Sales Rates table
@@ -547,14 +565,26 @@ export const ewayBillsRelations = relations(ewayBills, ({ one }) => ({
   }),
 }));
 
-export const clientTrackingRelations = relations(clientTracking, ({ one }) => ({
+export const clientTrackingRelations = relations(clientTracking, ({ one, many }) => ({
   client: one(clients, {
     fields: [clientTracking.clientId],
     references: [clients.id],
   }),
-  order: one(orders, {
+  order: one(salesOrders, {
     fields: [clientTracking.orderId],
-    references: [orders.id],
+    references: [salesOrders.id],
+  }),
+  logs: many(trackingLogs),
+}));
+
+export const trackingLogsRelations = relations(trackingLogs, ({ one }) => ({
+  tracking: one(clientTracking, {
+    fields: [trackingLogs.trackingId],
+    references: [clientTracking.id],
+  }),
+  updatedBy: one(users, {
+    fields: [trackingLogs.updatedBy],
+    references: [users.id],
   }),
 }));
 
@@ -814,6 +844,15 @@ export type EwayBill = typeof ewayBills.$inferSelect;
 export type InsertClientTracking = z.infer<typeof insertClientTrackingSchema>;
 export type ClientTracking = typeof clientTracking.$inferSelect;
 
+// Tracking logs schema
+export const insertTrackingLogSchema = createInsertSchema(trackingLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertTrackingLog = z.infer<typeof insertTrackingLogSchema>;
+export type TrackingLog = typeof trackingLogs.$inferSelect;
+
 export type InsertSalesRate = z.infer<typeof insertSalesRateSchema>;
 export type SalesRate = typeof salesRates.$inferSelect;
 
@@ -825,7 +864,7 @@ export const sales = pgTable("sales", {
   invoiceNumber: text("invoice_number").notNull().unique(),
   vehicleNumber: text("vehicle_number").notNull(),
   location: text("location").notNull(),
-  transporterId: varchar("transporter_id").notNull().references(() => transporters.id),
+  transporterId: varchar("transporter_id").references(() => transporters.id),
   grossWeight: decimal("gross_weight", { precision: 10, scale: 2 }).notNull(),
   tareWeight: decimal("tare_weight", { precision: 10, scale: 2 }).notNull(), // stair weight
   netWeight: decimal("net_weight", { precision: 10, scale: 2 }).notNull(), // grossWeight - tareWeight
@@ -837,7 +876,7 @@ export const sales = pgTable("sales", {
   gstPercent: decimal("gst_percent", { precision: 5, scale: 2 }).notNull(),
   totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).notNull(),
   basicRatePurchase: decimal("basic_rate_purchase", { precision: 15, scale: 2 }).notNull(),
-  productId: varchar("product_id").notNull().references(() => products.id),
+  productId: varchar("product_id").notNull().references(() => productMaster.id),
   salespersonId: varchar("salesperson_id").references(() => users.id),
   deliveryStatus: deliveryStatusEnum("delivery_status").notNull().default('RECEIVING'),
   deliveryChallanSigned: boolean("delivery_challan_signed").notNull().default(false),
@@ -854,7 +893,24 @@ export const insertSalesSchema = createInsertSchema(sales).omit({
   updatedAt: true,
 }).extend({
   date: z.string(),
-  deliveryChallanSignedAt: z.string().optional().nullable()
+  deliveryChallanSignedAt: z.string().optional().nullable(),
+  // Allow empty strings for optional fields by transforming them
+  vehicleNumber: z.string().transform(val => val || 'N/A'),
+  location: z.string().transform(val => val || 'N/A'),
+  salespersonId: z.string().optional().nullable().transform(val => val || null),
+  transporterId: z.string().optional().transform(val => val || null),
+  notes: z.string().optional().nullable(),
+  // Make numeric fields accept strings and convert
+  grossWeight: z.union([z.string(), z.number()]).transform(val => String(val || '0')),
+  tareWeight: z.union([z.string(), z.number()]).transform(val => String(val || '0')),
+  netWeight: z.union([z.string(), z.number()]).transform(val => String(val || '0')),
+  entireWeight: z.union([z.string(), z.number()]).transform(val => String(val || '0')),
+  drumQuantity: z.union([z.string(), z.number()]).transform(val => Number(val) || 0),
+  perDrumWeight: z.union([z.string(), z.number()]).transform(val => String(val || '0')),
+  basicRate: z.union([z.string(), z.number()]).transform(val => String(val || '0')),
+  gstPercent: z.union([z.string(), z.number()]).transform(val => String(val || '18')),
+  totalAmount: z.union([z.string(), z.number()]).transform(val => String(val || '0')),
+  basicRatePurchase: z.union([z.string(), z.number()]).transform(val => String(val || '0')),
 });
 
 // Sales relations
@@ -867,9 +923,9 @@ export const salesRelations = relations(sales, ({ one }) => ({
     fields: [sales.clientId],
     references: [clients.id],
   }),
-  product: one(products, {
+  product: one(productMaster, {
     fields: [sales.productId],
-    references: [products.id],
+    references: [productMaster.id],
   }),
   transporter: one(transporters, {
     fields: [sales.transporterId],
@@ -1241,6 +1297,7 @@ export const quotations = pgTable("quotations", {
   quotationNumber: text("quotation_number").notNull().unique(),
   opportunityId: varchar("opportunity_id").references(() => opportunities.id),
   clientId: varchar("client_id").notNull().references(() => clients.id),
+  clientType: text("client_type").default('client'), // Track if this was created from lead or client
   quotationDate: timestamp("quotation_date").notNull().default(sql`now()`),
   validUntil: timestamp("valid_until").notNull(),
   status: quotationStatusEnum("status").notNull().default('DRAFT'),
@@ -1470,8 +1527,8 @@ export const insertLeadFollowUpSchema = createInsertSchema(leadFollowUps).omit({
   followUpDate: z.string().transform((val) => new Date(val)),
   nextFollowUpDate: z.string().optional().transform((val) => val ? new Date(val) : undefined),
   completedAt: z.string().optional().transform((val) => val ? new Date(val) : undefined),
-  // Override status to accept lead status values instead of follow-up status
-  status: z.enum(["NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "CLOSED_WON", "CLOSED_LOST"]),
+  // Accept both lead status and follow-up status values
+  status: z.enum(["NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "CLOSED_WON", "CLOSED_LOST", "PENDING", "COMPLETED", "CANCELLED"]).optional(),
   // Optional follow-up status for the actual follow-up record
   followUpStatus: z.enum(["PENDING", "COMPLETED", "CANCELLED"]).optional(),
   // Make old columns optional since they're populated automatically
@@ -1489,6 +1546,7 @@ export const insertOpportunitySchema = createInsertSchema(opportunities).omit({
 export const insertQuotationSchema = z.object({
   opportunityId: z.string().optional(),
   clientId: z.string(),
+  clientType: z.enum(['client', 'lead']).optional().default('client'), // Add clientType field
   quotationDate: z.union([z.string(), z.date()]).transform(val => typeof val === 'string' ? new Date(val) : val),
   validUntil: z.union([z.string(), z.date()]).transform(val => typeof val === 'string' ? new Date(val) : val),
   status: z.enum(['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'SENT', 'REVISED', 'ACCEPTED', 'REJECTED', 'EXPIRED']).default('DRAFT'),
@@ -1619,10 +1677,12 @@ export const tourAdvances = pgTable("tour_advances", {
   
   // Travel Details
   mainDestination: text("main_destination").notNull(),
+  departureLocation: text("departure_location"),
   modeOfTravel: travelModeEnum("mode_of_travel").notNull(),
   vehicleNumber: text("vehicle_number"),
   purposeOfJourney: journeyPurposeEnum("purpose_of_journey").array(),
   purposeRemarks: text("purpose_remarks"),
+  tourProgramme: text("tour_programme"),
   
   // Advance/Financials
   advanceRequired: boolean("advance_required").notNull().default(false),
@@ -1646,6 +1706,9 @@ export const tourAdvances = pgTable("tour_advances", {
   
   // Daily Expenses Tracking (JSON format)
   dailyExpenses: text("daily_expenses"),
+  
+  // Status History (JSON format) - Track all status changes
+  statusHistory: text("status_history"), // Store as JSON string
   
   // Audit Fields
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
@@ -1817,3 +1880,412 @@ export const insertUserPermissionSchema = createInsertSchema(userPermissions).om
 export type InsertUserPermission = z.infer<typeof insertUserPermissionSchema>;
 export type UserPermission = typeof userPermissions.$inferSelect;
 
+// ============ SALES OPERATIONS MODULE ADDITIONS ============
+// Additional Enums for Invoice Management
+export const partyTypeEnum = pgEnum('party_type', ['CUSTOMER', 'SUPPLIER', 'BOTH']);
+export const invoiceTypeEnum = pgEnum('invoice_type', ['TAX_INVOICE', 'PROFORMA', 'CREDIT_NOTE', 'DEBIT_NOTE']);
+export const unitOfMeasurementEnum = pgEnum('unit_of_measurement', ['DRUM', 'KG', 'LITRE', 'PIECE', 'METER', 'TON', 'BOX']);
+export const freightTypeEnum = pgEnum('freight_type', ['PAID', 'TO_PAY', 'INCLUDED']);
+export const paymentModeEnum = pgEnum('payment_mode', ['CASH', 'CHEQUE', 'NEFT', 'RTGS', 'UPI', 'CARD', 'ONLINE']);
+export const invoiceStatusEnum = pgEnum('invoice_status', ['DRAFT', 'SUBMITTED', 'CANCELLED']);
+export const transactionTypeEnum = pgEnum('transaction_type', ['SALE', 'PURCHASE', 'OPENING', 'ADJUSTMENT']);
+
+// 1. Companies (Your Company Details)
+export const invoiceCompanies = pgTable("invoice_companies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyName: text("company_name").notNull(),
+  address: text("address").notNull(),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  stateCode: text("state_code").notNull(),
+  pincode: text("pincode").notNull(),
+  gstin: text("gstin").unique(),
+  pan: text("pan"),
+  udyamNumber: text("udyam_number"),
+  importExportCode: text("import_export_code"),
+  leiCode: text("lei_code"),
+  contactNumber: text("contact_number"),
+  email: text("email"),
+  bankName: text("bank_name"),
+  bankAccountNumber: text("bank_account_number"),
+  bankIfscCode: text("bank_ifsc_code"),
+  bankBranch: text("bank_branch"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// 2. Parties (Customers/Suppliers)
+export const invoiceParties = pgTable("invoice_parties", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  partyName: text("party_name").notNull(),
+  partyType: partyTypeEnum("party_type").notNull(),
+  billingAddress: text("billing_address").notNull(),
+  shippingAddress: text("shipping_address"),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  stateCode: text("state_code").notNull(),
+  pincode: text("pincode").notNull(),
+  gstin: text("gstin"),
+  pan: text("pan"),
+  contactPerson: text("contact_person"),
+  contactNumber: text("contact_number"),
+  email: text("email"),
+  creditDays: integer("credit_days").default(0),
+  creditLimit: decimal("credit_limit", { precision: 15, scale: 2 }).default('0'),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// 3. Products Master
+export const invoiceProducts = pgTable("invoice_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productName: text("product_name").notNull(),
+  productDescription: text("product_description"),
+  hsnSacCode: text("hsn_sac_code").notNull(),
+  unitOfMeasurement: unitOfMeasurementEnum("unit_of_measurement").notNull(),
+  gstRate: decimal("gst_rate", { precision: 5, scale: 2 }).notNull().default('0'),
+  isService: boolean("is_service").notNull().default(false),
+  openingStock: decimal("opening_stock", { precision: 15, scale: 3 }).default('0'),
+  currentStock: decimal("current_stock", { precision: 15, scale: 3 }).default('0'),
+  minimumStockLevel: decimal("minimum_stock_level", { precision: 15, scale: 3 }).default('0'),
+  purchaseRate: decimal("purchase_rate", { precision: 15, scale: 2 }).default('0'),
+  saleRate: decimal("sale_rate", { precision: 15, scale: 2 }).default('0'),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// 4. Transporters
+export const invoiceTransporters = pgTable("invoice_transporters", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  transporterName: text("transporter_name").notNull(),
+  transporterGstin: text("transporter_gstin"),
+  contactNumber: text("contact_number"),
+  address: text("address"),
+  vehicleNumbers: text("vehicle_numbers"), // JSON array as text
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// 5. Sales Invoices (Main Invoice Header)
+export const salesInvoices = pgTable("sales_invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceNumber: text("invoice_number").notNull().unique(),
+  invoiceDate: timestamp("invoice_date").notNull(),
+  invoiceType: invoiceTypeEnum("invoice_type").notNull().default('TAX_INVOICE'),
+  financialYear: text("financial_year").notNull(),
+  
+  // Customer Details
+  customerId: varchar("customer_id").notNull().references(() => invoiceParties.id),
+  billingPartyId: varchar("billing_party_id").references(() => invoiceParties.id),
+  shippingPartyId: varchar("shipping_party_id").references(() => invoiceParties.id),
+  placeOfSupply: text("place_of_supply").notNull(),
+  placeOfSupplyStateCode: text("place_of_supply_state_code").notNull(),
+  
+  // Document References
+  buyerOrderNumber: text("buyer_order_number"),
+  buyerOrderDate: timestamp("buyer_order_date"),
+  deliveryNoteNumber: text("delivery_note_number"),
+  referenceNumber: text("reference_number"),
+  referenceDate: timestamp("reference_date"),
+  
+  // e-Invoice Details
+  irnNumber: text("irn_number"),
+  irnAckNumber: text("irn_ack_number"),
+  irnAckDate: timestamp("irn_ack_date"),
+  qrCodeData: text("qr_code_data"),
+  
+  // e-Way Bill Details
+  ewayBillNumber: text("eway_bill_number"),
+  ewayBillDate: timestamp("eway_bill_date"),
+  ewayBillValidUpto: timestamp("eway_bill_valid_upto"),
+  ewayBillDistance: decimal("eway_bill_distance", { precision: 10, scale: 2 }),
+  transactionType: text("transaction_type"),
+  supplyType: text("supply_type"),
+  
+  // Transportation
+  transporterId: varchar("transporter_id").references(() => invoiceTransporters.id),
+  transporterName: text("transporter_name"),
+  vehicleNumber: text("vehicle_number"),
+  lrRrNumber: text("lr_rr_number"),
+  lrRrDate: timestamp("lr_rr_date"),
+  dispatchFrom: text("dispatch_from"),
+  dispatchCity: text("dispatch_city"),
+  portOfLoading: text("port_of_loading"),
+  portOfDischarge: text("port_of_discharge"),
+  destination: text("destination"),
+  freightType: freightTypeEnum("freight_type").default('TO_PAY'),
+  
+  // Payment Terms
+  paymentTerms: text("payment_terms").notNull().default('30 Days Credit'),
+  paymentMode: paymentModeEnum("payment_mode").default('NEFT'),
+  dueDate: timestamp("due_date"),
+  interestRateAfterDue: decimal("interest_rate_after_due", { precision: 5, scale: 2 }).default('0'),
+  
+  // Amounts
+  subtotalAmount: decimal("subtotal_amount", { precision: 15, scale: 2 }).notNull().default('0'),
+  cgstAmount: decimal("cgst_amount", { precision: 15, scale: 2 }).default('0'),
+  sgstAmount: decimal("sgst_amount", { precision: 15, scale: 2 }).default('0'),
+  igstAmount: decimal("igst_amount", { precision: 15, scale: 2 }).default('0'),
+  otherCharges: decimal("other_charges", { precision: 15, scale: 2 }).default('0'),
+  roundOff: decimal("round_off", { precision: 15, scale: 2 }).default('0'),
+  totalInvoiceAmount: decimal("total_invoice_amount", { precision: 15, scale: 2 }).notNull().default('0'),
+  totalInWords: text("total_in_words"),
+  
+  // Payment Tracking
+  paidAmount: decimal("paid_amount", { precision: 15, scale: 2 }).notNull().default('0'),
+  remainingBalance: decimal("remaining_balance", { precision: 15, scale: 2 }).notNull().default('0'),
+  
+  // Status
+  invoiceStatus: invoiceStatusEnum("invoice_status").notNull().default('DRAFT'),
+  paymentStatus: paymentStatusEnum("payment_status").notNull().default('PENDING'),
+  
+  // Audit
+  createdBy: varchar("created_by").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  modifiedBy: varchar("modified_by").references(() => users.id),
+  modifiedAt: timestamp("modified_at").default(sql`now()`),
+});
+
+// 6. Sales Invoice Items (Line Items)
+export const salesInvoiceItems = pgTable("sales_invoice_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: varchar("invoice_id").notNull().references(() => salesInvoices.id, { onDelete: 'cascade' }),
+  lineNumber: integer("line_number").notNull(),
+  productId: varchar("product_id").notNull().references(() => invoiceProducts.id),
+  productName: text("product_name").notNull(),
+  productDescription: text("product_description"),
+  hsnSacCode: text("hsn_sac_code").notNull(),
+  quantity: decimal("quantity", { precision: 15, scale: 3 }).notNull(),
+  unitOfMeasurement: unitOfMeasurementEnum("unit_of_measurement").notNull(),
+  ratePerUnit: decimal("rate_per_unit", { precision: 15, scale: 2 }).notNull(),
+  grossAmount: decimal("gross_amount", { precision: 15, scale: 2 }).notNull(),
+  discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }).default('0'),
+  discountAmount: decimal("discount_amount", { precision: 15, scale: 2 }).default('0'),
+  taxableAmount: decimal("taxable_amount", { precision: 15, scale: 2 }).notNull(),
+  cgstRate: decimal("cgst_rate", { precision: 5, scale: 2 }).default('0'),
+  cgstAmount: decimal("cgst_amount", { precision: 15, scale: 2 }).default('0'),
+  sgstRate: decimal("sgst_rate", { precision: 5, scale: 2 }).default('0'),
+  sgstAmount: decimal("sgst_amount", { precision: 15, scale: 2 }).default('0'),
+  igstRate: decimal("igst_rate", { precision: 5, scale: 2 }).default('0'),
+  igstAmount: decimal("igst_amount", { precision: 15, scale: 2 }).default('0'),
+  totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).notNull(),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// 7. Purchase Invoices 
+export const purchaseInvoices = pgTable("purchase_invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceNumber: text("invoice_number").notNull().unique(),
+  invoiceDate: timestamp("invoice_date").notNull(),
+  invoiceType: invoiceTypeEnum("invoice_type").notNull().default('TAX_INVOICE'),
+  financialYear: text("financial_year").notNull(),
+  
+  // Supplier Details
+  supplierId: varchar("supplier_id").notNull().references(() => invoiceParties.id),
+  supplierInvoiceNumber: text("supplier_invoice_number").notNull(),
+  supplierInvoiceDate: timestamp("supplier_invoice_date").notNull(),
+  grnNumber: text("grn_number"),
+  placeOfSupply: text("place_of_supply").notNull(),
+  placeOfSupplyStateCode: text("place_of_supply_state_code").notNull(),
+  
+  // Payment Terms
+  paymentTerms: text("payment_terms").notNull().default('30 Days Credit'),
+  paymentMode: paymentModeEnum("payment_mode").default('NEFT'),
+  dueDate: timestamp("due_date"),
+  
+  // Amounts
+  subtotalAmount: decimal("subtotal_amount", { precision: 15, scale: 2 }).notNull().default('0'),
+  cgstAmount: decimal("cgst_amount", { precision: 15, scale: 2 }).default('0'),
+  sgstAmount: decimal("sgst_amount", { precision: 15, scale: 2 }).default('0'),
+  igstAmount: decimal("igst_amount", { precision: 15, scale: 2 }).default('0'),
+  otherCharges: decimal("other_charges", { precision: 15, scale: 2 }).default('0'),
+  roundOff: decimal("round_off", { precision: 15, scale: 2 }).default('0'),
+  totalInvoiceAmount: decimal("total_invoice_amount", { precision: 15, scale: 2 }).notNull().default('0'),
+  totalInWords: text("total_in_words"),
+  
+  // Payment Tracking
+  paidAmount: decimal("paid_amount", { precision: 15, scale: 2 }).notNull().default('0'),
+  remainingBalance: decimal("remaining_balance", { precision: 15, scale: 2 }).notNull().default('0'),
+  
+  // Status
+  invoiceStatus: invoiceStatusEnum("invoice_status").notNull().default('DRAFT'),
+  paymentStatus: paymentStatusEnum("payment_status").notNull().default('PENDING'),
+  
+  // Audit
+  createdBy: varchar("created_by").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  modifiedBy: varchar("modified_by").references(() => users.id),
+  modifiedAt: timestamp("modified_at").default(sql`now()`),
+});
+
+// 8. Purchase Invoice Items
+export const purchaseInvoiceItems = pgTable("purchase_invoice_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: varchar("invoice_id").notNull().references(() => purchaseInvoices.id, { onDelete: 'cascade' }),
+  lineNumber: integer("line_number").notNull(),
+  productId: varchar("product_id").references(() => invoiceProducts.id),
+  productName: text("product_name").notNull(),
+  productDescription: text("product_description"),
+  hsnSacCode: text("hsn_sac_code").notNull(),
+  quantity: decimal("quantity", { precision: 15, scale: 3 }).notNull(),
+  unitOfMeasurement: unitOfMeasurementEnum("unit_of_measurement").notNull(),
+  ratePerUnit: decimal("rate_per_unit", { precision: 15, scale: 2 }).notNull(),
+  grossAmount: decimal("gross_amount", { precision: 15, scale: 2 }).notNull(),
+  discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }).default('0'),
+  discountAmount: decimal("discount_amount", { precision: 15, scale: 2 }).default('0'),
+  taxableAmount: decimal("taxable_amount", { precision: 15, scale: 2 }).notNull(),
+  cgstRate: decimal("cgst_rate", { precision: 5, scale: 2 }).default('0'),
+  cgstAmount: decimal("cgst_amount", { precision: 15, scale: 2 }).default('0'),
+  sgstRate: decimal("sgst_rate", { precision: 5, scale: 2 }).default('0'),
+  sgstAmount: decimal("sgst_amount", { precision: 15, scale: 2 }).default('0'),
+  igstRate: decimal("igst_rate", { precision: 5, scale: 2 }).default('0'),
+  igstAmount: decimal("igst_amount", { precision: 15, scale: 2 }).default('0'),
+  totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).notNull(),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Schema validation for new tables
+export const insertInvoiceCompanySchema = createInsertSchema(invoiceCompanies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertInvoicePartySchema = createInsertSchema(invoiceParties).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  creditDays: z.union([z.string(), z.number()]).optional().transform(val => {
+    if (val == null) return 0;
+    return typeof val === 'string' ? parseInt(val) || 0 : val;
+  }),
+  creditLimit: z.union([z.string(), z.number()]).optional().transform(val => {
+    if (val == null) return 0;
+    return typeof val === 'string' ? parseFloat(val) || 0 : val;
+  }),
+});
+
+export const insertInvoiceProductSchema = createInsertSchema(invoiceProducts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  gstRate: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val || 0),
+  openingStock: z.union([z.string(), z.number()]).optional().transform(val => {
+    if (val == null) return 0;
+    return typeof val === 'string' ? parseFloat(val) || 0 : val;
+  }),
+  currentStock: z.union([z.string(), z.number()]).optional().transform(val => {
+    if (val == null) return 0;
+    return typeof val === 'string' ? parseFloat(val) || 0 : val;
+  }),
+  minimumStockLevel: z.union([z.string(), z.number()]).optional().transform(val => {
+    if (val == null) return 0;
+    return typeof val === 'string' ? parseFloat(val) || 0 : val;
+  }),
+  purchaseRate: z.union([z.string(), z.number()]).optional().transform(val => {
+    if (val == null) return 0;
+    return typeof val === 'string' ? parseFloat(val) || 0 : val;
+  }),
+  saleRate: z.union([z.string(), z.number()]).optional().transform(val => {
+    if (val == null) return 0;
+    return typeof val === 'string' ? parseFloat(val) || 0 : val;
+  }),
+});
+
+export const insertInvoiceTransporterSchema = createInsertSchema(invoiceTransporters).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSalesInvoiceSchema = createInsertSchema(salesInvoices).omit({
+  id: true,
+  createdAt: true,
+  modifiedAt: true,
+}).extend({
+  invoiceDate: z.union([z.string(), z.date()]).transform(val => typeof val === 'string' ? new Date(val) : val),
+  buyerOrderDate: z.union([z.string(), z.date()]).optional().transform(val => {
+    if (val == null) return undefined;
+    return typeof val === 'string' ? new Date(val) : val;
+  }),
+  referenceDate: z.union([z.string(), z.date()]).optional().transform(val => {
+    if (val == null) return undefined;
+    return typeof val === 'string' ? new Date(val) : val;
+  }),
+  dueDate: z.union([z.string(), z.date()]).optional().transform(val => {
+    if (val == null) return undefined;
+    return typeof val === 'string' ? new Date(val) : val;
+  }),
+});
+
+export const insertPurchaseInvoiceSchema = createInsertSchema(purchaseInvoices).omit({
+  id: true,
+  createdAt: true,
+  modifiedAt: true,
+}).extend({
+  invoiceDate: z.union([z.string(), z.date()]).transform(val => typeof val === 'string' ? new Date(val) : val),
+  supplierInvoiceDate: z.union([z.string(), z.date()]).transform(val => typeof val === 'string' ? new Date(val) : val),
+  dueDate: z.union([z.string(), z.date()]).optional().transform(val => {
+    if (val == null) return undefined;
+    return typeof val === 'string' ? new Date(val) : val;
+  }),
+});
+
+export const insertSalesInvoiceItemSchema = createInsertSchema(salesInvoiceItems).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  quantity: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val || 0),
+  ratePerUnit: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val || 0),
+  grossAmount: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val || 0),
+  discountPercentage: z.union([z.string(), z.number()]).optional().transform(val => {
+    if (val == null) return 0;
+    return typeof val === 'string' ? parseFloat(val) || 0 : val;
+  }),
+  taxableAmount: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val || 0),
+  totalAmount: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val || 0),
+});
+
+export const insertPurchaseInvoiceItemSchema = createInsertSchema(purchaseInvoiceItems).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  quantity: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val || 0),
+  ratePerUnit: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val || 0),
+  grossAmount: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val || 0),
+  taxableAmount: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val || 0),
+  totalAmount: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val || 0),
+});
+
+// Types for new tables
+export type InvoiceCompany = typeof invoiceCompanies.$inferSelect;
+export type InsertInvoiceCompany = z.infer<typeof insertInvoiceCompanySchema>;
+
+export type InvoiceParty = typeof invoiceParties.$inferSelect;
+export type InsertInvoiceParty = z.infer<typeof insertInvoicePartySchema>;
+
+export type InvoiceProduct = typeof invoiceProducts.$inferSelect;
+export type InsertInvoiceProduct = z.infer<typeof insertInvoiceProductSchema>;
+
+export type InvoiceTransporter = typeof invoiceTransporters.$inferSelect;
+export type InsertInvoiceTransporter = z.infer<typeof insertInvoiceTransporterSchema>;
+
+export type SalesInvoice = typeof salesInvoices.$inferSelect;
+export type InsertSalesInvoice = z.infer<typeof insertSalesInvoiceSchema>;
+
+export type SalesInvoiceItem = typeof salesInvoiceItems.$inferSelect;
+export type InsertSalesInvoiceItem = z.infer<typeof insertSalesInvoiceItemSchema>;
+
+export type PurchaseInvoice = typeof purchaseInvoices.$inferSelect;
+export type InsertPurchaseInvoice = z.infer<typeof insertPurchaseInvoiceSchema>;
+
+export type PurchaseInvoiceItem = typeof purchaseInvoiceItems.$inferSelect;
+export type InsertPurchaseInvoiceItem = z.infer<typeof insertPurchaseInvoiceItemSchema>;

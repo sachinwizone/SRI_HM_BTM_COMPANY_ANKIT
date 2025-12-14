@@ -84,7 +84,9 @@ interface EditUserRequest {
 export default function UserManagement() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [viewingUser, setViewingUser] = useState<User | null>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<{[key: string]: string[]}>({});
   const [editPermissions, setEditPermissions] = useState<{[key: string]: string[]}>({});
   const { toast } = useToast();
@@ -105,6 +107,10 @@ export default function UserManagement() {
       lastName: "",
       email: "",
       role: "SALES_EXECUTIVE",
+      employeeCode: "",
+      mobileNumber: "",
+      designation: "",
+      department: "",
     },
   });
 
@@ -250,15 +256,29 @@ export default function UserManagement() {
     });
   };
 
-  const onCreateSubmit = (data: RegisterRequest) => {
+  const onCreateSubmit = async (data: RegisterRequest) => {
     const permissionsArray = Object.entries(selectedPermissions)
       .flatMap(([module, actions]) => 
         actions.map(action => ({ module, action, granted: true }))
       );
     
-    createUserMutation.mutate({
-      ...data,
-      permissions: permissionsArray
+    // First create the user
+    createUserMutation.mutate(data, {
+      onSuccess: async (newUser: any) => {
+        // Then set permissions if any are selected
+        if (permissionsArray.length > 0) {
+          try {
+            await fetch(`/api/users/${newUser.id}/permissions`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify(permissionsArray)
+            });
+          } catch (error) {
+            console.error('Failed to set permissions:', error);
+          }
+        }
+      }
     });
   };
 
@@ -305,7 +325,7 @@ export default function UserManagement() {
     });
   };
 
-  const onEditSubmit = (data: EditUserRequest) => {
+  const onEditSubmit = async (data: EditUserRequest) => {
     if (!editingUser) return;
     
     // Remove empty password field
@@ -320,11 +340,25 @@ export default function UserManagement() {
         actions.map(action => ({ module, action, granted: true }))
       );
     
+    // First update the user
     updateUserMutation.mutate({ 
       id: editingUser.id, 
-      data: {
-        ...updateData,
-        permissions: permissionsArray
+      data: updateData
+    }, {
+      onSuccess: async () => {
+        // Then update permissions separately
+        if (permissionsArray.length > 0) {
+          try {
+            await fetch(`/api/users/${editingUser.id}/permissions`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify(permissionsArray)
+            });
+          } catch (error) {
+            console.error('Failed to update permissions:', error);
+          }
+        }
       }
     });
   };
@@ -333,6 +367,11 @@ export default function UserManagement() {
     if (confirm("Are you sure you want to deactivate this user?")) {
       deleteUserMutation.mutate(userId);
     }
+  };
+
+  const handleViewUser = (user: User) => {
+    setViewingUser(user);
+    setIsViewDialogOpen(true);
   };
 
   const getRoleColor = (role: string) => {
@@ -396,154 +435,273 @@ export default function UserManagement() {
               Add User
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create New User</DialogTitle>
+              <DialogTitle className="text-xl font-semibold">Create New User</DialogTitle>
               <DialogDescription>
                 Add a new user to the system. They will be able to login with these credentials.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={form.handleSubmit(onCreateSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input
-                    id="firstName"
-                    {...form.register("firstName")}
-                    placeholder="First name"
-                  />
-                  {form.formState.errors.firstName && (
-                    <p className="text-sm text-red-600 mt-1">
-                      {form.formState.errors.firstName.message}
-                    </p>
-                  )}
+            <form onSubmit={form.handleSubmit(onCreateSubmit)} className="space-y-6">
+              {/* Basic Information Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <UserIcon className="h-4 w-4 text-blue-600" />
+                  <Label className="text-base font-semibold">Basic Information</Label>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="firstName" className="text-sm font-medium">First Name</Label>
+                    <Input
+                      id="firstName"
+                      {...form.register("firstName")}
+                      placeholder="First name"
+                      className="mt-1"
+                    />
+                    {form.formState.errors.firstName && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {form.formState.errors.firstName.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="lastName" className="text-sm font-medium">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      {...form.register("lastName")}
+                      placeholder="Last name"
+                      className="mt-1"
+                    />
+                    {form.formState.errors.lastName && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {form.formState.errors.lastName.message}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input
-                    id="lastName"
-                    {...form.register("lastName")}
-                    placeholder="Last name"
-                  />
-                  {form.formState.errors.lastName && (
-                    <p className="text-sm text-red-600 mt-1">
-                      {form.formState.errors.lastName.message}
-                    </p>
-                  )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="email" className="text-sm font-medium">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      {...form.register("email")}
+                      placeholder="Enter email"
+                      className="mt-1"
+                    />
+                    {form.formState.errors.email && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {form.formState.errors.email.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="username" className="text-sm font-medium">Username</Label>
+                    <Input
+                      id="username"
+                      {...form.register("username")}
+                      placeholder="Choose username"
+                      className="mt-1"
+                    />
+                    {form.formState.errors.username && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {form.formState.errors.username.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="role" className="text-sm font-medium">Role</Label>
+                    <Select 
+                      value={form.watch("role")} 
+                      onValueChange={(value) => form.setValue("role", value as any)}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SALES_EXECUTIVE">Sales Executive</SelectItem>
+                        <SelectItem value="SALES_MANAGER">Sales Manager</SelectItem>
+                        <SelectItem value="OPERATIONS">Operations</SelectItem>
+                        <SelectItem value="ADMIN">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {form.formState.errors.role && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {form.formState.errors.role.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="employeeCode" className="text-sm font-medium">Employee ID</Label>
+                    <Input
+                      id="employeeCode"
+                      {...form.register("employeeCode")}
+                      placeholder="Enter employee ID"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="designation" className="text-sm font-medium">Designation</Label>
+                    <Input
+                      id="designation"
+                      {...form.register("designation")}
+                      placeholder="Enter designation"
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="department" className="text-sm font-medium">Department</Label>
+                    <Input
+                      id="department"
+                      {...form.register("department")}
+                      placeholder="Enter department"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="mobileNumber" className="text-sm font-medium">Phone No.</Label>
+                    <Input
+                      id="mobileNumber"
+                      type="tel"
+                      {...form.register("mobileNumber")}
+                      placeholder="Enter phone number"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div></div> {/* Empty div for grid spacing */}
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  {...form.register("email")}
-                  placeholder="Enter email"
-                />
-                {form.formState.errors.email && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {form.formState.errors.email.message}
-                  </p>
-                )}
-              </div>
+              {/* Security Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <Shield className="h-4 w-4 text-green-600" />
+                  <Label className="text-base font-semibold">Security</Label>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="password" className="text-sm font-medium">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      {...form.register("password")}
+                      placeholder="Choose password"
+                      className="mt-1"
+                    />
+                    {form.formState.errors.password && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {form.formState.errors.password.message}
+                      </p>
+                    )}
+                  </div>
 
-              <div>
-                <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  {...form.register("username")}
-                  placeholder="Choose username"
-                />
-                {form.formState.errors.username && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {form.formState.errors.username.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <Label htmlFor="role">Role</Label>
-                <Select 
-                  value={form.watch("role")} 
-                  onValueChange={(value) => form.setValue("role", value as any)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SALES_EXECUTIVE">Sales Executive</SelectItem>
-                    <SelectItem value="SALES_MANAGER">Sales Manager</SelectItem>
-                    <SelectItem value="OPERATIONS">Operations</SelectItem>
-                    <SelectItem value="ADMIN">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-                {form.formState.errors.role && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {form.formState.errors.role.message}
-                  </p>
-                )}
+                  <div>
+                    <Label htmlFor="confirmPassword" className="text-sm font-medium">Confirm Password</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      {...form.register("confirmPassword")}
+                      placeholder="Confirm password"
+                      className="mt-1"
+                    />
+                    {form.formState.errors.confirmPassword && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {form.formState.errors.confirmPassword.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Permissions Management */}
               <div className="space-y-4">
-                <Separator />
-                <div className="flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-blue-600" />
-                  <Label className="text-base font-semibold">Module Permissions</Label>
+                <div className="flex items-center justify-between pb-2 border-b">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-purple-600" />
+                    <Label className="text-base font-semibold">Module Permissions</Label>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedPermissions({})}
+                  >
+                    Clear All
+                  </Button>
                 </div>
-                <p className="text-sm text-gray-600">
-                  Select which modules and actions this user can access. Admins have full access by default.
+                <p className="text-sm text-gray-600 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <span className="font-medium">💡 Tip:</span> Select which modules and actions this user can access. 
+                  Click the module checkbox to select all actions for that module. Admins have full access by default.
                 </p>
                 
-                <ScrollArea className="h-64 w-full border rounded-md p-4">
-                  <div className="space-y-4">
+                <ScrollArea className="h-80 w-full border rounded-lg p-4 bg-gray-50 dark:bg-gray-900/50">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {MODULES.map((module) => {
                       const modulePermissions = selectedPermissions[module.value] || [];
                       const hasAllActions = ACTIONS.every(action => modulePermissions.includes(action.value));
                       const hasViewPermission = modulePermissions.includes('VIEW');
                       
                       return (
-                        <div key={module.value} className="space-y-2 p-3 border rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
+                        <div key={module.value} className="bg-white dark:bg-gray-800 p-4 border rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-3">
                               <Checkbox
                                 id={`module-${module.value}`}
                                 checked={hasAllActions}
                                 onCheckedChange={() => toggleAllActionsForModule(module.value, true)}
                                 data-testid={`checkbox-module-${module.value}`}
+                                className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                               />
                               <Label 
                                 htmlFor={`module-${module.value}`} 
-                                className="font-medium cursor-pointer"
+                                className="font-medium cursor-pointer text-gray-900 dark:text-white"
                               >
                                 {module.label}
                               </Label>
                             </div>
-                            <Badge variant={hasViewPermission ? "default" : "secondary"}>
-                              {modulePermissions.length} actions
+                            <Badge 
+                              variant={hasViewPermission ? "default" : "secondary"}
+                              className="text-xs"
+                            >
+                              {modulePermissions.length}/{ACTIONS.length}
                             </Badge>
                           </div>
                           
-                          <div className="grid grid-cols-4 gap-2 ml-6">
+                          <div className="grid grid-cols-2 gap-2 ml-6">
                             {ACTIONS.map((action) => {
                               const Icon = action.icon;
                               const isChecked = modulePermissions.includes(action.value);
                               
                               return (
-                                <div key={action.value} className="flex items-center space-x-2">
+                                <div key={action.value} className="flex items-center space-x-2 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
                                   <Checkbox
                                     id={`${module.value}-${action.value}`}
                                     checked={isChecked}
                                     onCheckedChange={() => togglePermission(module.value, action.value, true)}
                                     data-testid={`checkbox-${module.value}-${action.value}`}
+                                    className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
                                   />
-                                  <div className="flex items-center space-x-1">
-                                    <Icon className="h-3 w-3" />
+                                  <div className="flex items-center space-x-1.5">
+                                    <Icon className="h-3.5 w-3.5 text-gray-500" />
                                     <Label 
                                       htmlFor={`${module.value}-${action.value}`}
-                                      className="text-xs cursor-pointer"
+                                      className="text-sm cursor-pointer text-gray-700 dark:text-gray-300"
                                     >
                                       {action.label}
                                     </Label>
@@ -607,167 +765,223 @@ export default function UserManagement() {
 
         {/* Edit User Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit User</DialogTitle>
+              <DialogTitle className="text-xl font-semibold">Edit User</DialogTitle>
               <DialogDescription>
                 Update user information. Leave password blank to keep current password.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="edit-firstName">First Name</Label>
-                  <Input
-                    id="edit-firstName"
-                    {...editForm.register("firstName")}
-                    placeholder="Enter first name"
-                  />
-                  {editForm.formState.errors.firstName && (
-                    <p className="text-sm text-red-600 mt-1">
-                      {editForm.formState.errors.firstName.message}
-                    </p>
-                  )}
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
+              {/* Basic Information Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <UserIcon className="h-4 w-4 text-blue-600" />
+                  <Label className="text-base font-semibold">Basic Information</Label>
                 </div>
-                <div>
-                  <Label htmlFor="edit-lastName">Last Name</Label>
-                  <Input
-                    id="edit-lastName"
-                    {...editForm.register("lastName")}
-                    placeholder="Enter last name"
-                  />
-                  {editForm.formState.errors.lastName && (
-                    <p className="text-sm text-red-600 mt-1">
-                      {editForm.formState.errors.lastName.message}
-                    </p>
-                  )}
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-firstName" className="text-sm font-medium">First Name</Label>
+                    <Input
+                      id="edit-firstName"
+                      {...editForm.register("firstName")}
+                      placeholder="Enter first name"
+                      className="mt-1"
+                    />
+                    {editForm.formState.errors.firstName && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {editForm.formState.errors.firstName.message}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-lastName" className="text-sm font-medium">Last Name</Label>
+                    <Input
+                      id="edit-lastName"
+                      {...editForm.register("lastName")}
+                      placeholder="Enter last name"
+                      className="mt-1"
+                    />
+                    {editForm.formState.errors.lastName && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {editForm.formState.errors.lastName.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-email" className="text-sm font-medium">Email</Label>
+                    <Input
+                      id="edit-email"
+                      type="email"
+                      {...editForm.register("email")}
+                      placeholder="Enter email address"
+                      className="mt-1"
+                    />
+                    {editForm.formState.errors.email && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {editForm.formState.errors.email.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-username" className="text-sm font-medium">Username</Label>
+                    <Input
+                      id="edit-username"
+                      {...editForm.register("username")}
+                      placeholder="Choose username"
+                      className="mt-1"
+                    />
+                    {editForm.formState.errors.username && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {editForm.formState.errors.username.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-role" className="text-sm font-medium">Role</Label>
+                    <Select 
+                      value={editForm.watch("role")} 
+                      onValueChange={(value) => editForm.setValue("role", value as any)}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SALES_EXECUTIVE">Sales Executive</SelectItem>
+                        <SelectItem value="SALES_MANAGER">Sales Manager</SelectItem>
+                        <SelectItem value="OPERATIONS">Operations</SelectItem>
+                        <SelectItem value="ADMIN">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {editForm.formState.errors.role && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {editForm.formState.errors.role.message}
+                      </p>
+                    )}
+                  </div>
+                  <div></div> {/* Empty div for grid spacing */}
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="edit-email">Email</Label>
-                <Input
-                  id="edit-email"
-                  type="email"
-                  {...editForm.register("email")}
-                  placeholder="Enter email address"
-                />
-                {editForm.formState.errors.email && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {editForm.formState.errors.email.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <Label htmlFor="edit-username">Username</Label>
-                <Input
-                  id="edit-username"
-                  {...editForm.register("username")}
-                  placeholder="Choose username"
-                />
-                {editForm.formState.errors.username && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {editForm.formState.errors.username.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <Label htmlFor="edit-role">Role</Label>
-                <Select 
-                  value={editForm.watch("role")} 
-                  onValueChange={(value) => editForm.setValue("role", value as any)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SALES_EXECUTIVE">Sales Executive</SelectItem>
-                    <SelectItem value="SALES_MANAGER">Sales Manager</SelectItem>
-                    <SelectItem value="OPERATIONS">Operations</SelectItem>
-                    <SelectItem value="ADMIN">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-                {editForm.formState.errors.role && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {editForm.formState.errors.role.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <Label htmlFor="edit-password">New Password (optional)</Label>
-                <Input
-                  id="edit-password"
-                  type="password"
-                  {...editForm.register("password")}
-                  placeholder="Leave blank to keep current password"
-                />
-                {editForm.formState.errors.password && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {editForm.formState.errors.password.message}
-                  </p>
-                )}
+              {/* Security Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <Shield className="h-4 w-4 text-green-600" />
+                  <Label className="text-base font-semibold">Security</Label>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-password" className="text-sm font-medium">New Password (optional)</Label>
+                    <Input
+                      id="edit-password"
+                      type="password"
+                      {...editForm.register("password")}
+                      placeholder="Leave blank to keep current password"
+                      className="mt-1"
+                    />
+                    {editForm.formState.errors.password && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {editForm.formState.errors.password.message}
+                      </p>
+                    )}
+                  </div>
+                  <div></div> {/* Empty div for grid spacing */}
+                </div>
               </div>
 
               {/* Permissions Section */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-semibold">Module Permissions</Label>
+                <div className="flex items-center justify-between pb-2 border-b">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-purple-600" />
+                    <Label className="text-base font-semibold">Module Permissions</Label>
+                  </div>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => setEditPermissions({})}
                   >
-                    Reset All
+                    Clear All
                   </Button>
                 </div>
+                <p className="text-sm text-gray-600 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <span className="font-medium">⚠️ Note:</span> Changes to permissions will take effect on the user's next login. 
+                  Click the module checkbox to select all actions for that module.
+                </p>
                 
-                <div className="border rounded-lg p-4 max-h-96 overflow-y-auto">
-                  <div className="grid gap-4">
-                    {MODULES.map((module) => (
-                      <div key={module.value} className="border rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-3">
-                            <Checkbox
-                              id={`edit-module-${module.value}`}
-                              checked={ACTIONS.every(action => 
-                                editPermissions[module.value]?.includes(action.value)
-                              )}
-                              onCheckedChange={() => toggleAllActionsForModule(module.value, false)}
-                            />
-                            <Label htmlFor={`edit-module-${module.value}`} className="font-medium">
-                              {module.label}
-                            </Label>
-                          </div>
-                          <Badge variant="outline" className="text-xs">
-                            {editPermissions[module.value]?.length || 0} of {ACTIONS.length}
-                          </Badge>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-2 ml-6">
-                          {ACTIONS.map((action) => (
-                            <div key={action.value} className="flex items-center space-x-2">
+                <ScrollArea className="h-80 w-full border rounded-lg p-4 bg-gray-50 dark:bg-gray-900/50">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {MODULES.map((module) => {
+                      const modulePermissions = editPermissions[module.value] || [];
+                      const hasAllActions = ACTIONS.every(action => modulePermissions.includes(action.value));
+                      const hasViewPermission = modulePermissions.includes('VIEW');
+                      
+                      return (
+                        <div key={module.value} className="bg-white dark:bg-gray-800 p-4 border rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-3">
                               <Checkbox
-                                id={`edit-permission-${module.value}-${action.value}`}
-                                checked={editPermissions[module.value]?.includes(action.value) || false}
-                                onCheckedChange={() => togglePermission(module.value, action.value, false)}
+                                id={`edit-module-${module.value}`}
+                                checked={hasAllActions}
+                                onCheckedChange={() => toggleAllActionsForModule(module.value, false)}
+                                className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                               />
                               <Label 
-                                htmlFor={`edit-permission-${module.value}-${action.value}`}
-                                className="text-sm text-gray-600 dark:text-gray-400"
+                                htmlFor={`edit-module-${module.value}`} 
+                                className="font-medium cursor-pointer text-gray-900 dark:text-white"
                               >
-                                {action.label}
+                                {module.label}
                               </Label>
                             </div>
-                          ))}
+                            <Badge 
+                              variant={hasViewPermission ? "default" : "secondary"}
+                              className="text-xs"
+                            >
+                              {modulePermissions.length}/{ACTIONS.length}
+                            </Badge>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-2 ml-6">
+                            {ACTIONS.map((action) => {
+                              const Icon = action.icon;
+                              const isChecked = modulePermissions.includes(action.value);
+                              
+                              return (
+                                <div key={action.value} className="flex items-center space-x-2 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                                  <Checkbox
+                                    id={`edit-permission-${module.value}-${action.value}`}
+                                    checked={isChecked}
+                                    onCheckedChange={() => togglePermission(module.value, action.value, false)}
+                                    className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+                                  />
+                                  <div className="flex items-center space-x-1.5">
+                                    <Icon className="h-3.5 w-3.5 text-gray-500" />
+                                    <Label 
+                                      htmlFor={`edit-permission-${module.value}-${action.value}`}
+                                      className="text-sm cursor-pointer text-gray-700 dark:text-gray-300"
+                                    >
+                                      {action.label}
+                                    </Label>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
-                </div>
+                </ScrollArea>
               </div>
 
               <DialogFooter>
@@ -786,6 +1000,175 @@ export default function UserManagement() {
                 </Button>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* View User Details Dialog */}
+        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold">User Details</DialogTitle>
+              <DialogDescription>
+                Complete information about the selected user
+              </DialogDescription>
+            </DialogHeader>
+            
+            {viewingUser && (
+              <div className="space-y-6">
+                {/* User Avatar and Basic Info */}
+                <div className="flex items-center space-x-4 pb-4 border-b">
+                  <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center">
+                    <span className="text-2xl font-bold text-white">
+                      {viewingUser.firstName[0]}{viewingUser.lastName[0]}
+                    </span>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {viewingUser.firstName} {viewingUser.lastName}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">@{viewingUser.username}</p>
+                    <Badge className={getRoleColor(viewingUser.role)}>
+                      {viewingUser.role.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                  <div className="text-right">
+                    <Badge variant={viewingUser.isActive ? "default" : "secondary"}>
+                      {viewingUser.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Contact Information */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b">
+                    <UserIcon className="h-4 w-4 text-blue-600" />
+                    <Label className="text-base font-semibold">Contact Information</Label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm text-gray-500 dark:text-gray-400">Email</Label>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white mt-1">
+                        {viewingUser.email}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-gray-500 dark:text-gray-400">Username</Label>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white mt-1">
+                        {viewingUser.username}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Account Information */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b">
+                    <Shield className="h-4 w-4 text-green-600" />
+                    <Label className="text-base font-semibold">Account Information</Label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm text-gray-500 dark:text-gray-400">User ID</Label>
+                      <p className="text-sm font-mono text-gray-900 dark:text-white mt-1 break-all">
+                        {viewingUser.id}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-gray-500 dark:text-gray-400">Role</Label>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white mt-1">
+                        {viewingUser.role.replace('_', ' ')}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-gray-500 dark:text-gray-400">Account Status</Label>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white mt-1">
+                        {viewingUser.isActive ? "Active" : "Inactive"}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-gray-500 dark:text-gray-400">Last Login</Label>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white mt-1">
+                        {formatDate(viewingUser.lastLogin)}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-gray-500 dark:text-gray-400">Created At</Label>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white mt-1">
+                        {new Date(viewingUser.createdAt).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-gray-500 dark:text-gray-400">Last Updated</Label>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white mt-1">
+                        {new Date(viewingUser.updatedAt).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Permissions Summary */}
+                {viewingUser.permissions && viewingUser.permissions.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <Shield className="h-4 w-4 text-purple-600" />
+                      <Label className="text-base font-semibold">Permissions Summary</Label>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        This user has permissions for the following modules:
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {Array.from(new Set(viewingUser.permissions
+                          .filter(p => p.granted)
+                          .map(p => p.module)))
+                          .map((module) => (
+                            <Badge key={module} variant="outline" className="text-xs">
+                              {MODULES.find(m => m.value === module)?.label || module}
+                            </Badge>
+                          ))}
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-3">
+                        Total granted permissions: {viewingUser.permissions.filter(p => p.granted).length}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsViewDialogOpen(false);
+                  setViewingUser(null);
+                }}
+              >
+                Close
+              </Button>
+              <Button
+                onClick={() => {
+                  setIsViewDialogOpen(false);
+                  if (viewingUser) {
+                    handleEditUser(viewingUser);
+                  }
+                }}
+              >
+                Edit User
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
@@ -843,9 +1226,12 @@ export default function UserManagement() {
                             </div>
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            <button
+                              onClick={() => handleViewUser(user)}
+                              className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline cursor-pointer text-left"
+                            >
                               {user.firstName} {user.lastName}
-                            </div>
+                            </button>
                             <div className="text-sm text-gray-500 dark:text-gray-400">
                               {user.email}
                             </div>

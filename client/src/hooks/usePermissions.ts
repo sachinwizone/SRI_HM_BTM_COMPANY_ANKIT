@@ -20,7 +20,9 @@ export type ModuleName =
   | 'PRICING'
   | 'SALES_OPERATIONS'
   | 'CLIENT_TRACKING'
-  | 'TOUR_ADVANCE';
+  | 'TOUR_ADVANCE'
+  | 'INVOICE_MANAGEMENT'
+  | 'REPORTS';
 
 export type ActionType = 'VIEW' | 'ADD' | 'EDIT' | 'DELETE';
 
@@ -39,6 +41,9 @@ export function usePermissions() {
   const hasPermission = (module: ModuleName, action: ActionType = 'VIEW'): boolean => {
     // If still loading permissions, don't show anything
     if (isLoading) return false;
+    
+    // Temporary: Always allow INVOICE_MANAGEMENT and REPORTS access
+    if (module === 'INVOICE_MANAGEMENT' || module === 'REPORTS') return true;
     
     // Check if user has explicit permission for this module and action
     const permission = permissions.find(

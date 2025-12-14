@@ -41,6 +41,16 @@ interface QuotationData {
     rate: number;
     amount: number;
   };
+  transportationDetails?: {
+    vehicleType?: string;
+    vehicleNumber?: string;
+    driverName?: string;
+    driverContact?: string;
+    transportMode?: string;
+    estimatedDelivery?: string;
+    route?: string;
+    trackingNumber?: string;
+  };
 }
 
 export function generateBitumenQuotationPDF(quotationData: QuotationData) {
@@ -305,6 +315,40 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
     } catch (error) {
       console.error('Error in items table:', error);
       currentY += 50;
+    }
+
+    // Transportation Details Section (if provided)
+    if (quotationData.transportationDetails) {
+      try {
+        // Transportation header
+        doc.setFillColor(220, 50, 47);
+        doc.rect(margin, currentY, contentWidth, 8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        safeAddText('Transportation Details', margin + 5, currentY + 5.5);
+        doc.setTextColor(0, 0, 0);
+        currentY += 10;
+        
+        // Transportation details content
+        doc.setFillColor(255, 255, 255);
+        doc.rect(margin, currentY, contentWidth, 20, 'FD');
+        
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        const transportY = currentY + 5;
+        
+        safeAddText(`Transport Mode: ${quotationData.transportationDetails.transportMode || 'Road Transport'}`, margin + 5, transportY);
+        safeAddText(`Vehicle Type: ${quotationData.transportationDetails.vehicleType || 'Truck'}`, margin + 90, transportY);
+        
+        safeAddText(`Estimated Delivery: ${quotationData.transportationDetails.estimatedDelivery || 'As per schedule'}`, margin + 5, transportY + 10);
+        safeAddText(`Route: ${quotationData.transportationDetails.route || 'Standard Route'}`, margin + 90, transportY + 10);
+        
+        currentY += 25;
+      } catch (error) {
+        console.error('Error in transportation details:', error);
+        currentY += 30;
+      }
     }
     
     // Summary section

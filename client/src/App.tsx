@@ -1,8 +1,6 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import CreditPayments from "@/pages/credit-payments";
@@ -23,6 +21,8 @@ import Sales from "@/pages/sales";
 import SalesOperations from "@/pages/sales-operations";
 import TourAdvance from "@/pages/tour-advance";
 import TAReports from "@/pages/ta-reports";
+import InvoiceManagement from "@/pages/invoice-management";
+import Reports from "@/pages/reports";
 
 import UserManagement from "@/pages/user-management";
 import MasterData from "@/pages/master-data";
@@ -73,6 +73,8 @@ function Router() {
             <Route path="/team-performance" component={TeamPerformance} />
             <Route path="/sales-rates" component={SalesRates} />
             <Route path="/pricing" component={Pricing} />
+            <Route path="/invoice-management" component={InvoiceManagement} />
+            <Route path="/reports" component={Reports} />
 
             <Route path="/master-data" component={MasterData} />
             <Route path="/user-management" component={UserManagement} />
@@ -88,10 +90,7 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <Router />
     </QueryClientProvider>
   );
 }

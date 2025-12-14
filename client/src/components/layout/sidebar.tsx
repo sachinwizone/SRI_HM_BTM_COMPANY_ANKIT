@@ -65,6 +65,18 @@ const navigation: NavigationEntry[] = [
       { name: "Team Performance", href: "/team-performance", icon: TrendingUp, module: "TEAM_PERFORMANCE" },
     ],
   },
+  {
+    section: "INVOICE MANAGEMENT",
+    items: [
+      { name: "Invoice Management", href: "/invoice-management", icon: Receipt, module: "INVOICE_MANAGEMENT" },
+    ],
+  },
+  {
+    section: "REPORTS",
+    items: [
+      { name: "Reports & Analytics", href: "/reports", icon: BarChart3, module: "REPORTS" },
+    ],
+  },
 
   {
     section: "SYSTEM",
@@ -94,22 +106,36 @@ export default function Sidebar() {
     }
   }).filter(Boolean) as NavigationEntry[];
 
+  console.log('Filtered navigation:', filteredNavigation);
+
   return (
-    <aside className="w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col">
+    <aside className="w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col min-h-screen">
       {/* Header */}
       <div className="p-6 border-b border-gray-200">
         <div className="w-full -mx-6 px-1 py-3 bg-white flex justify-center items-center min-h-[100px]">
-          <img 
-            src={logoImage} 
-            alt="Bitumen Company Logo" 
-            className="w-[90%] h-auto object-contain max-h-24"
-          />
+          <div className="text-center">
+            <img 
+              src={logoImage} 
+              alt="Bitumen Company Logo" 
+              className="w-[90%] h-auto object-contain max-h-24 mx-auto"
+              onError={(e) => {
+                console.log('Image failed to load:', logoImage);
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+            <div className="text-xl font-bold text-gray-900 mt-2">
+              Bitumen Company
+            </div>
+            <p className="text-sm text-gray-500">Business Management</p>
+          </div>
         </div>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
         <div className="space-y-1">
+
+          
           {filteredNavigation.map((item, index) => {
             if ('href' in item) {
               const Icon = item.icon;

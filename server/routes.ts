@@ -18,8 +18,18 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { localFileStorage } from "./localFileStorage";
+import multer from "multer";
+import { db } from "./db";
+import { syncSupplierToInvoiceParties } from "./sales-operations-storage";
+import { clients, tourAdvances } from "@shared/schema";
+import { sql, eq } from "drizzle-orm";
+import setupSalesOperationsRoutes from "./sales-operations-routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup Sales Operations Routes
+  setupSalesOperationsRoutes(app);
+  
   // Authentication Routes (Public)
   app.post("/api/auth/login", async (req, res) => {
     try {
@@ -934,15 +944,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/purchase-orders", async (req, res) => {
     try {
       const { purchaseOrder, items } = req.body;
+      const user = (req as any).user;
+      
       console.log("Received PO data:", JSON.stringify(purchaseOrder, null, 2));
       console.log("Received items data:", JSON.stringify(items, null, 2));
       
-      // Prepare purchase order data with proper date conversion
+      // Prepare purchase order data with proper date conversion and required fields
       const poData = {
         ...purchaseOrder,
         // Convert string dates to Date objects
         poDate: purchaseOrder.poDate ? new Date(purchaseOrder.poDate) : new Date(),
         deliveryDate: purchaseOrder.deliveryDate ? new Date(purchaseOrder.deliveryDate) : undefined,
+        // Add required fields with defaults if not provided
+        supplierName: purchaseOrder.supplierName || 'Unknown Supplier',
+        buyerName: purchaseOrder.buyerName || user?.username || 'System',
+        createdBy: user?.id || purchaseOrder.createdBy,
         // Remove conflicting date fields to avoid string/Date type conflicts
         orderDate: undefined,
         expectedDeliveryDate: undefined,
@@ -951,11 +967,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Prepare items data with field mapping and type conversion
       const itemsData = items.map((item: any) => ({
         ...item,
-        itemName: item.itemDescription || item.itemName || item.productName,
-        quantityOrdered: Number(item.quantityOrdered),
-        unit: item.unitOfMeasure || item.unit,
-        unitPrice: Number(item.unitPrice),
-        totalPrice: Number(item.totalLineValue || item.totalPrice),
+        itemCode: item.itemCode || item.productCode || 'ITEM-001',
+        itemDescription: item.itemDescription || item.itemName || item.productName || 'Item',
+        quantityOrdered: String(item.quantityOrdered || 0),
+        unitOfMeasure: item.unitOfMeasure || item.unit || 'PCS',
+        unitPrice: String(item.unitPrice || 0),
+        totalLineValue: String(item.totalLineValue || item.totalPrice || 0),
         deliveryDate: item.deliveryDate ? new Date(item.deliveryDate) : undefined,
       }));
       
@@ -1332,9 +1349,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         completedAt: validatedData.completedAt ? new Date(validatedData.completedAt) : undefined,
       } as any;
       
-      // Update lead status if provided
-      if (validatedData.status && validatedData.leadId) {
-        await storage.updateLead(validatedData.leadId, { leadStatus: validatedData.status });
+      // Update lead status if provided and it's a valid lead status
+      const validLeadStatuses = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'NEGOTIATION', 'CLOSED_WON', 'CLOSED_LOST'];
+      const leadStatusFromBody = (req.body as any).leadStatus;
+      if (leadStatusFromBody && validatedData.leadId && validLeadStatuses.includes(leadStatusFromBody)) {
+        await storage.updateLead(validatedData.leadId, { leadStatus: leadStatusFromBody as any });
       }
       
       const leadFollowUp = await storage.createLeadFollowUp(leadFollowUpData);
@@ -1358,6 +1377,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nextFollowUpDate: validatedData.nextFollowUpDate ? new Date(validatedData.nextFollowUpDate) : undefined,
         completedAt: validatedData.completedAt ? new Date(validatedData.completedAt) : undefined,
       } as any;
+      
+      // Handle status field properly - if it's a follow-up status, keep it as status
+      // If it's a lead status, use followUpStatus for the follow-up record
+      if (validatedData.status) {
+        const followUpStatuses = ["PENDING", "COMPLETED", "CANCELLED"];
+        const validLeadStatuses = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'NEGOTIATION', 'CLOSED_WON', 'CLOSED_LOST'];
+        
+        if (followUpStatuses.includes(validatedData.status)) {
+          // It's a follow-up status
+          leadFollowUpData.status = validatedData.status;
+        } else if (validLeadStatuses.includes(validatedData.status)) {
+          // It's a lead status - update the lead status and set follow-up status appropriately
+          leadFollowUpData.followUpStatus = validatedData.followUpStatus || 'PENDING';
+          if (validatedData.leadId) {
+            await storage.updateLead(validatedData.leadId, { leadStatus: validatedData.status as any });
+          }
+        }
+      }
       
       // Remove undefined values
       Object.keys(leadFollowUpData).forEach(key => (leadFollowUpData as any)[key] === undefined && delete (leadFollowUpData as any)[key]);
@@ -1441,35 +1478,160 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tracking = await storage.getAllClientTracking();
       }
       
-      res.json(tracking);
+      // Parse products JSON for each tracking record
+      const processedTracking = tracking.map((track: any) => {
+        const result = { ...track };
+        if (result.products && typeof result.products === 'string') {
+          try {
+            result.products = JSON.parse(result.products);
+          } catch (e) {
+            // Keep as string if parsing fails
+          }
+        }
+        return result;
+      });
+      
+      res.json(processedTracking);
     } catch (error) {
+      console.error("Client tracking fetch error:", error);
       res.status(500).json({ message: "Failed to fetch client tracking" });
     }
   });
 
   app.post("/api/client-tracking", async (req, res) => {
     try {
-      const trackingData = insertClientTrackingSchema.parse(req.body);
+      const requestData = req.body;
+      
+      // Handle products array serialization
+      if (requestData.products && Array.isArray(requestData.products)) {
+        requestData.products = JSON.stringify(requestData.products);
+      }
+      
+      const trackingData = insertClientTrackingSchema.parse(requestData);
       const tracking = await storage.createClientTracking(trackingData);
-      res.status(201).json(tracking);
+      
+      // Parse products back for response
+      const responseData = { ...tracking };
+      if (responseData.products && typeof responseData.products === 'string') {
+        try {
+          responseData.products = JSON.parse(responseData.products);
+        } catch (e) {
+          // Keep as string if parsing fails
+        }
+      }
+      
+      res.status(201).json(responseData);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid tracking data", errors: error.errors });
       }
+      console.error("Client tracking creation error:", error);
       res.status(500).json({ message: "Failed to create tracking" });
     }
   });
 
   app.put("/api/client-tracking/:id", async (req, res) => {
     try {
-      const trackingData = insertClientTrackingSchema.partial().parse(req.body);
+      const requestData = req.body;
+      
+      // Handle products array serialization
+      if (requestData.products && Array.isArray(requestData.products)) {
+        requestData.products = JSON.stringify(requestData.products);
+      }
+      
+      const trackingData = insertClientTrackingSchema.partial().parse(requestData);
       const tracking = await storage.updateClientTracking(req.params.id, trackingData);
-      res.json(tracking);
+      
+      // Parse products back for response
+      const responseData = { ...tracking };
+      if (responseData.products && typeof responseData.products === 'string') {
+        try {
+          responseData.products = JSON.parse(responseData.products);
+        } catch (e) {
+          // Keep as string if parsing fails
+        }
+      }
+      
+      res.json(responseData);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid tracking data", errors: error.errors });
       }
+      console.error("Client tracking update error:", error);
       res.status(500).json({ message: "Failed to update tracking" });
+    }
+  });
+
+  // Client Tracking Status Update API - Enhanced with comprehensive logging
+  app.put("/api/client-tracking/:id/status", async (req, res) => {
+    try {
+      const { status, currentLocation, notes, estimatedArrival } = req.body;
+      const trackingId = req.params.id;
+      
+      if (!status || !currentLocation) {
+        return res.status(400).json({ message: "Status and location are required" });
+      }
+
+      // Get current tracking data for comparison
+      const currentTracking = await storage.getClientTracking(trackingId);
+      if (!currentTracking) {
+        return res.status(404).json({ message: "Tracking record not found" });
+      }
+
+      console.log(`📦 Tracking Status Update - ID: ${trackingId}`);
+      console.log(`   Previous Status: ${currentTracking.status} → New Status: ${status}`);
+      console.log(`   Previous Location: ${currentTracking.currentLocation} → New Location: ${currentLocation}`);
+      console.log(`   Notes: ${notes || 'No notes provided'}`);
+      console.log(`   ETA: ${estimatedArrival || 'Not specified'}`);
+      console.log(`   Updated By: ${(req as any).user?.username || (req as any).user?.email || 'System'}`);
+
+      // Update the main tracking record
+      const updatedTracking = await storage.updateClientTracking(trackingId, {
+        status,
+        currentLocation,
+        estimatedArrival: estimatedArrival ? new Date(estimatedArrival) : undefined,
+        lastUpdated: new Date(),
+      });
+
+      // Create comprehensive tracking log entry
+      const logData = {
+        trackingId,
+        status,
+        location: currentLocation,
+        notes: notes || `Status updated from ${currentTracking.status} to ${status}`,
+        estimatedArrival: estimatedArrival ? new Date(estimatedArrival) : undefined,
+        updatedBy: (req as any).user?.id || null,
+      };
+
+      const trackingLog = await storage.createTrackingLog(logData);
+      console.log(`✅ Tracking log created with ID: ${trackingLog.id}`);
+
+      // Parse products back for response if they exist
+      const responseData = { ...updatedTracking };
+      if (responseData.products && typeof responseData.products === 'string') {
+        try {
+          responseData.products = JSON.parse(responseData.products);
+        } catch (e) {
+          // Keep as string if parsing fails
+        }
+      }
+
+      res.json(responseData);
+    } catch (error) {
+      console.error("❌ Tracking status update error:", error);
+      res.status(500).json({ message: "Failed to update tracking status" });
+    }
+  });
+
+  // Get tracking logs for a specific tracking entry
+  app.get("/api/client-tracking/:id/logs", async (req, res) => {
+    try {
+      const trackingId = req.params.id;
+      const logs = await storage.getTrackingLogs(trackingId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Tracking logs fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch tracking logs" });
     }
   });
 
@@ -1677,8 +1839,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "clientId and documentType are required" });
       }
 
-      const objectStorageService = new ObjectStorageService();
-      const uploadURL = await objectStorageService.getClientDocumentUploadURL(clientId, documentType);
+      // Get the base URL from the request
+      const protocol = req.secure ? 'https' : 'http';
+      const host = req.get('host');
+      const baseUrl = `${protocol}://${host}`;
+
+      let uploadURL;
+      if (process.env.NODE_ENV === 'development') {
+        uploadURL = await localFileStorage.getClientDocumentUploadURL(clientId, documentType, baseUrl);
+      } else {
+        const objectStorageService = new ObjectStorageService();
+        uploadURL = await objectStorageService.getClientDocumentUploadURL(clientId, documentType);
+      }
       
       console.log(`🔧 Generated upload URL: ${uploadURL.substring(0, 100)}...`);
       
@@ -1843,8 +2015,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (storedUrl) {
         console.log(`🔧 Using stored URL: ${storedUrl}`);
-        // Use the stored URL directly
-        res.json({ documentUrl: storedUrl });
+        
+        // Convert stored URL to work with current host
+        let documentUrl = storedUrl;
+        
+        // If the stored URL contains localhost, convert it to use current host
+        if (storedUrl.includes('localhost:3000')) {
+          const protocol = req.secure ? 'https' : 'http';
+          const host = req.get('host');
+          documentUrl = storedUrl.replace('http://localhost:3000', `${protocol}://${host}`);
+          console.log(`🔧 Converted URL from localhost to: ${documentUrl}`);
+        } else if (storedUrl.startsWith('/')) {
+          // Already a relative URL, use as is
+          documentUrl = storedUrl;
+        }
+        
+        res.json({ documentUrl });
         return;
       }
       
@@ -2225,6 +2411,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertSupplierSchema.parse(req.body);
       const supplier = await storage.createSupplier(validatedData);
+      
+      // Auto-sync to invoice_parties for invoice management
+      try {
+        await syncSupplierToInvoiceParties(supplier);
+        console.log(`Synced supplier "${supplier.supplierName}" to invoice_parties`);
+      } catch (syncError) {
+        console.error("Error syncing supplier to invoice_parties:", syncError);
+        // Don't fail the request, just log the error
+      }
+      
       res.status(201).json(supplier);
     } catch (error) {
       console.error("Supplier creation error:", error);
@@ -2239,6 +2435,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertSupplierSchema.parse(req.body);
       const supplier = await storage.updateSupplier(req.params.id, validatedData);
+      
+      // Auto-sync to invoice_parties for invoice management
+      try {
+        await syncSupplierToInvoiceParties(supplier);
+        console.log(`Synced updated supplier "${supplier.supplierName}" to invoice_parties`);
+      } catch (syncError) {
+        console.error("Error syncing supplier to invoice_parties:", syncError);
+        // Don't fail the request, just log the error
+      }
+      
       res.json(supplier);
     } catch (error) {
       console.error("Supplier update error:", error);
@@ -2546,7 +2752,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: lead.companyName,
         contactPersonName: lead.contactPersonName,
         mobileNumber: lead.mobileNumber || '',
-        email: lead.email,
+        email: lead.email || undefined,
         category: 'DELTA' as const, // New clients start as DELTA
         primarySalesPersonId: lead.assignedToUserId || currentUser.id,
         paymentTerms: 30, // Default payment terms
@@ -2556,11 +2762,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         billingPincode: '',
         billingState: '',
         billingCountry: 'India',
-        shippingAddressLine: '',
-        shippingCity: '',
-        shippingPincode: '',
-        shippingState: '',
-        shippingCountry: 'India',
         gstNumber: '',
         panNumber: '',
         invoicingEmails: lead.email ? [lead.email] : [],
@@ -2570,10 +2771,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         incorporationCertNumber: '',
         securityChequeUploaded: false,
         aadharCardUploaded: false,
-        vendorCodeAssigned: false,
-        creditLimitAssigned: false,
         agreementUploaded: false,
-        poRateContractUploaded: false
+        poRateContractUploaded: false,
       };
       
       const client = await storage.createClient(clientData);
@@ -2651,6 +2850,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quotationsWithItems = await Promise.all(
         quotations.map(async (quotation) => {
           const items = await storage.getQuotationItemsByQuotation(quotation.id);
+          console.log(`Fetched ${items.length} items for quotation ${quotation.id}:`, items.map(i => ({ productId: i.productId, description: i.description, quantity: i.quantity, unit: i.unit, rate: i.rate, amount: i.amount })));
           
           // Determine if this is a lead or client
           let clientName = 'Unknown';
@@ -2700,7 +2900,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotations", async (req, res) => {
     try {
       const { items, ...quotationFields } = req.body;
+      console.log("Quotation creation request body:", JSON.stringify(req.body, null, 2));
       const validatedData = insertQuotationSchema.parse(quotationFields);
+      console.log("Validated data:", JSON.stringify(validatedData, null, 2));
+      
+      // Check if this is for a lead (clientType = "lead") and convert to client first
+      let actualClientId = validatedData.clientId;
+      console.log(`Processing quotation: clientType=${validatedData.clientType}, clientId=${actualClientId}`);
+      
+      if (validatedData.clientType === "lead") {
+        // Check if the lead exists and convert to client
+        const lead = await storage.getLead(validatedData.clientId);
+        if (!lead) {
+          return res.status(400).json({ message: "Lead not found" });
+        }
+        
+        // Check if this lead has already been converted to a client
+        const existingClient = await db
+          .select()
+          .from(clients)
+          .where(sql`LOWER(${clients.name}) = LOWER(${lead.companyName})`)
+          .limit(1);
+        
+        if (existingClient.length > 0) {
+          // Use existing client
+          actualClientId = existingClient[0].id;
+        } else {
+          // Convert lead to client
+          const clientData = {
+            name: lead.companyName,
+            contactPersonName: lead.contactPersonName || 'N/A',
+            mobileNumber: lead.mobileNumber || '',
+            email: lead.email || undefined,
+            category: 'DELTA' as const, // Default category for converted leads
+            primarySalesPersonId: validatedData.preparedByUserId !== "system" ? validatedData.preparedByUserId : undefined,
+            paymentTerms: 30,
+            poRequired: false,
+            billingCountry: 'India',
+            invoicingEmails: lead.email ? [lead.email] : [],
+            gstCertificateUploaded: false,
+            panCopyUploaded: false,
+            billingAddressLine: '',
+            billingCity: '',
+            billingState: '',
+            billingPincode: '',
+            gstNumber: '',
+            panNumber: '',
+            msmeNumber: '',
+            incorporationCertNumber: '',
+            securityChequeUploaded: false,
+            aadharCardUploaded: false,
+            agreementUploaded: false,
+            poRateContractUploaded: false
+          };
+          
+          const newClient = await storage.createClient(clientData);
+          actualClientId = newClient.id;
+          
+          // Update lead status to indicate conversion
+          await storage.updateLead(lead.id, { leadStatus: 'CLOSED_WON' });
+        }
+      }
       
       // Generate quotation number - find the highest existing number
       const existingQuotations = await storage.getAllQuotations();
@@ -2721,6 +2981,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quotationData = {
         ...validatedData,
         quotationNumber,
+        clientId: actualClientId, // Use the actual client ID (converted from lead if necessary)
       };
       
       // Create the quotation first
@@ -2728,19 +2989,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create quotation items if provided
       if (items && Array.isArray(items) && items.length > 0) {
-        for (const item of items) {
+        console.log(`Creating ${items.length} quotation items`);
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
           const quotationItemData = {
             quotationId: quotation.id,
             productId: item.productId,
-            description: item.description,
-            quantity: item.quantity.toString(),
-            unit: item.unit,
-            rate: item.unitPrice ? item.unitPrice.toString() : item.rate?.toString() || "0",
-            amount: item.totalPrice ? item.totalPrice.toString() : item.amount?.toString() || "0",
+            description: item.description || '',
+            quantity: String(Number(item.quantity) || 0),
+            unit: item.unit || 'PCS',
+            rate: String(Number(item.unitPrice || item.rate || 0)),
+            amount: String(Number(item.totalPrice || item.amount || 0)),
           };
           
-          await storage.createQuotationItem(quotationItemData);
+          console.log(`Creating quotation item ${i + 1}:`, quotationItemData);
+          const createdItem = await storage.createQuotationItem(quotationItemData);
+          console.log(`Successfully created quotation item ${i + 1}:`, createdItem.id);
         }
+        console.log(`All ${items.length} quotation items created successfully`);
       }
       
       res.status(201).json(quotation);
@@ -2772,11 +3038,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const quotationItemData = {
             quotationId: quotation.id,
             productId: item.productId,
-            description: item.description,
-            quantity: item.quantity.toString(),
-            unit: item.unit,
-            rate: item.unitPrice ? item.unitPrice.toString() : item.rate?.toString() || "0",
-            amount: item.totalPrice ? item.totalPrice.toString() : item.amount?.toString() || "0",
+            description: item.description || '',
+            quantity: String(Number(item.quantity) || 0),
+            unit: item.unit || 'PCS',
+            rate: String(Number(item.unitPrice || item.rate || 0)),
+            amount: String(Number(item.totalPrice || item.amount || 0)),
           };
           
           await storage.createQuotationItem(quotationItemData);
@@ -2824,6 +3090,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Note: Allowing manual sales order generation from any quotation status
       
       const quotationItems = await storage.getQuotationItemsByQuotation(quotationId);
+      console.log(`Fetched ${quotationItems.length} items for quotation ${quotationId}:`, quotationItems.map(item => ({
+        id: item.id,
+        productId: item.productId,
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit,
+        rate: item.rate,
+        amount: item.amount
+      })));
       
       // Check if the client exists in clients table, if not it might be a lead
       let actualClientId = quotation.clientId;
@@ -2851,19 +3126,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               billingCity: '',
               billingState: '',
               billingPincode: '',
-              shippingAddressLine: '',
-              shippingCity: '',
-              shippingState: '',
-              shippingPincode: '',
-              shippingCountry: 'India',
               gstNumber: '',
               panNumber: '',
               msmeNumber: '',
               incorporationCertNumber: '',
               securityChequeUploaded: false,
               aadharCardUploaded: false,
-              vendorCodeAssigned: false,
-              creditLimitAssigned: false,
               agreementUploaded: false,
               poRateContractUploaded: false
             });
@@ -2896,36 +3164,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const salesOrder = await storage.createSalesOrder(salesOrderData);
       
       // Create sales order items from quotation items
-      for (const item of quotationItems) {
-        // Check if the product exists before creating the sales order item
-        let actualProductId = item.productId;
-        console.log(`Processing item with productId: ${item.productId}`);
-        try {
-          if (item.productId) {
-            const product = await storage.getProductMaster(item.productId);
-            console.log(`Product lookup result:`, product);
-            if (!product) {
-              // Product doesn't exist, throw error since productId is required
-              throw new Error(`Product ${item.productId} not found in product_master table`);
-            }
-          } else {
-            throw new Error(`Missing productId in quotation item`);
-          }
-        } catch (error) {
-          console.error(`Error checking product ${item.productId}:`, error);
-          throw error; // Re-throw the error instead of setting to undefined
-        }
-        
-        await storage.createSalesOrderItem({
-          salesOrderId: salesOrder.id,
-          productId: actualProductId!,
+      console.log(`Creating sales order items. Total quotation items: ${quotationItems.length}`);
+      let successfulItems = 0;
+      
+      for (let i = 0; i < quotationItems.length; i++) {
+        const item = quotationItems[i];
+        console.log(`Processing item ${i + 1}/${quotationItems.length}:`, {
+          productId: item.productId,
           description: item.description,
           quantity: item.quantity,
           unit: item.unit,
-          unitPrice: item.rate, // quotation item uses 'rate' field
-          totalPrice: item.amount // quotation item uses 'amount' field
+          rate: item.rate,
+          amount: item.amount
         });
+        
+        try {
+          // Check if the product exists before creating the sales order item
+          let actualProductId = item.productId;
+          
+          if (item.productId) {
+            const product = await storage.getProductMaster(item.productId);
+            console.log(`Product lookup for ${item.productId}:`, product ? 'Found' : 'Not found');
+            if (!product) {
+              console.error(`Product ${item.productId} not found in product_master table. Skipping this item.`);
+              continue; // Skip this item instead of failing entire process
+            }
+          } else {
+            console.error(`Missing productId in quotation item ${i + 1}. Skipping this item.`);
+            continue; // Skip this item instead of failing entire process
+          }
+          
+          // Create the sales order item
+          const salesOrderItem = await storage.createSalesOrderItem({
+            salesOrderId: salesOrder.id,
+            productId: actualProductId!,
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            unitPrice: item.rate, // quotation item uses 'rate' field
+            totalPrice: item.amount // quotation item uses 'amount' field
+          });
+          
+          console.log(`Successfully created sales order item ${i + 1}:`, salesOrderItem.id);
+          successfulItems++;
+          
+        } catch (itemError) {
+          console.error(`Error creating sales order item ${i + 1}:`, itemError);
+          // Don't throw - continue with other items
+          console.error(`Item details:`, item);
+        }
       }
+      
+      console.log(`Sales order creation completed. Items created: ${successfulItems}/${quotationItems.length}`);
       
       res.json({ 
         message: "Sales order generated successfully",
@@ -2972,6 +3262,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get sales order items
+  app.get("/api/sales-orders/:id/items", async (req, res) => {
+    try {
+      const salesOrderId = req.params.id;
+      const items = await storage.getSalesOrderItemsByOrder(salesOrderId);
+      res.json(items);
+    } catch (error) {
+      console.error("Sales order items fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch sales order items" });
+    }
+  });
+
   app.put("/api/sales-orders/:id", async (req, res) => {
     try {
       const validatedData = insertSalesOrderSchema.partial().parse(req.body);
@@ -3007,6 +3309,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid sales order data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to update sales order" });
+    }
+  });
+
+  // DELETE endpoint for sales orders
+  app.delete("/api/sales-orders/:id", async (req, res) => {
+    try {
+      const salesOrderId = req.params.id;
+      
+      // Check if sales order exists
+      const salesOrder = await storage.getSalesOrder(salesOrderId);
+      if (!salesOrder) {
+        return res.status(404).json({ message: "Sales order not found" });
+      }
+      
+      await storage.deleteSalesOrder(salesOrderId);
+      res.json({ message: "Sales order deleted successfully" });
+    } catch (error) {
+      console.error("Sales order deletion error:", error);
+      res.status(500).json({ message: "Failed to delete sales order" });
     }
   });
 
@@ -3223,11 +3544,23 @@ M/S SRI HM BITUMEN CO
   });
 
   app.post("/api/objects/upload", async (req, res) => {
-    const { ObjectStorageService } = await import("./objectStorage");
-    const objectStorageService = new ObjectStorageService();
     try {
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      res.json({ uploadURL });
+      // Get the base URL from the request
+      const protocol = req.secure ? 'https' : 'http';
+      const host = req.get('host');
+      const baseUrl = `${protocol}://${host}`;
+
+      // Use local file storage in development
+      if (process.env.NODE_ENV === 'development') {
+        const uploadURL = await localFileStorage.getObjectEntityUploadURL(baseUrl);
+        res.json({ uploadURL });
+      } else {
+        // Use cloud storage in production
+        const { ObjectStorageService } = await import("./objectStorage");
+        const objectStorageService = new ObjectStorageService();
+        const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+        res.json({ uploadURL });
+      }
     } catch (error) {
       console.error("Error generating upload URL:", error);
       res.status(500).json({ error: "Failed to generate upload URL" });
@@ -3318,9 +3651,17 @@ M/S SRI HM BITUMEN CO
 
       const tourAdvanceData = insertTourAdvanceSchema.parse(req.body);
       
+      // Convert empty strings to null for optional foreign key fields
+      const sanitizedData = {
+        ...tourAdvanceData,
+        salesPersonId: tourAdvanceData.salesPersonId === "" ? null : tourAdvanceData.salesPersonId,
+        recommendedBy: tourAdvanceData.recommendedBy === "" ? null : tourAdvanceData.recommendedBy,
+        approvedBy: tourAdvanceData.approvedBy === "" ? null : tourAdvanceData.approvedBy,
+      };
+      
       // Add created/updated by from authenticated user
       const fullTourAdvanceData = {
-        ...tourAdvanceData,
+        ...sanitizedData,
         createdBy: user.id,
         updatedBy: user.id,
         submittedBy: user.id  // Default to current user as submitter
@@ -3347,9 +3688,17 @@ M/S SRI HM BITUMEN CO
 
       const tourAdvanceData = insertTourAdvanceSchema.partial().parse(req.body);
       
+      // Convert empty strings to null for optional foreign key fields
+      const sanitizedData = {
+        ...tourAdvanceData,
+        salesPersonId: tourAdvanceData.salesPersonId === "" ? null : tourAdvanceData.salesPersonId,
+        recommendedBy: tourAdvanceData.recommendedBy === "" ? null : tourAdvanceData.recommendedBy,
+        approvedBy: tourAdvanceData.approvedBy === "" ? null : tourAdvanceData.approvedBy,
+      };
+      
       // Add updated by from authenticated user
       const updateData = {
-        ...tourAdvanceData,
+        ...sanitizedData,
         updatedBy: user.id,
         updatedAt: new Date()
       };
@@ -3373,6 +3722,58 @@ M/S SRI HM BITUMEN CO
     } catch (error) {
       console.error("Failed to delete tour advance:", error);
       res.status(500).json({ error: "Failed to delete tour advance" });
+    }
+  });
+
+  // Update tour advance status with history tracking
+  app.patch("/api/tour-advances/:id/status", requireAuth, async (req, res) => {
+    try {
+      const { status, remark, updatedBy } = req.body;
+
+      if (!status || !remark) {
+        return res.status(400).json({ error: "Status and remark are required" });
+      }
+
+      // Get existing tour advance
+      const existingAdvance = await storage.getTourAdvance(req.params.id);
+      if (!existingAdvance) {
+        return res.status(404).json({ error: "Tour advance not found" });
+      }
+
+      // Parse existing history or create new array
+      let statusHistory = [];
+      try {
+        statusHistory = existingAdvance.statusHistory ? JSON.parse(existingAdvance.statusHistory) : [];
+      } catch (e) {
+        statusHistory = [];
+      }
+
+      // Add new status change to history
+      const historyEntry = {
+        status,
+        remark,
+        updatedBy: updatedBy || req.user?.id,
+        updatedAt: new Date().toISOString(),
+        previousStatus: existingAdvance.status,
+      };
+      statusHistory.push(historyEntry);
+
+      // Update the tour advance
+      const updatedAdvance = await db
+        .update(tourAdvances)
+        .set({
+          status,
+          statusHistory: JSON.stringify(statusHistory),
+          updatedAt: new Date(),
+          updatedBy: updatedBy || req.user?.id,
+        })
+        .where(eq(tourAdvances.id, req.params.id))
+        .returning();
+
+      res.json(updatedAdvance[0]);
+    } catch (error) {
+      console.error("Failed to update tour advance status:", error);
+      res.status(500).json({ error: "Failed to update status" });
     }
   });
 
@@ -3517,6 +3918,95 @@ M/S SRI HM BITUMEN CO
       res.status(500).json({ error: "Failed to delete TA expense" });
     }
   });
+
+  // Local file upload routes (for development)
+  if (process.env.NODE_ENV === 'development') {
+    // Setup multer for memory storage
+    const upload = multer({ storage: multer.memoryStorage() });
+
+    // Generic file upload endpoint
+    app.put("/api/upload/:objectId", upload.single('file'), async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ error: "No file provided" });
+        }
+
+        const objectId = req.params.objectId;
+        const filePath = await localFileStorage.handleFileUpload(
+          req.file.buffer,
+          req.file.originalname,
+          req.file.mimetype,
+          objectId
+        );
+
+        res.json({ 
+          success: true, 
+          filePath,
+          objectId,
+          message: "File uploaded successfully" 
+        });
+      } catch (error) {
+        console.error("Error uploading file:", error);
+        res.status(500).json({ error: "Failed to upload file" });
+      }
+    });
+
+    // Client document upload endpoint
+    app.put("/api/upload/client-document/:filename", upload.single('file'), async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ error: "No file provided" });
+        }
+
+        const filePath = await localFileStorage.handleFileUpload(
+          req.file.buffer,
+          req.params.filename,
+          req.file.mimetype
+        );
+
+        res.json({ 
+          success: true, 
+          filePath,
+          message: "Document uploaded successfully" 
+        });
+      } catch (error) {
+        console.error("Error uploading document:", error);
+        res.status(500).json({ error: "Failed to upload document" });
+      }
+    });
+
+    // Serve files by object ID
+    app.get("/api/upload/:objectId", async (req, res) => {
+      try {
+        const objectId = req.params.objectId;
+        const fileInfo = await localFileStorage.getFileByObjectId(objectId);
+        
+        if (!fileInfo) {
+          return res.status(404).json({ error: "File not found" });
+        }
+
+        // Set correct content type and filename
+        res.setHeader('Content-Type', fileInfo.mimetype);
+        res.setHeader('Content-Disposition', `inline; filename="${fileInfo.originalName}"`);
+        
+        await localFileStorage.serveFile(fileInfo.filePath, res);
+      } catch (error) {
+        console.error("Error serving file by object ID:", error);
+        res.status(404).json({ error: "File not found" });
+      }
+    });
+
+    // Serve uploaded files by path
+    app.get("/uploads/*", async (req, res) => {
+      try {
+        const filePath = req.path;
+        await localFileStorage.serveFile(filePath, res);
+      } catch (error) {
+        console.error("Error serving file:", error);
+        res.status(404).json({ error: "File not found" });
+      }
+    });
+  }
 
   const httpServer = createServer(app);
   return httpServer;

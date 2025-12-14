@@ -722,15 +722,45 @@ export default function Clients() {
       const { uploadURL } = await response.json();
 
       // Upload file to storage
-      const uploadResponse = await fetch(uploadURL, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type || 'application/octet-stream',
-        },
-      });
+      const isLocalUpload = uploadURL && uploadURL.includes('localhost');
+      let uploadResponse;
+      
+      if (isLocalUpload) {
+        // For local development - use FormData
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        uploadResponse = await fetch(uploadURL, {
+          method: 'PUT',
+          body: formData,
+        });
+      } else {
+        // For cloud storage - use direct file upload
+        uploadResponse = await fetch(uploadURL, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type || 'application/octet-stream',
+          },
+        });
+      }
 
       if (uploadResponse.ok) {
+        let result = { success: true };
+        
+        // For local uploads, parse the JSON response
+        if (isLocalUpload) {
+          try {
+            result = await uploadResponse.json();
+          } catch (error) {
+            throw new Error('Invalid response from server');
+          }
+          
+          if (!result.success) {
+            throw new Error(result.error || 'Upload failed');
+          }
+        }
+
         // Store file info temporarily
         setUploadedFiles(prev => ({
           ...prev,

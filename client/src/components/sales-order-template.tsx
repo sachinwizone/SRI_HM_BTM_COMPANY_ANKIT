@@ -33,6 +33,16 @@ interface SalesOrderData {
     rate: number;
     amount: number;
   };
+  transportationDetails?: {
+    vehicleType?: string;
+    vehicleNumber?: string;
+    driverName?: string;
+    driverContact?: string;
+    transportMode?: string;
+    estimatedDelivery?: string;
+    route?: string;
+    trackingNumber?: string;
+  };
   salesPersonName?: string;
   description?: string;
   note?: string;
@@ -59,237 +69,365 @@ export const generateBitumenSalesOrderPDF = (salesOrderData: SalesOrderData) => 
   
   // Page setup
   const pageWidth = doc.internal.pageSize.width;
-  const margin = 15;
-  let currentY = 20;
+  const pageHeight = doc.internal.pageSize.height;
+  const margin = 10;
+  let currentY = 10;
 
-  // Helper function to add text with proper spacing
-  const addText = (text: string, x: number, y: number, options?: any) => {
-    doc.text(text, x, y, options);
+  // Colors - Clean professional colors
+  const orangeColor: [number, number, number] = [230, 126, 34]; // Orange like logo
+  const blackColor: [number, number, number] = [0, 0, 0];
+  const grayColor: [number, number, number] = [80, 80, 80];
+  const borderColor: [number, number, number] = [0, 0, 0];
+
+  // Format currency in Indian format
+  const formatCurrency = (amount: number): string => {
+    return amount.toLocaleString('en-IN', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    });
   };
 
-  // Helper function to add bold text
-  const addBoldText = (text: string, x: number, y: number, options?: any) => {
-    doc.setFont(undefined, 'bold');
-    doc.text(text, x, y, options);
-    doc.setFont(undefined, 'normal');
-  };
+  // Draw page border
+  doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+  doc.setLineWidth(0.5);
+  doc.rect(margin, margin, pageWidth - 2 * margin, pageHeight - 2 * margin, 'S');
 
-  // Company Header (Right aligned like the sample)
+  currentY = 15;
+
+  // ===================== HEADER SECTION =====================
+  // Draw "Shri" symbol and HM text (logo simulation)
+  doc.setTextColor(orangeColor[0], orangeColor[1], orangeColor[2]);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Shri', margin + 5, currentY + 5);
+  doc.setFontSize(20);
+  doc.text('HM', margin + 5, currentY + 14);
+  doc.setFontSize(8);
+  doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+  doc.text('BITUMEN COMPANY', margin + 3, currentY + 20);
+
+  // Company Name and Details (right side)
+  doc.setTextColor(orangeColor[0], orangeColor[1], orangeColor[2]);
   doc.setFontSize(16);
-  addBoldText(salesOrderData.companyDetails.name, pageWidth - margin, currentY, { align: 'right' });
-  currentY += 6;
+  doc.setFont('helvetica', 'bold');
+  doc.text(salesOrderData.companyDetails.name, margin + 45, currentY + 8);
+
+  doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
   
-  doc.setFontSize(10);
-  const addressLines = salesOrderData.companyDetails.address.split('\n');
-  addressLines.forEach(line => {
-    addText(line, pageWidth - margin, currentY, { align: 'right' });
-    currentY += 4;
-  });
+  const addressLine = salesOrderData.companyDetails.address.replace(/\n/g, ', ');
+  doc.text(addressLine, margin + 45, currentY + 14);
+  doc.text(`GSTIN/UIN: ${salesOrderData.companyDetails.gstNumber}`, margin + 45, currentY + 19);
+  doc.text(`Mobile: ${salesOrderData.companyDetails.mobile} | Email: ${salesOrderData.companyDetails.email}`, margin + 45, currentY + 24);
+
+  currentY += 32;
+
+  // ===================== SALES ORDER TITLE =====================
+  doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+  doc.setLineWidth(0.3);
+  doc.line(margin, currentY, pageWidth - margin, currentY);
   
-  addText(`GST No : ${salesOrderData.companyDetails.gstNumber}`, pageWidth - margin, currentY, { align: 'right' });
-  currentY += 4;
-  addText(`Mobile No : ${salesOrderData.companyDetails.mobile}`, pageWidth - margin, currentY, { align: 'right' });
-  currentY += 4;
-  addText(`Email ID : ${salesOrderData.companyDetails.email}`, pageWidth - margin, currentY, { align: 'right' });
-  currentY += 15;
-
-  // Sales Order Title
-  doc.setFontSize(18);
-  addBoldText('Sales Order', pageWidth / 2, currentY, { align: 'center' });
-  currentY += 15;
-
-  // Order Details Row (3 columns)
-  doc.setFontSize(10);
-  const col1X = margin;
-  const col2X = margin + 65;
-  const col3X = margin + 130;
-
-  // Headers
-  addBoldText('Sales Order No.', col1X, currentY);
-  addBoldText('Sales Order Date', col2X, currentY);
-  addBoldText('Delivery Terms', col3X, currentY);
-  currentY += 6;
-
-  // Values
-  addText(salesOrderData.orderNumber, col1X, currentY);
-  addText(salesOrderData.orderDate.toLocaleDateString('en-GB'), col2X, currentY);
-  addText(salesOrderData.deliveryTerms || 'With In 10 to 12 Days', col3X, currentY);
-  currentY += 10;
-
-  // Payment Terms Row
-  addBoldText('Payment Terms', col1X, currentY);
-  addBoldText('Destination', col2X, currentY);
-  addBoldText('Loading From', col3X, currentY);
-  currentY += 6;
-
-  addText(salesOrderData.paymentTerms || '30 Days Credit. Interest will be charged\nDay 1st Of Billing @18%P.A', col1X, currentY);
-  addText(salesOrderData.destination || '', col2X, currentY);
-  addText(salesOrderData.loadingFrom || 'Kandla', col3X, currentY);
-  currentY += 20;
-
-  // Bill To and Ship To sections
-  addBoldText('Bill To :', col1X, currentY);
-  addBoldText('Ship To :', col2X + 30, currentY);
-  currentY += 6;
-
-  // Client details for both Bill To and Ship To
-  const clientLines = [
-    `Name : ${salesOrderData.client.name}`,
-    `GST No : ${salesOrderData.client.gstNumber || ''}`,
-    `Address : ${salesOrderData.client.address || ''}`,
-    `State : ${salesOrderData.client.state || ''}`,
-    `Pin Code : ${salesOrderData.client.pinCode || ''}`,
-    `Mobile No : ${salesOrderData.client.mobileNumber || ''}`,
-    `Email ID : ${salesOrderData.client.email || ''}`
-  ];
-
-  clientLines.forEach(line => {
-    addText(line, col1X, currentY);
-    addText(line, col2X + 30, currentY); // Ship To (same as Bill To)
-    currentY += 5;
-  });
-
-  currentY += 10;
-
-  // Items Table Header
-  const tableStartY = currentY;
-  const colPositions = [margin, margin + 50, margin + 70, margin + 90, margin + 120, margin + 150, margin + 175];
-
-  // Table headers
-  doc.setFillColor(240, 240, 240);
-  doc.rect(margin, currentY - 3, pageWidth - (margin * 2), 8, 'F');
+  currentY += 8;
+  doc.setTextColor(blackColor[0], blackColor[1], blackColor[2]);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SALES ORDER', pageWidth / 2, currentY, { align: 'center' });
   
-  addBoldText('Item #', colPositions[0], currentY);
-  addBoldText('Qty', colPositions[1], currentY);
-  addBoldText('Unit', colPositions[2], currentY);
-  addBoldText('Ex Factory Rate', colPositions[3], currentY);
-  addBoldText('Amount', colPositions[4], currentY);
-  addBoldText('GST@18%', colPositions[5], currentY);
-  addBoldText('Total Amount(₹)', colPositions[6], currentY);
+  currentY += 5;
+  doc.setLineWidth(0.3);
+  doc.line(margin, currentY, pageWidth - margin, currentY);
+
+  currentY += 5;
+
+  // ===================== ORDER INFO TABLE =====================
+  const infoTableWidth = pageWidth - 2 * margin;
+  // Wider columns for Order No and Date to avoid overlap
+  const col1Width = infoTableWidth * 0.30; // Order No column - 30%
+  const col2Width = infoTableWidth * 0.20; // Date column - 20%
+  const col3Width = infoTableWidth * 0.25; // Delivery column - 25%
+  const col4Width = infoTableWidth * 0.25; // Payment column - 25%
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(blackColor[0], blackColor[1], blackColor[2]);
+
+  // Row 1
+  doc.rect(margin, currentY, col1Width, 8, 'S');
+  doc.rect(margin + col1Width, currentY, col2Width, 8, 'S');
+  doc.rect(margin + col1Width + col2Width, currentY, col3Width, 8, 'S');
+  doc.rect(margin + col1Width + col2Width + col3Width, currentY, col4Width, 8, 'S');
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Order No:', margin + 2, currentY + 5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(salesOrderData.orderNumber, margin + 22, currentY + 5);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('Date:', margin + col1Width + 2, currentY + 5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(salesOrderData.orderDate.toLocaleDateString('en-GB'), margin + col1Width + 14, currentY + 5);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('Delivery:', margin + col1Width + col2Width + 2, currentY + 5);
+  doc.setFont('helvetica', 'normal');
+  const deliveryText = (salesOrderData.deliveryTerms || 'Within 10-12 Days').substring(0, 16);
+  doc.text(deliveryText, margin + col1Width + col2Width + 22, currentY + 5);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('Payment:', margin + col1Width + col2Width + col3Width + 2, currentY + 5);
+  doc.setFont('helvetica', 'normal');
+  const paymentText = (salesOrderData.paymentTerms || '30 Days Credit').substring(0, 16);
+  doc.text(paymentText, margin + col1Width + col2Width + col3Width + 22, currentY + 5);
+
   currentY += 8;
 
-  // Table content
-  salesOrderData.items.forEach((item, index) => {
-    addText(item.description, colPositions[0], currentY);
-    addText(item.quantity.toString(), colPositions[1], currentY);
-    addText(item.unit, colPositions[2], currentY);
-    addText('₹' + item.rate.toFixed(2), colPositions[3], currentY);
-    addText('₹' + item.amount.toFixed(2), colPositions[4], currentY);
-    addText('₹' + (item.amount * 0.18).toFixed(2), colPositions[5], currentY);
-    addText('₹' + (item.amount * 1.18).toFixed(2), colPositions[6], currentY);
-    currentY += 7;
+  // Row 2
+  doc.rect(margin, currentY, col1Width + col2Width, 8, 'S');
+  doc.rect(margin + col1Width + col2Width, currentY, col3Width + col4Width, 8, 'S');
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Loading From:', margin + 2, currentY + 5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(salesOrderData.loadingFrom || 'Kandla', margin + 30, currentY + 5);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('Destination:', margin + col1Width + col2Width + 2, currentY + 5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(salesOrderData.destination || 'TBD', margin + col1Width + col2Width + 28, currentY + 5);
+
+  currentY += 12;
+
+  // ===================== BILL TO / SHIP TO =====================
+  const sectionWidth = (pageWidth - 2 * margin) / 2;
+  
+  // Bill To Header
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('Bill To', margin + 2, currentY + 5);
+  doc.text('Ship To', margin + sectionWidth + 2, currentY + 5);
+  
+  currentY += 2;
+  doc.rect(margin, currentY, sectionWidth, 35, 'S');
+  doc.rect(margin + sectionWidth, currentY, sectionWidth, 35, 'S');
+
+  currentY += 8;
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  
+  const clientInfo = [
+    { label: 'Name:', value: salesOrderData.client.name || 'N/A' },
+    { label: 'GSTIN:', value: salesOrderData.client.gstNumber || 'N/A' },
+    { label: 'Address:', value: (salesOrderData.client.address || 'N/A').substring(0, 40) },
+    { label: 'State:', value: salesOrderData.client.state || 'N/A' },
+    { label: 'Mobile:', value: salesOrderData.client.mobileNumber || 'N/A' }
+  ];
+
+  clientInfo.forEach((info, index) => {
+    const y = currentY + (index * 5);
+    // Bill To
+    doc.setFont('helvetica', 'bold');
+    doc.text(info.label, margin + 2, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(info.value.substring(0, 35), margin + 18, y);
+    // Ship To
+    doc.setFont('helvetica', 'bold');
+    doc.text(info.label, margin + sectionWidth + 2, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(info.value.substring(0, 35), margin + sectionWidth + 18, y);
   });
 
-  // Transport charges if applicable
-  if (salesOrderData.transportCharges) {
-    addText('Transport Charges', colPositions[0], currentY);
-    addText(salesOrderData.transportCharges.quantity.toString(), colPositions[1], currentY);
-    addText(salesOrderData.transportCharges.unit, colPositions[2], currentY);
-    addText(salesOrderData.transportCharges.rate.toString(), colPositions[3], currentY);
-    addText(salesOrderData.transportCharges.amount.toString(), colPositions[4], currentY);
+  currentY += 32;
+
+  // ===================== ITEMS TABLE =====================
+  const tableWidth = pageWidth - 2 * margin;
+  const colWidths = [15, 85, 25, 25, 35]; // SI, Description, Qty, Unit, Rate, Amount
+  const headers = ['SI No', 'Description of Goods', 'Quantity', 'Rate', 'Amount'];
+  
+  // Table Header
+  doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+  doc.setLineWidth(0.3);
+  
+  let colX = margin;
+  headers.forEach((header, i) => {
+    doc.rect(colX, currentY, colWidths[i], 8, 'S');
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(header, colX + colWidths[i] / 2, currentY + 5, { align: 'center' });
+    colX += colWidths[i];
+  });
+
+  currentY += 8;
+  const tableStartY = currentY;
+
+  // Table Content
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+
+  let subtotal = 0;
+  let totalTax = 0;
+
+  salesOrderData.items.forEach((item, index) => {
+    const qty = parseFloat(item.quantity.toString()) || 0;
+    const rate = parseFloat(item.rate.toString()) || 0;
+    const amount = qty * rate;
+    const taxRate = item.gstRate || 18;
+    const taxAmount = amount * (taxRate / 100);
+    
+    subtotal += amount;
+    totalTax += taxAmount;
+
+    // Draw cells
+    colX = margin;
+    colWidths.forEach((width) => {
+      doc.rect(colX, currentY, width, 10, 'S');
+      colX += width;
+    });
+
+    // Cell content
+    colX = margin;
+    const rowData = [
+      (index + 1).toString(),
+      item.description.substring(0, 45),
+      `${qty} ${item.unit || 'MT'}`,
+      formatCurrency(rate),
+      formatCurrency(amount)
+    ];
+
+    rowData.forEach((data, i) => {
+      if (i === 1) {
+        doc.text(data, colX + 3, currentY + 6);
+      } else {
+        doc.text(data, colX + colWidths[i] / 2, currentY + 6, { align: 'center' });
+      }
+      colX += colWidths[i];
+    });
+
+    currentY += 10;
+  });
+
+  // Empty rows if needed (minimum 3 rows)
+  const minRows = 3;
+  const currentRows = salesOrderData.items.length;
+  for (let i = currentRows; i < minRows; i++) {
+    colX = margin;
+    colWidths.forEach((width) => {
+      doc.rect(colX, currentY, width, 10, 'S');
+      colX += width;
+    });
     currentY += 10;
   }
 
-  // Sales Person
-  addText(`Sales Person Name:`, margin, currentY);
   currentY += 5;
-  addBoldText(salesOrderData.salesPersonName || '', margin, currentY);
-  currentY += 10;
 
-  // Description and Note
-  if (salesOrderData.description) {
-    addBoldText('Description :', margin, currentY);
-    currentY += 5;
-    addText(salesOrderData.description, margin, currentY);
-    currentY += 5;
-  }
+  // ===================== SUMMARY SECTION =====================
+  const summaryWidth = 90;
+  const summaryX = pageWidth - margin - summaryWidth;
+  const labelX = summaryX + 3;
+  const valueX = summaryX + summaryWidth - 3;
 
-  if (salesOrderData.note) {
-    addText(salesOrderData.note, margin, currentY);
-    currentY += 15;
-  }
+  // Sales Person on left
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Sales Person:', margin, currentY + 5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(salesOrderData.salesPersonName || 'Sales Representative', margin + 30, currentY + 5);
 
-  // Totals section (right aligned)
-  const totalsX = pageWidth - 100;
-  const totalsValueX = pageWidth - 30;
+  // Summary rows
+  doc.setLineWidth(0.3);
   
-  addBoldText('SubTotal', totalsX, currentY);
-  addText('₹' + salesOrderData.subtotal.toFixed(2), totalsValueX, currentY, { align: 'right' });
-  currentY += 6;
+  // Sub-Total
+  doc.rect(summaryX, currentY, summaryWidth, 8, 'S');
+  doc.setFont('helvetica', 'bold');
+  doc.text('Sub-Total', labelX, currentY + 5);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Rs. ' + formatCurrency(subtotal), valueX, currentY + 5, { align: 'right' });
+  currentY += 8;
 
-  addBoldText('GST (18%)', totalsX, currentY);
-  addText('₹' + (salesOrderData.subtotal * 0.18).toFixed(2), totalsValueX, currentY, { align: 'right' });
-  currentY += 6;
+  // Freight
+  const freightAmount = salesOrderData.freight || 0;
+  doc.rect(summaryX, currentY, summaryWidth, 8, 'S');
+  doc.setFont('helvetica', 'bold');
+  doc.text('Freight', labelX, currentY + 5);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Rs. ' + formatCurrency(freightAmount), valueX, currentY + 5, { align: 'right' });
+  currentY += 8;
 
-  addBoldText('Freight', totalsX, currentY);
-  addText('₹' + salesOrderData.freight.toFixed(2), totalsValueX, currentY, { align: 'right' });
-  currentY += 6;
+  // Tax Total
+  doc.rect(summaryX, currentY, summaryWidth, 8, 'S');
+  doc.setFont('helvetica', 'bold');
+  doc.text('Tax Total (GST @ 18%)', labelX, currentY + 5);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Rs. ' + formatCurrency(totalTax), valueX, currentY + 5, { align: 'right' });
+  currentY += 8;
 
-  doc.setLineWidth(0.5);
-  doc.line(totalsX, currentY - 2, pageWidth - margin, currentY - 2);
+  // Grand Total
+  const grandTotal = subtotal + freightAmount + totalTax;
+  doc.rect(summaryX, currentY, summaryWidth, 10, 'S');
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Grand Total', labelX, currentY + 7);
+  doc.text('Rs. ' + formatCurrency(grandTotal), valueX, currentY + 7, { align: 'right' });
+
+  currentY += 18;
+
+  // ===================== BANK DETAILS & SIGNATORY =====================
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Bank Details:', margin, currentY);
   
-  addBoldText('Total', totalsX, currentY);
-  addBoldText('₹' + (salesOrderData.subtotal * 1.18 + salesOrderData.freight).toFixed(2), totalsValueX, currentY, { align: 'right' });
+  currentY += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+
+  const bankDetails = salesOrderData.companyDetails.bankDetails;
+  doc.text(`Bank Name: ${bankDetails.bankName}`, margin, currentY);
+  doc.text(`A/c No: ${bankDetails.accountNumber}`, margin, currentY + 4);
+  doc.text(`Branch: ${bankDetails.branch}`, margin, currentY + 8);
+  doc.text(`IFSC Code: ${bankDetails.ifscCode}`, margin, currentY + 12);
+
+  // Authorized Signatory on right
+  const sigX = pageWidth - margin - 55;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('For ' + salesOrderData.companyDetails.name, sigX, currentY);
+  doc.setFont('helvetica', 'normal');
   currentY += 15;
+  doc.line(sigX, currentY, sigX + 50, currentY);
+  doc.text('Authorized Signatory', sigX + 8, currentY + 5);
 
-  // Terms and Conditions (Left side)
-  const termsX = margin;
-  const bankDetailsX = pageWidth - 80;
+  currentY += 12;
 
-  addBoldText('Terms and Conditions', termsX, currentY);
-  addBoldText('Bank Details', bankDetailsX, currentY);
-  currentY += 6;
+  // ===================== TERMS & CONDITIONS =====================
+  doc.setLineWidth(0.3);
+  doc.line(margin, currentY, pageWidth - margin, currentY);
+  
+  currentY += 5;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('Terms & Conditions:', margin, currentY);
+  
+  currentY += 4;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
 
-  const termsAndConditions = [
-    "-Payment Should be made on or before 30th day of the Day of Billing.",
-    "-Incase Of Late Payment, Credit Limit will be Reduce by 10%.",
-    "-If the Payment is not done within the due terms of invoice then an interest of 24% per annum i.e 2% per month",
-    " would be charged on due amount.",
-    "-All Cheques/Demand Drafts for payment of bills must be crossed \"A/C Payee Only\" and Drawn in Favor of",
-    " \"Company's Name\".",
-    "-In case of Cheque Returned/Bounced, All the Penalties Will Be Bear by Buyer.",
-    "-Disputes are subject to jurisdiction of Guwahati courts and all the legal fees will be borne by the buyer.",
-    "-If the Payment is Not Done within the 30 days of the due date then the rest of the pending order will be on hold.",
-    "-Telephonic Conversations Can be recorded for training and other official purposes.",
-    "-If Payment Received Before 30 Days Then a Special Discount will be given to you 200 / Per Ton.",
-    "-Detention of Rs 4000 per day will be charged,if the vehicle is not unloaded within 48 hrs of Reporting."
+  const terms = [
+    '1. Payment should be made within the agreed credit period.',
+    '2. Late payment will attract interest @ 18% per annum.',
+    '3. All disputes are subject to Guwahati jurisdiction.',
+    '4. Goods once sold will not be taken back. E. & O.E.'
   ];
 
-  const bankDetails = [
-    `Bank Name : ${salesOrderData.companyDetails.bankDetails.bankName}`,
-    `Account No. : ${salesOrderData.companyDetails.bankDetails.accountNumber}`,
-    `Branch : ${salesOrderData.companyDetails.bankDetails.branch}`,
-    `IFSC Code : ${salesOrderData.companyDetails.bankDetails.ifscCode}`
-  ];
-
-  // Add terms (left side)
-  termsAndConditions.forEach(term => {
-    if (currentY > 250) {
-      doc.addPage();
-      currentY = 20;
-    }
-    addText(term, termsX, currentY);
-    currentY += 4;
+  terms.forEach((term) => {
+    doc.text(term, margin, currentY);
+    currentY += 3.5;
   });
 
-  // Add bank details (right side) - reset Y position
-  let bankY = currentY - (termsAndConditions.length * 4) + 6;
-  bankDetails.forEach(detail => {
-    addText(detail, bankDetailsX, bankY);
-    bankY += 5;
-  });
-
-  // Company signature section
-  currentY = Math.max(currentY, bankY) + 20;
-  addText(`For ${salesOrderData.companyDetails.name}`, bankDetailsX, currentY);
-  currentY += 20;
-  addText('Authorized Signatory', bankDetailsX, currentY);
-  currentY += 15;
-
-  // Footer
-  addBoldText('SUBJECT TO GUWAHATI JURISDICTION', pageWidth / 2, currentY, { align: 'center' });
-  currentY += 5;
-  addText('THIS IS COMPUTER GENERATED SALES ORDER SIGNATURE NOT REQUIRED', pageWidth / 2, currentY, { align: 'center' });
+  // ===================== FOOTER =====================
+  currentY += 3;
+  doc.setFontSize(7);
+  doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+  doc.text('This is a computer generated Sales Order. | Subject to Guwahati Jurisdiction', pageWidth / 2, currentY, { align: 'center' });
 
   return doc;
 };

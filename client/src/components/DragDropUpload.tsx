@@ -47,27 +47,57 @@ export function DragDropUpload({ documentType, onUploadComplete, disabled }: Dra
       // Get upload URL
       const uploadResponse = await apiRequest('/api/objects/upload', 'POST', {}) as any;
       
-      // Upload file to object storage
-      const formData = new FormData();
-      formData.append('file', file);
+      // Check if this is a local development URL or cloud storage URL
+      const isLocalUpload = uploadResponse.uploadURL && uploadResponse.uploadURL.includes('localhost');
       
-      const uploadResult = await fetch(uploadResponse.uploadURL, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-        },
-      });
-
-      if (uploadResult.ok) {
-        setUploadSuccess(true);
-        onUploadComplete(documentType, true);
-        toast({
-          title: "Success",
-          description: `${getDisplayName(documentType)} uploaded successfully`,
+      if (isLocalUpload) {
+        // For local development - use FormData with multipart upload
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const uploadResult = await fetch(uploadResponse.uploadURL, {
+          method: 'PUT',
+          body: formData,
+          // Don't set Content-Type header - let browser set it with boundary for FormData
         });
+
+        let result;
+        try {
+          result = await uploadResult.json();
+        } catch (error) {
+          throw new Error('Invalid response from server');
+        }
+        
+        if (uploadResult.ok && result.success) {
+          setUploadSuccess(true);
+          onUploadComplete(documentType, true);
+          toast({
+            title: "Success",
+            description: `${getDisplayName(documentType)} uploaded successfully`,
+          });
+        } else {
+          throw new Error(result.error || 'Upload failed');
+        }
       } else {
-        throw new Error('Upload failed');
+        // For cloud storage - use direct file upload
+        const uploadResult = await fetch(uploadResponse.uploadURL, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type,
+          },
+        });
+
+        if (uploadResult.ok) {
+          setUploadSuccess(true);
+          onUploadComplete(documentType, true);
+          toast({
+            title: "Success",
+            description: `${getDisplayName(documentType)} uploaded successfully`,
+          });
+        } else {
+          throw new Error('Upload failed');
+        }
       }
     } catch (error) {
       console.error('Upload error:', error);

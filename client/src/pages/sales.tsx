@@ -59,6 +59,7 @@ const billingFormSchema = z.object({
     productFamily: z.string().optional(),
     productGrade: z.string().optional(),
     hsnCode: z.string().optional(),
+    taxRate: z.number().optional(),
     quantity: z.number().min(0, "Quantity cannot be negative"),
     unit: z.string().min(1, "Unit is required"),
     unitPrice: z.number().min(0.01, "Unit price must be greater than 0"),
@@ -488,6 +489,7 @@ export default function Sales() {
         productFamily: product.productFamily || "",
         productGrade: product.grade || "",
         hsnCode: product.hsnCode || "",
+        taxRate: parseFloat(product.taxRate?.toString() || '18') || 18,
         quantity: 0,
         unit: product.unit || "PCS",
         unitPrice: parseFloat(product.rate?.toString() || '0') || 0
@@ -503,23 +505,7 @@ export default function Sales() {
     }
   };
 
-  // Generate auto numbers
-  const generateNumbers = async () => {
-    try {
-      const [soResponse, invResponse] = await Promise.all([
-        apiRequest("/api/number-series/next/SALES_ORDER", "POST"),
-        apiRequest("/api/number-series/next/INVOICE", "POST")
-      ]);
-      
-      const soData = await soResponse.json();
-      const invData = await invResponse.json();
-      
-      form.setValue("salesOrderNumber", soData.nextNumber);
-      form.setValue("invoiceNumber", invData.nextNumber);
-    } catch (error) {
-      console.error("Failed to generate numbers:", error);
-    }
-  };
+  // Numbers are now manually entered by user
 
   // CRUD Operations - Updated for billing format
   const salesMutation = useMutation({
@@ -531,16 +517,19 @@ export default function Sales() {
         throw new Error("Please add at least one item with quantity and price");
       }
 
+      // Get transporter ID - use selected one, or null if none available
+      const transporterIdValue = data.transporterId || (transporters.length > 0 ? transporters[0]?.id : null);
+
       const baseData = {
         date: data.date,
         salesOrderNumber: data.salesOrderNumber,
         invoiceNumber: data.invoiceNumber,
         clientId: data.clientId,
-        salespersonId: data.salespersonId || "",
+        salespersonId: data.salespersonId || null,
         deliveryStatus: data.deliveryStatus,
-        vehicleNumber: data.vehicleNumber || "",
-        location: data.location || "",
-        transporterId: data.transporterId || transporters[0]?.id || "",
+        vehicleNumber: data.vehicleNumber || "N/A",
+        location: data.location || "N/A",
+        transporterId: transporterIdValue,
         grossWeight: "0",
         tareWeight: "0", 
         entireWeight: "0",
@@ -559,11 +548,13 @@ export default function Sales() {
           .map(item => `${item.itemCode || ''} ${item.itemDescription || ''}`.trim())
           .join(', ');
         
-        // Use first item for product reference, or find best match
+        // Use first item's productMasterId for product reference
         const firstItem = items[0];
-        const productMatch = products.find(p => 
-          items.some(item => item.itemDescription?.includes(p.name || ''))
-        ) || products.find(p => p.name === firstItem?.itemDescription) || products[0];
+        const productId = firstItem?.productMasterId;
+        
+        if (!productId) {
+          throw new Error("No product selected. Please add a product from Product Master.");
+        }
         
         const aggregatedData = {
           ...baseData,
@@ -572,7 +563,7 @@ export default function Sales() {
           perDrumWeight: totalQuantity > 0 ? (totalValue / totalQuantity).toFixed(2) : "0",
           basicRate: totalQuantity > 0 ? (totalValue / totalQuantity).toFixed(2) : "0",
           totalAmount: (totalValue * 1.18).toFixed(2), // Including 18% GST
-          productId: productMatch?.id || "",
+          productId: productId,
           // Store item descriptions for reference
           notes: `Items: ${itemDescriptions}`
         };
@@ -590,11 +581,21 @@ export default function Sales() {
           .map(item => `${item.itemCode || ''} ${item.itemDescription || ''}`.trim())
           .join(', ');
         
-        // Use first item for product reference, or find best match
+        // Use first item's productMasterId for product reference
         const firstItem = items[0];
-        const productMatch = products.find(p => 
-          items.some(item => item.itemDescription?.includes(p.name || ''))
-        ) || products.find(p => p.name === firstItem?.itemDescription) || products[0];
+        const productId = firstItem?.productMasterId;
+        
+        if (!productId) {
+          throw new Error("No product selected. Please add a product from Product Master.");
+        }
+        
+        if (!data.clientId) {
+          throw new Error("Please select a client");
+        }
+        
+        if (!data.salesOrderNumber || !data.invoiceNumber) {
+          throw new Error("Please enter both Sales Order Number and Invoice Number");
+        }
         
         const aggregatedData = {
           ...baseData,
@@ -603,7 +604,7 @@ export default function Sales() {
           perDrumWeight: totalQuantity > 0 ? (totalValue / totalQuantity).toFixed(2) : "0",
           basicRate: totalQuantity > 0 ? (totalValue / totalQuantity).toFixed(2) : "0",
           totalAmount: (totalValue * 1.18).toFixed(2), // Including 18% GST
-          productId: productMatch?.id || "",
+          productId: productId,
           // Store item descriptions for reference
           notes: `Items: ${itemDescriptions}`
         };
@@ -741,7 +742,6 @@ export default function Sales() {
     } else {
       setEditingSales(null);
       form.reset();
-      generateNumbers();
     }
     setIsFormOpen(true);
   };
@@ -1106,7 +1106,17 @@ export default function Sales() {
           </DialogHeader>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit((data) => salesMutation.mutate(data))} className="space-y-6">
+            <form onSubmit={form.handleSubmit(
+              (data) => salesMutation.mutate(data),
+              (errors) => {
+                console.error("Form validation errors:", errors);
+                toast({
+                  title: "Validation Error",
+                  description: "Please check all required fields",
+                  variant: "destructive",
+                });
+              }
+            )} className="space-y-6">
               {/* Header Information */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-4">
@@ -1156,7 +1166,7 @@ export default function Sales() {
                           <FormItem>
                             <FormLabel>Sales Order Number</FormLabel>
                             <FormControl>
-                              <Input {...field} readOnly className="bg-gray-100" />
+                              <Input {...field} placeholder="Enter sales order number" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1169,7 +1179,7 @@ export default function Sales() {
                           <FormItem>
                             <FormLabel>Invoice Number</FormLabel>
                             <FormControl>
-                              <Input {...field} readOnly className="bg-gray-100" />
+                              <Input {...field} placeholder="Enter invoice number" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1382,68 +1392,105 @@ export default function Sales() {
                   </div>
 
                   {/* Billing Table */}
-                  <div className="overflow-x-auto border rounded-lg">
-                    <table className="w-full">
+                  <div className="border rounded-lg">
+                    <table className="w-full table-fixed">
                       <thead className="bg-gray-50 border-b">
-                        <tr className="text-left text-xs font-medium text-gray-500 uppercase">
-                          <th className="px-4 py-3 text-center">ITEM CODE</th>
-                          <th className="px-4 py-3 text-center">DESCRIPTION</th>
-                          <th className="px-4 py-3 text-center">QTY</th>
-                          <th className="px-4 py-3 text-center">UNIT</th>
-                          <th className="px-4 py-3 text-center">UNIT PRICE</th>
-                          <th className="px-4 py-3 text-center">LINE TOTAL</th>
-                          <th className="px-4 py-3 text-center">ACTIONS</th>
+                        <tr className="text-left text-[10px] font-medium text-gray-500 uppercase">
+                          <th className="px-1 py-2 text-center" style={{width: '10%'}}>CODE</th>
+                          <th className="px-1 py-2 text-center" style={{width: '18%'}}>DESCRIPTION</th>
+                          <th className="px-1 py-2 text-center" style={{width: '10%'}}>HSN</th>
+                          <th className="px-1 py-2 text-center" style={{width: '8%'}}>TAX%</th>
+                          <th className="px-1 py-2 text-center" style={{width: '10%'}}>QTY</th>
+                          <th className="px-1 py-2 text-center" style={{width: '10%'}}>UNIT</th>
+                          <th className="px-1 py-2 text-center" style={{width: '12%'}}>PRICE</th>
+                          <th className="px-1 py-2 text-center" style={{width: '14%'}}>TOTAL</th>
+                          <th className="px-1 py-2 text-center" style={{width: '8%'}}></th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {fields.map((field, index) => (
                           <tr key={field.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-4">
+                            <td className="px-1 py-1">
                               <FormField
                                 control={form.control}
                                 name={`items.${index}.itemCode`}
                                 render={({ field }) => (
-                                  <FormItem>
+                                  <FormItem className="space-y-0">
                                     <FormControl>
                                       <Input 
                                         {...field} 
-                                        placeholder="Auto-filled"
                                         data-testid={`input-item-code-${index}`}
-                                        className="text-center border-0 bg-transparent"
+                                        className="text-center border-0 bg-transparent text-xs h-8 px-1"
                                         readOnly
                                       />
                                     </FormControl>
-                                    <FormMessage />
                                   </FormItem>
                                 )}
                               />
                             </td>
-                            <td className="px-4 py-4">
+                            <td className="px-1 py-1">
                               <FormField
                                 control={form.control}
                                 name={`items.${index}.itemDescription`}
                                 render={({ field }) => (
-                                  <FormItem>
+                                  <FormItem className="space-y-0">
                                     <FormControl>
                                       <Input 
                                         {...field} 
-                                        placeholder="Auto-filled"
                                         data-testid={`input-description-${index}`}
-                                        className="text-center border-0 bg-transparent"
+                                        className="text-left border-0 bg-transparent text-xs h-8 px-1 truncate"
                                         readOnly
+                                        title={field.value}
                                       />
                                     </FormControl>
-                                    <FormMessage />
                                   </FormItem>
                                 )}
                               />
                             </td>
-                            <td className="px-4 py-4">
+                            <td className="px-1 py-1">
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.hsnCode`}
+                                render={({ field }) => (
+                                  <FormItem className="space-y-0">
+                                    <FormControl>
+                                      <Input 
+                                        {...field} 
+                                        value={field.value || ''}
+                                        data-testid={`input-hsn-code-${index}`}
+                                        className="text-center border-0 bg-transparent text-xs h-8 px-1"
+                                        readOnly
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </td>
+                            <td className="px-1 py-1">
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.taxRate`}
+                                render={({ field }) => (
+                                  <FormItem className="space-y-0">
+                                    <FormControl>
+                                      <Input 
+                                        type="number"
+                                        value={field.value || ''}
+                                        data-testid={`input-tax-rate-${index}`}
+                                        className="text-center border-0 bg-transparent text-xs h-8 px-1"
+                                        readOnly
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </td>
+                            <td className="px-1 py-1">
                               <FormField
                                 control={form.control}
                                 name={`items.${index}.quantity`}
                                 render={({ field }) => (
-                                  <FormItem>
+                                  <FormItem className="space-y-0">
                                     <FormControl>
                                       <Input 
                                         type="number" 
@@ -1452,32 +1499,26 @@ export default function Sales() {
                                         value={field.value || ''}
                                         onChange={e => {
                                           const value = e.target.value;
-                                          field.onChange(value);
-                                        }}
-                                        onBlur={e => {
-                                          const value = e.target.value;
                                           const num = parseFloat(value);
                                           field.onChange(isNaN(num) ? 0 : num);
                                         }}
                                         data-testid={`input-quantity-${index}`}
-                                        className="text-center"
-                                        placeholder="Enter quantity"
+                                        className="text-center text-xs h-8 px-1"
                                       />
                                     </FormControl>
-                                    <FormMessage />
                                   </FormItem>
                                 )}
                               />
                             </td>
-                            <td className="px-4 py-4">
+                            <td className="px-1 py-1">
                               <FormField
                                 control={form.control}
                                 name={`items.${index}.unit`}
                                 render={({ field }) => (
-                                  <FormItem>
+                                  <FormItem className="space-y-0">
                                     <Select onValueChange={field.onChange} value={field.value}>
                                       <FormControl>
-                                        <SelectTrigger data-testid={`select-unit-${index}`} className="text-center">
+                                        <SelectTrigger data-testid={`select-unit-${index}`} className="text-center text-xs h-8 px-1">
                                           <SelectValue />
                                         </SelectTrigger>
                                       </FormControl>
@@ -1489,17 +1530,16 @@ export default function Sales() {
                                         <SelectItem value="DRUM">DRUM</SelectItem>
                                       </SelectContent>
                                     </Select>
-                                    <FormMessage />
                                   </FormItem>
                                 )}
                               />
                             </td>
-                            <td className="px-4 py-4">
+                            <td className="px-1 py-1">
                               <FormField
                                 control={form.control}
                                 name={`items.${index}.unitPrice`}
                                 render={({ field }) => (
-                                  <FormItem>
+                                  <FormItem className="space-y-0">
                                     <FormControl>
                                       <Input 
                                         type="number" 
@@ -1508,25 +1548,19 @@ export default function Sales() {
                                         value={field.value || ''}
                                         onChange={e => {
                                           const value = e.target.value;
-                                          field.onChange(value);
-                                        }}
-                                        onBlur={e => {
-                                          const value = e.target.value;
                                           const num = parseFloat(value);
                                           field.onChange(isNaN(num) ? 0 : num);
                                         }}
                                         data-testid={`input-unit-price-${index}`}
-                                        className="text-center"
-                                        placeholder="Enter price"
+                                        className="text-center text-xs h-8 px-1"
                                       />
                                     </FormControl>
-                                    <FormMessage />
                                   </FormItem>
                                 )}
                               />
                             </td>
-                            <td className="px-4 py-4">
-                              <div className="font-semibold text-gray-900 text-center">
+                            <td className="px-1 py-1">
+                              <div className="font-semibold text-gray-900 text-center text-xs">
                                 ₹{(() => {
                                   const item = watchedItems[index];
                                   if (!item) return '0.00';
@@ -1536,16 +1570,17 @@ export default function Sales() {
                                 })()}
                               </div>
                             </td>
-                            <td className="px-4 py-4 text-center">
+                            <td className="px-1 py-1 text-center">
                               {fields.length > 1 && (
                                 <Button
                                   type="button"
-                                  variant="outline"
+                                  variant="ghost"
                                   size="sm"
                                   onClick={() => remove(index)}
                                   data-testid={`button-remove-item-${index}`}
+                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="h-3 w-3" />
                                 </Button>
                               )}
                             </td>

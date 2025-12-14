@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,16 +75,10 @@ function EditSalesOrderForm({ salesOrder, onClose, onSave }: any) {
 
   const handleSave = async () => {
     try {
-      // Convert date string to ISO format for the API
-      const updateData = {
-        ...formData,
-        expectedDeliveryDate: formData.expectedDeliveryDate ? new Date(formData.expectedDeliveryDate).toISOString() : null
-      };
-
       const response = await fetch(`/api/sales-orders/${salesOrder.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData)
+        body: JSON.stringify(formData)
       });
 
       if (response.ok) {
@@ -249,7 +243,11 @@ function AddLeadDialog({ open, onOpenChange, lead, users, onLeadSaved }: AddLead
 
   const form = useForm({
     resolver: zodResolver(
-      insertLeadSchema.omit({ leadNumber: true })
+      insertLeadSchema
+        .omit({ leadNumber: true })
+        .extend({
+          expectedCloseDate: z.string().optional(),
+        })
     ),
     defaultValues: {
       companyName: "",
@@ -259,6 +257,8 @@ function AddLeadDialog({ open, onOpenChange, lead, users, onLeadSaved }: AddLead
       leadSource: "WEBSITE",
       leadStatus: "NEW",
       interestedProducts: [],
+      estimatedValue: "",
+      expectedCloseDate: "",
       notes: "",
       assignedToUserId: user?.id || "",
       primarySalesPersonId: user?.id || "",
@@ -275,7 +275,9 @@ function AddLeadDialog({ open, onOpenChange, lead, users, onLeadSaved }: AddLead
         email: lead.email || "",
         leadSource: lead.leadSource || "WEBSITE",
         leadStatus: lead.leadStatus || "NEW",
-        interestedProducts: Array.isArray(lead.interestedProducts) ? lead.interestedProducts : [] as string[],
+        interestedProducts: (Array.isArray(lead.interestedProducts) ? lead.interestedProducts : []) as any,
+        estimatedValue: (lead as any).estimatedValue || "",
+        expectedCloseDate: (lead as any).expectedCloseDate ? new Date((lead as any).expectedCloseDate).toISOString().split('T')[0] : "",
         notes: lead.notes || "",
         assignedToUserId: lead.assignedToUserId || user?.id || "",
         primarySalesPersonId: lead.primarySalesPersonId || user?.id || "",
@@ -289,6 +291,8 @@ function AddLeadDialog({ open, onOpenChange, lead, users, onLeadSaved }: AddLead
         leadSource: "WEBSITE",
         leadStatus: "NEW",
         interestedProducts: [],
+        estimatedValue: "",
+        expectedCloseDate: "",
         notes: "",
         assignedToUserId: user?.id || "",
         primarySalesPersonId: user?.id || "",
@@ -453,37 +457,37 @@ function AddLeadDialog({ open, onOpenChange, lead, users, onLeadSaved }: AddLead
                         </SelectItem>
                         <SelectItem value="CONTACTED" className="bg-pink-50 hover:bg-pink-100">
                           <div className="flex items-center gap-2">
-                            <span className="text-pink-500">📞</span>
+                            <div className="w-3 h-3 bg-pink-500 rounded-full"></div>
                             <span>Contacted</span>
                           </div>
                         </SelectItem>
                         <SelectItem value="QUALIFIED" className="bg-green-50 hover:bg-green-100">
                           <div className="flex items-center gap-2">
-                            <span className="text-green-500">✅</span>
+                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                             <span>Qualified</span>
                           </div>
                         </SelectItem>
                         <SelectItem value="PROPOSAL" className="bg-gray-50 hover:bg-gray-100">
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-500">📋</span>
+                            <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
                             <span>Proposal</span>
                           </div>
                         </SelectItem>
                         <SelectItem value="NEGOTIATION" className="bg-yellow-50 hover:bg-yellow-100">
                           <div className="flex items-center gap-2">
-                            <span className="text-yellow-500">🤝</span>
+                            <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                             <span>Negotiation</span>
                           </div>
                         </SelectItem>
                         <SelectItem value="CLOSED_WON" className="bg-purple-50 hover:bg-purple-100">
                           <div className="flex items-center gap-2">
-                            <span className="text-purple-500">🎊</span>
+                            <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
                             <span>Closed Won</span>
                           </div>
                         </SelectItem>
                         <SelectItem value="CLOSED_LOST" className="bg-red-50 hover:bg-red-100">
                           <div className="flex items-center gap-2">
-                            <span className="text-red-500">❌</span>
+                            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                             <span>Closed Lost</span>
                           </div>
                         </SelectItem>
@@ -495,6 +499,40 @@ function AddLeadDialog({ open, onOpenChange, lead, users, onLeadSaved }: AddLead
               />
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="estimatedValue"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Estimated Value (₹)</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="number" placeholder="Enter estimated value" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="expectedCloseDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Expected Close Date</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="date" 
+                        value={field.value || ""}
+                        onChange={(e) => {
+                          field.onChange(e.target.value);
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}
@@ -592,10 +630,9 @@ const leadFollowUpFormSchema = z.object({
   remarks: z.string().min(1, "Remarks are required"),
   followUpDate: z.string().min(1, "Follow-up date is required"),
   nextFollowUpDate: z.string().optional(),
-  status: z.enum(["NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "CLOSED_WON", "CLOSED_LOST"], {
-    required_error: "Lead status is required",
+  status: z.enum(["PENDING", "COMPLETED", "CANCELLED"], {
+    required_error: "Follow-up status is required",
   }),
-  followUpStatus: z.enum(["PENDING", "COMPLETED", "CANCELLED"]).default("PENDING"),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"], {
     required_error: "Priority is required",
   }),
@@ -862,12 +899,12 @@ function FollowUpDashboard() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="CALL">📞 Call</SelectItem>
-                          <SelectItem value="EMAIL">📧 Email</SelectItem>
-                          <SelectItem value="MEETING">🤝 Meeting</SelectItem>
-                          <SelectItem value="DEMO">💻 Demo</SelectItem>
-                          <SelectItem value="PROPOSAL">📋 Proposal</SelectItem>
-                          <SelectItem value="FOLLOW_UP">👥 Follow Up</SelectItem>
+                          <SelectItem value="CALL">Call</SelectItem>
+                          <SelectItem value="EMAIL">Email</SelectItem>
+                          <SelectItem value="MEETING">Meeting</SelectItem>
+                          <SelectItem value="DEMO">Demo</SelectItem>
+                          <SelectItem value="PROPOSAL">Proposal</SelectItem>
+                          <SelectItem value="FOLLOW_UP">Follow Up</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -1108,7 +1145,7 @@ function FollowUpDashboard() {
                           setHistoryDialogOpen(true);
                         }}
                       >
-                        📋 History
+                        History
                       </Button>
                       
                       {followUp.status === "PENDING" && (
@@ -1183,7 +1220,7 @@ function FollowUpDashboard() {
                             </div>
                           </div>
                           
-                          <p className="text-gray-700 mb-3">{followUp.remarks || followUp.description}</p>
+                          <p className="text-gray-700 mb-3">{followUp.remarks || (followUp as any).description}</p>
                           
                           {followUp.outcome && (
                             <div className="p-3 bg-green-50 border border-green-200 rounded-lg mb-3">
@@ -1314,8 +1351,7 @@ function LeadCRMSection() {
       remarks: "",
       followUpDate: getCurrentLocalDateTime(), // Auto-fill current date/time
       nextFollowUpDate: "",
-      status: "NEW",
-      followUpStatus: "PENDING",
+      status: "PENDING",
       priority: "MEDIUM",
       assignedUserId: "",
       outcome: "",
@@ -1335,17 +1371,14 @@ function LeadCRMSection() {
         remarks: "",
         followUpDate: getCurrentLocalDateTime(),
         nextFollowUpDate: "",
-        status: "NEW",
-        followUpStatus: "PENDING",
+        status: "PENDING",
         priority: "MEDIUM",
         assignedUserId: "",
         outcome: "",
         reminderEnabled: false,
       });
       setActiveFollowUpTab("history");
-      // Invalidate all related queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ["/api/lead-follow-ups"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/leads"] }); // Refresh leads list to show updated status
       if (selectedLead?.id) {
         queryClient.invalidateQueries({ queryKey: ["/api/lead-follow-ups", selectedLead.id] });
       }
@@ -1375,7 +1408,7 @@ function LeadCRMSection() {
     retry: false,
   });
 
-  const onLeadFollowUpSubmit = async (data: LeadFollowUpFormData) => {
+  const onLeadFollowUpSubmit = (data: LeadFollowUpFormData) => {
     if (!selectedLead) return;
     
     // Use the assigned user from the form, or default to current user
@@ -1388,13 +1421,10 @@ function LeadCRMSection() {
       return;
     }
 
-    // Create follow-up with the lead status update
     createLeadFollowUpMutation.mutate({
       ...data,
       leadId: selectedLead.id,
     });
-    
-    // Lead status will be updated by backend automatically
   };
 
   const handleConvertToClient = (lead: Lead) => {
@@ -1910,7 +1940,7 @@ function LeadCRMSection() {
                     <div className="flex items-center gap-1">
                       Company Name
                       {sortField === "companyName" && (
-                        <span className="text-xs">{sortDirection === "asc" ? "↑" : "↓"}</span>
+                        <span className="text-xs">{sortDirection === "asc" ? "Γåæ" : "Γåô"}</span>
                       )}
                     </div>
                   </TableHead>
@@ -1918,7 +1948,7 @@ function LeadCRMSection() {
                     <div className="flex items-center gap-1">
                       Contact Person
                       {sortField === "contactPersonName" && (
-                        <span className="text-xs">{sortDirection === "asc" ? "↑" : "↓"}</span>
+                        <span className="text-xs">{sortDirection === "asc" ? "Γåæ" : "Γåô"}</span>
                       )}
                     </div>
                   </TableHead>
@@ -1927,11 +1957,19 @@ function LeadCRMSection() {
                     <div className="flex items-center gap-1">
                       Source
                       {sortField === "leadSource" && (
-                        <span className="text-xs">{sortDirection === "asc" ? "↑" : "↓"}</span>
+                        <span className="text-xs">{sortDirection === "asc" ? "Γåæ" : "Γåô"}</span>
                       )}
                     </div>
                   </TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("estimatedValue")}>
+                    <div className="flex items-center gap-1">
+                      Est. Value
+                      {sortField === "estimatedValue" && (
+                        <span className="text-xs">{sortDirection === "asc" ? "Γåæ" : "Γåô"}</span>
+                      )}
+                    </div>
+                  </TableHead>
                   <TableHead>Next Follow-up</TableHead>
                   <TableHead>Primary Sales Person</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -1950,8 +1988,6 @@ function LeadCRMSection() {
                           onClick={() => {
                             setSelectedLead(lead);
                             setIsFollowUpDialogOpen(true);
-                            // Pre-populate form with current lead status
-                            leadFollowUpForm.setValue("status", lead.leadStatus);
                           }}
                         >
                           {lead.companyName}
@@ -2010,42 +2046,49 @@ function LeadCRMSection() {
                             </SelectItem>
                             <SelectItem value="CONTACTED" className="bg-pink-50 hover:bg-pink-100">
                               <div className="flex items-center gap-2">
-                                <span className="text-pink-500">📞</span>
+                                <div className="w-3 h-3 bg-pink-500 rounded-full"></div>
                                 <span>Contacted</span>
                               </div>
                             </SelectItem>
                             <SelectItem value="QUALIFIED" className="bg-green-50 hover:bg-green-100">
                               <div className="flex items-center gap-2">
-                                <span className="text-green-500">✅</span>
+                                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                                 <span>Qualified</span>
                               </div>
                             </SelectItem>
                             <SelectItem value="PROPOSAL" className="bg-gray-50 hover:bg-gray-100">
                               <div className="flex items-center gap-2">
-                                <span className="text-gray-500">📋</span>
+                                <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
                                 <span>Proposal</span>
                               </div>
                             </SelectItem>
                             <SelectItem value="NEGOTIATION" className="bg-yellow-50 hover:bg-yellow-100">
                               <div className="flex items-center gap-2">
-                                <span className="text-yellow-500">🤝</span>
+                                <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                                 <span>Negotiation</span>
                               </div>
                             </SelectItem>
                             <SelectItem value="CLOSED_WON" className="bg-purple-50 hover:bg-purple-100">
                               <div className="flex items-center gap-2">
-                                <span className="text-purple-500">🎊</span>
+                                <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
                                 <span>Closed Won</span>
                               </div>
                             </SelectItem>
                             <SelectItem value="CLOSED_LOST" className="bg-red-50 hover:bg-red-100">
                               <div className="flex items-center gap-2">
-                                <span className="text-red-500">❌</span>
+                                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                                 <span>Closed Lost</span>
                               </div>
                             </SelectItem>
                           </SelectContent>
                         </Select>
+                      </TableCell>
+                      <TableCell>
+                        {(lead as any).estimatedValue && (
+                          <div className="text-right font-medium" data-testid={`text-value-${lead.id}`}>
+                            ₹{Number((lead as any).estimatedValue).toLocaleString()}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         {(() => {
@@ -2093,8 +2136,6 @@ function LeadCRMSection() {
                             onClick={() => {
                               setSelectedLead(lead);
                               setIsFollowUpDialogOpen(true);
-                              // Pre-populate form with current lead status
-                              leadFollowUpForm.setValue("status", lead.leadStatus);
                             }}
                             data-testid={`button-followup-${lead.id}`}
                           >
@@ -2227,12 +2268,12 @@ function LeadCRMSection() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="CALL">📞 Call</SelectItem>
-                                <SelectItem value="EMAIL">📧 Email</SelectItem>
-                                <SelectItem value="MEETING">🤝 Meeting</SelectItem>
-                                <SelectItem value="DEMO">💻 Demo</SelectItem>
-                                <SelectItem value="PROPOSAL">📋 Proposal</SelectItem>
-                                <SelectItem value="WHATSAPP">💬 WhatsApp</SelectItem>
+                                <SelectItem value="CALL">Call</SelectItem>
+                                <SelectItem value="EMAIL">Email</SelectItem>
+                                <SelectItem value="MEETING">Meeting</SelectItem>
+                                <SelectItem value="DEMO">Demo</SelectItem>
+                                <SelectItem value="PROPOSAL">Proposal</SelectItem>
+                                <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -2300,7 +2341,7 @@ function LeadCRMSection() {
                           name="status"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Lead Status Update</FormLabel>
+                              <FormLabel>Follow-up Status</FormLabel>
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
@@ -2308,46 +2349,22 @@ function LeadCRMSection() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="NEW" className="bg-blue-50 hover:bg-blue-100">
+                                  <SelectItem value="PENDING" className="bg-yellow-50 hover:bg-yellow-100">
                                     <div className="flex items-center gap-2">
-                                      <div className="w-3 h-3 bg-blue-500 rounded-sm"></div>
-                                      <span>New</span>
+                                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                                      <span>Pending</span>
                                     </div>
                                   </SelectItem>
-                                  <SelectItem value="CONTACTED" className="bg-pink-50 hover:bg-pink-100">
+                                  <SelectItem value="COMPLETED" className="bg-green-50 hover:bg-green-100">
                                     <div className="flex items-center gap-2">
-                                      <span className="text-pink-500">📞</span>
-                                      <span>Contacted</span>
+                                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                      <span>Completed</span>
                                     </div>
                                   </SelectItem>
-                                  <SelectItem value="QUALIFIED" className="bg-green-50 hover:bg-green-100">
+                                  <SelectItem value="CANCELLED" className="bg-red-50 hover:bg-red-100">
                                     <div className="flex items-center gap-2">
-                                      <span className="text-green-500">✅</span>
-                                      <span>Qualified</span>
-                                    </div>
-                                  </SelectItem>
-                                  <SelectItem value="PROPOSAL" className="bg-gray-50 hover:bg-gray-100">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-gray-500">📋</span>
-                                      <span>Proposal</span>
-                                    </div>
-                                  </SelectItem>
-                                  <SelectItem value="NEGOTIATION" className="bg-yellow-50 hover:bg-yellow-100">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-yellow-500">🤝</span>
-                                      <span>Negotiation</span>
-                                    </div>
-                                  </SelectItem>
-                                  <SelectItem value="CLOSED_WON" className="bg-purple-50 hover:bg-purple-100">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-purple-500">🎊</span>
-                                      <span>Closed Won</span>
-                                    </div>
-                                  </SelectItem>
-                                  <SelectItem value="CLOSED_LOST" className="bg-red-50 hover:bg-red-100">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-red-500">❌</span>
-                                      <span>Closed Lost</span>
+                                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                      <span>Cancelled</span>
                                     </div>
                                   </SelectItem>
                                 </SelectContent>
@@ -2357,9 +2374,6 @@ function LeadCRMSection() {
                           )}
                         />
 
-                      </div>
-                      
-                      <div className="grid grid-cols-1 gap-4">
                         <FormField
                           control={leadFollowUpForm.control}
                           name="priority"
@@ -2373,10 +2387,10 @@ function LeadCRMSection() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="LOW">🟢 Low</SelectItem>
-                                  <SelectItem value="MEDIUM">🟡 Medium</SelectItem>
-                                  <SelectItem value="HIGH">🟠 High</SelectItem>
-                                  <SelectItem value="URGENT">🔴 Urgent</SelectItem>
+                                  <SelectItem value="LOW">Low</SelectItem>
+                                  <SelectItem value="MEDIUM">Medium</SelectItem>
+                                  <SelectItem value="HIGH">High</SelectItem>
+                                  <SelectItem value="URGENT">Urgent</SelectItem>
                                 </SelectContent>
                               </Select>
                               <FormMessage />
@@ -2404,7 +2418,7 @@ function LeadCRMSection() {
                                   user.role === 'ADMIN'
                                 ).map((user: any) => (
                                   <SelectItem key={user.id} value={user.id}>
-                                    👤 {user.firstName} {user.lastName} ({user.role.replace('_', ' ')})
+                                    {user.firstName} {user.lastName} ({user.role.replace('_', ' ')})
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -2427,11 +2441,11 @@ function LeadCRMSection() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="POSITIVE_RESPONSE">👍 Positive Response</SelectItem>
-                                <SelectItem value="NEEDS_MORE_INFO">❓ Needs More Info</SelectItem>
-                                <SelectItem value="NOT_INTERESTED">👎 Not Interested</SelectItem>
-                                <SelectItem value="CONVERTED">🎉 Converted</SelectItem>
-                                <SelectItem value="NO_RESPONSE">📵 No Response</SelectItem>
+                                <SelectItem value="POSITIVE_RESPONSE">Positive Response</SelectItem>
+                                <SelectItem value="NEEDS_MORE_INFO">Needs More Info</SelectItem>
+                                <SelectItem value="NOT_INTERESTED">Not Interested</SelectItem>
+                                <SelectItem value="CONVERTED">Converted</SelectItem>
+                                <SelectItem value="NO_RESPONSE">No Response</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -2453,7 +2467,7 @@ function LeadCRMSection() {
                               />
                             </FormControl>
                             <div className="space-y-1 leading-none">
-                              <FormLabel>📔 Set Reminder / Notification</FormLabel>
+                              <FormLabel>Set Reminder / Notification</FormLabel>
                               <div className="text-sm text-muted-foreground">
                                 Enable to get notified about this follow-up
                               </div>
@@ -2476,8 +2490,7 @@ function LeadCRMSection() {
                               remarks: "",
                               followUpDate: getCurrentLocalDateTime(),
                               nextFollowUpDate: "",
-                              status: "NEW",
-        followUpStatus: "PENDING",
+                              status: "PENDING",
                               priority: "MEDIUM",
                               assignedUserId: "",
                               outcome: "",
@@ -2516,7 +2529,7 @@ function LeadCRMSection() {
                           .map((followUp) => (
                             <Card key={followUp.id} className="p-4">
                               <div className="flex items-start justify-between">
-                                <div className="space-y-3 flex-1">
+                                <div className="space-y-2 flex-1">
                                   <div className="flex items-center gap-2">
                                     <Badge variant="outline" className="bg-blue-50">
                                       {followUp.followUpType || 'FOLLOW_UP'}
@@ -2524,68 +2537,27 @@ function LeadCRMSection() {
                                     <span className="text-sm text-gray-500">
                                       {new Date(followUp.followUpDate || followUp.createdAt).toLocaleString()}
                                     </span>
-                                    {followUp.status && (
-                                      <Badge variant={followUp.status === 'COMPLETED' ? 'default' : followUp.status === 'CANCELLED' ? 'destructive' : 'secondary'}>
-                                        {followUp.status}
-                                      </Badge>
-                                    )}
                                   </div>
-                                  
                                   <p className="text-sm font-medium">
                                     {followUp.remarks || 'No details provided'}
                                   </p>
-
-                                  {/* Enhanced information grid */}
-                                  <div className="grid grid-cols-2 gap-4 text-xs">
-                                    {followUp.priority && (
-                                      <div>
-                                        <span className="font-medium text-gray-600">Priority:</span>
-                                        <Badge variant={followUp.priority === 'URGENT' ? 'destructive' : followUp.priority === 'HIGH' ? 'secondary' : 'outline'} className="ml-2">
-                                          {followUp.priority}
-                                        </Badge>
-                                      </div>
-                                    )}
-                                    
-                                    {followUp.assignedUser && (
-                                      <div>
-                                        <span className="font-medium text-gray-600">Assigned to:</span>
-                                        <span className="ml-2">{followUp.assignedUser.firstName} {followUp.assignedUser.lastName}</span>
-                                      </div>
-                                    )}
-                                  </div>
-
                                   {followUp.nextFollowUpDate && (
-                                    <div className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
-                                      <Calendar className="h-3 w-3" />
-                                      <span><strong>Next follow-up:</strong> {new Date(followUp.nextFollowUpDate).toLocaleString()}</span>
-                                    </div>
+                                    <p className="text-xs text-blue-600">
+                                      Next follow-up: {new Date(followUp.nextFollowUpDate).toLocaleString()}
+                                    </p>
                                   )}
-
-                                  {followUp.outcome && (
-                                    <div className="text-xs">
-                                      <span className="font-medium text-gray-600">Outcome:</span>
-                                      <p className="mt-1 text-gray-700 bg-gray-50 p-2 rounded">{followUp.outcome}</p>
-                                    </div>
+                                  {followUp.assignedUser && (
+                                    <p className="text-xs text-gray-500">
+                                      Assigned to: {followUp.assignedUser.firstName} {followUp.assignedUser.lastName}
+                                    </p>
                                   )}
-
-                                  <div className="mt-3 pt-3 border-t border-gray-100">
-                                    <div className="flex justify-between items-center text-xs text-gray-500">
-                                      <span>
-                                        <span className="font-medium">Updated by:</span> {(() => {
-                                          const updatedUser = users.find(u => u.id === followUp.assignedUserId);
-                                          return updatedUser ? `${updatedUser.firstName} ${updatedUser.lastName}` : 'Unknown User';
-                                        })()}
-                                      </span>
-                                      <span>
-                                        {new Date(followUp.createdAt).toLocaleDateString('en-US', { 
-                                          month: 'short', 
-                                          day: 'numeric', 
-                                          year: 'numeric',
-                                          hour: '2-digit',
-                                          minute: '2-digit'
-                                        })}
-                                      </span>
-                                    </div>
+                                  <div className="mt-2 pt-2 border-t border-gray-100">
+                                    <p className="text-xs text-gray-500">
+                                      <span className="font-medium">Updated by:</span> {(() => {
+                                        const updatedUser = users.find(u => u.id === followUp.assignedUserId);
+                                        return updatedUser ? `${updatedUser.firstName} ${updatedUser.lastName}` : 'Unknown User';
+                                      })()}
+                                    </p>
                                   </div>
                                 </div>
                               </div>
@@ -2730,6 +2702,18 @@ function QuotationSection() {
     const updatedItems = [...quotationItems];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
     
+    // Auto-fill unit and rate when product is selected
+    if (field === 'productId') {
+      const selectedProduct = (products as any[]).find((p: any) => p.id === value);
+      if (selectedProduct) {
+        updatedItems[index].unit = selectedProduct.unit || "";
+        updatedItems[index].rate = parseFloat(selectedProduct.rate) || 0;
+        // Auto-calculate amount
+        const quantity = updatedItems[index].quantity || 0;
+        updatedItems[index].amount = quantity * (parseFloat(selectedProduct.rate) || 0);
+      }
+    }
+    
     // Auto-calculate amount when quantity or rate changes
     if (field === 'quantity' || field === 'rate') {
       const quantity = field === 'quantity' ? parseFloat(value) || 0 : updatedItems[index].quantity;
@@ -2751,7 +2735,7 @@ function QuotationSection() {
   };
 
   const calculateTotals = () => {
-    const subtotal = quotationItems.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
+    const subtotal = quotationItems.reduce((sum, item) => sum + parseFloat(String(item.amount || "0")), 0);
     const tax = subtotal * 0.18; // 18% GST
     const total = subtotal + tax;
     return { subtotal, tax, total };
@@ -2773,6 +2757,15 @@ function QuotationSection() {
   };
 
   const handleSaveQuotation = async () => {
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create a quotation",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!selectedClient) {
       toast({
         title: "Error",
@@ -2796,7 +2789,7 @@ function QuotationSection() {
       clientType: clientType, // Add client type to identify if it's lead or client
       quotationDate: new Date(quotationDate).toISOString(),
       validUntil: validUntil ? new Date(validUntil).toISOString() : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      totalAmount: totals.total,
+      totalAmount: totals.subtotal,
       discountPercentage: 0,
       discountAmount: 0,
       taxAmount: totals.tax,
@@ -2804,7 +2797,7 @@ function QuotationSection() {
       paymentTerms: `${parseInt(paymentTerms) || 30}`,
       deliveryTerms: "Standard delivery terms",
       specialInstructions: description,
-      preparedByUserId: user?.id || "system",
+      preparedByUserId: user.id,
       approvalStatus: "PENDING",
       items: quotationItems.filter(item => item.productId && item.quantity > 0).map(item => ({
         productId: item.productId,
@@ -2873,7 +2866,7 @@ Valid Until: ${quotation.validUntil ? new Date(quotation.validUntil).toLocaleDat
 *ITEMS:*
 ${itemsText}
 
-*TOTAL AMOUNT: ₹${parseFloat(quotation.grandTotal || 0).toFixed(2)}*
+*TOTAL AMOUNT: Rs.${parseFloat(quotation.grandTotal || 0).toFixed(2)}*
 
 Payment Terms: ${quotation.paymentTerms} days
 Delivery Terms: ${quotation.deliveryTerms || 'Standard delivery'}
@@ -2881,8 +2874,8 @@ Delivery Terms: ${quotation.deliveryTerms || 'Standard delivery'}
 Thank you for your business!
 
 *M/S SRI HM BITUMEN CO*
-📞 +91 8453059698
-📧 info.srihmbitumen@gmail.com`;
+Phone: +91 8453059698
+Email: info.srihmbitumen@gmail.com`;
 
       // Create WhatsApp URL
       const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
@@ -2935,7 +2928,7 @@ Thank you for your inquiry! Please find the attached quotation for the following
 Quotation Number: ${quotation.quotationNumber}
 Quotation Date: ${new Date(quotation.quotationDate || quotation.createdAt).toLocaleDateString()}
 Valid Until: ${quotation.validUntil ? new Date(quotation.validUntil).toLocaleDateString() : 'TBD'}
-Total Amount: ₹${parseFloat(quotation.grandTotal || 0).toFixed(2)}
+Total Amount: Rs.${parseFloat(quotation.grandTotal || 0).toFixed(2)}
 
 The detailed quotation document is attached to this email.
 
@@ -2972,7 +2965,7 @@ Thank you for your inquiry! Here are your quotation details:
 
 Quotation Number: ${quotation.quotationNumber}
 Quotation Date: ${new Date(quotation.quotationDate || quotation.createdAt).toLocaleDateString()}
-Total Amount: ₹${parseFloat(quotation.grandTotal || 0).toFixed(2)}
+Total Amount: Rs.${parseFloat(quotation.grandTotal || 0).toFixed(2)}
 
 Best regards,
 M/S SRI HM BITUMEN CO`;
@@ -3117,12 +3110,12 @@ M/S SRI HM BITUMEN CO`;
       
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(24);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('QUOTATION', 105, 25, { align: 'center' });
       
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(12);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       
       // Company info box
       doc.setFillColor(245, 245, 245);
@@ -3138,7 +3131,7 @@ M/S SRI HM BITUMEN CO`;
       
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(20);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('BUSINESS QUOTATION', 105, 22, { align: 'center' });
       
       doc.setTextColor(0, 0, 0);
@@ -3155,7 +3148,7 @@ M/S SRI HM BITUMEN CO`;
       
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(26);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('QUOTATION', 105, 25, { align: 'center' });
       doc.setFontSize(12);
       doc.text('Professional Business Solutions', 105, 35, { align: 'center' });
@@ -3173,22 +3166,22 @@ M/S SRI HM BITUMEN CO`;
     
     // Quotation details
     doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text('Quotation Details:', 20, startY + 30);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
     doc.text(`Quotation No: ${quotation.quotationNumber}`, 20, startY + 40);
     doc.text(`Date: ${new Date(quotation.quotationDate).toLocaleDateString('en-IN')}`, 20, startY + 47);
     doc.text(`Valid Until: ${new Date(quotation.validUntil).toLocaleDateString('en-IN')}`, 20, startY + 54);
     
     // Client and prepared by
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text('Bill To:', 20, startY + 70);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
     doc.text(clientName, 20, startY + 78);
     
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text('Prepared By:', 110, startY + 70);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
     doc.text(preparedByName, 110, startY + 78);
     
     // Items table
@@ -3200,18 +3193,18 @@ M/S SRI HM BITUMEN CO`;
                      format === 'corporate' ? 230 : format === 'professional' ? 240 : 220);
     doc.rect(15, tableStartY - 5, 180, 10, 'F');
     
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text('Description', 20, tableStartY);
     doc.text('Qty', 95, tableStartY);
     doc.text('Unit', 115, tableStartY);
-    doc.text('Rate (₹)', 135, tableStartY);
-    doc.text('Amount (₹)', 165, tableStartY);
+    doc.text('Rate (Rs)', 135, tableStartY);
+    doc.text('Amount (Rs)', 165, tableStartY);
     
     // Table border
     doc.line(15, tableStartY + 2, 195, tableStartY + 2);
     
     // Items
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
     let currentY = tableStartY + 12;
     
     if (validItems.length > 0) {
@@ -3238,7 +3231,7 @@ M/S SRI HM BITUMEN CO`;
         currentY += Math.max(descLines.length * 5, 10);
       });
     } else {
-      doc.setFont(undefined, 'italic');
+      doc.setFont('helvetica', 'italic');
       doc.text('No items found in this quotation', 20, currentY);
       currentY += 15;
     }
@@ -3248,13 +3241,13 @@ M/S SRI HM BITUMEN CO`;
     doc.line(135, currentY, 195, currentY);
     currentY += 10;
     
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
     doc.text('Subtotal:', 135, currentY);
-    doc.text(`₹${subtotal.toFixed(2)}`, 170, currentY);
+    doc.text(`Rs.${subtotal.toFixed(2)}`, 170, currentY);
     currentY += 8;
     
     doc.text(`Tax (${taxRate}% GST):`, 135, currentY);
-    doc.text(`₹${taxAmount.toFixed(2)}`, 170, currentY);
+    doc.text(`Rs.${taxAmount.toFixed(2)}`, 170, currentY);
     currentY += 8;
     
     // Grand total with highlight
@@ -3264,9 +3257,9 @@ M/S SRI HM BITUMEN CO`;
       doc.setTextColor(255, 255, 255);
     }
     
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text('Grand Total:', 135, currentY);
-    doc.text(`₹${grandTotal.toFixed(2)}`, 170, currentY);
+    doc.text(`Rs.${grandTotal.toFixed(2)}`, 170, currentY);
     
     if (format === 'advanced') {
       doc.setTextColor(0, 0, 0);
@@ -3274,9 +3267,9 @@ M/S SRI HM BITUMEN CO`;
     
     // Terms and conditions
     currentY += 25;
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text('Terms & Conditions:', 20, currentY);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
     currentY += 8;
     
     const terms = [
@@ -3287,22 +3280,22 @@ M/S SRI HM BITUMEN CO`;
     ];
     
     terms.forEach(term => {
-      doc.text(`• ${term}`, 22, currentY);
+      doc.text(`ΓÇó ${term}`, 22, currentY);
       currentY += 6;
     });
     
     if (quotation.specialInstructions) {
       currentY += 5;
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('Special Instructions:', 20, currentY);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       currentY += 6;
       doc.text(quotation.specialInstructions, 20, currentY);
     }
     
     // Footer (using existing pageHeight variable)
     doc.setFontSize(10);
-    doc.setFont(undefined, 'italic');
+    doc.setFont('helvetica', 'italic');
     doc.text('Thank you for your business! We look forward to serving you.', 105, pageHeight - 15, { align: 'center' });
     
     return doc;
@@ -3394,13 +3387,24 @@ M/S SRI HM BITUMEN CO`;
           }
         };
 
-        doc = generateBitumenQuotationPDF(quotationData);
+        doc = generateBitumenQuotationPDF({
+          ...quotationData,
+          id: quotation.id || '',
+          gstAmount: subtotal * 0.18,
+          validityPeriod: 30,
+          client: {
+            ...quotationData.client,
+            id: quotation.clientId || ''
+          }
+        });
       } else {
         // Use legacy format for other options
         doc = await generatePDFFormat(quotation, format);
       }
       
-      doc.save(`${quotation.quotationNumber}_${format}.pdf`);
+      if (doc && typeof doc === 'object' && 'save' in doc) {
+        (doc as any).save(`${quotation.quotationNumber}_${format}.pdf`);
+      }
       
       toast({
         title: "Success",
@@ -3639,8 +3643,8 @@ M/S SRI HM BITUMEN CO`;
                       )
                     ) : (
                       // Show leads from Lead & CRM management
-                      leads && leads.length > 0 ? (
-                        leads.map((lead: any) => (
+                      Array.isArray(leads) && leads.length > 0 ? (
+                        (leads as any[]).map((lead: any) => (
                           <SelectItem key={lead.id} value={lead.id}>
                             {lead.companyName} - {lead.contactPersonName}
                           </SelectItem>
@@ -3774,7 +3778,7 @@ M/S SRI HM BITUMEN CO`;
                   <div className="col-span-2">
                     <Input 
                       className="h-8" 
-                      value={parseFloat(item.amount || 0).toFixed(2)} 
+                      value={parseFloat(String(item.amount || "0")).toFixed(2)} 
                       readOnly 
                       placeholder="0.00"
                     />
@@ -3787,7 +3791,7 @@ M/S SRI HM BITUMEN CO`;
                         className="h-8 w-8 p-0"
                         onClick={() => removeQuotationItem(index)}
                       >
-                        ×
+                        ├ù
                       </Button>
                     )}
                   </div>
@@ -3834,7 +3838,7 @@ M/S SRI HM BITUMEN CO`;
 
       {/* Quotation Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Quotation Details</DialogTitle>
             <DialogDescription>
@@ -3894,38 +3898,52 @@ M/S SRI HM BITUMEN CO`;
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">Items</label>
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="grid grid-cols-5 gap-2 p-3 bg-muted text-xs font-medium">
-                    <div>Product</div>
-                    <div>Quantity</div>
-                    <div>Unit</div>
-                    <div>Rate</div>
-                    <div>Amount</div>
-                  </div>
-                  {(selectedQuotation.items || []).map((item: any, index: number) => (
-                    <div key={index} className="grid grid-cols-5 gap-2 p-3 border-t text-sm">
-                      <div>{item.description || (products as any[]).find((p: any) => p.id === item.productId)?.name || 'Unknown Product'}</div>
-                      <div>{item.quantity}</div>
-                      <div>{item.unit}</div>
-                      <div>₹{parseFloat(item.unitPrice || item.rate || 0).toFixed(2)}</div>
-                      <div>₹{parseFloat(item.totalPrice || item.amount || 0).toFixed(2)}</div>
-                    </div>
-                  ))}
+                <div className="border rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted">
+                        <TableHead className="text-xs font-medium w-[40%]">Product</TableHead>
+                        <TableHead className="text-xs font-medium text-center w-[15%]">Qty</TableHead>
+                        <TableHead className="text-xs font-medium text-center w-[15%]">Unit</TableHead>
+                        <TableHead className="text-xs font-medium text-right w-[15%]">Rate</TableHead>
+                        <TableHead className="text-xs font-medium text-right w-[15%]">Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedQuotation.items && selectedQuotation.items.length > 0 ? (
+                        selectedQuotation.items.map((item: any, index: number) => (
+                          <TableRow key={index}>
+                            <TableCell className="text-sm truncate">{item.description || (products as any[]).find((p: any) => p.id === item.productId)?.name || 'Unknown Product'}</TableCell>
+                            <TableCell className="text-sm text-center">{item.quantity}</TableCell>
+                            <TableCell className="text-sm text-center">{item.unit}</TableCell>
+                            <TableCell className="text-sm text-right">₹{parseFloat(item.rate || item.unitPrice || 0).toFixed(2)}</TableCell>
+                            <TableCell className="text-sm text-right">₹{parseFloat(item.amount || item.totalPrice || 0).toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-muted-foreground py-4">
+                            No items found in this quotation
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
 
-              <div className="border-t pt-4">
+              <div className="border-t pt-4 space-y-2">
                 <div className="flex justify-between items-center text-sm">
-                  <span>Subtotal:</span>
-                  <span>₹{parseFloat(selectedQuotation.totalAmount || 0).toFixed(2)}</span>
+                  <span className="text-muted-foreground">Subtotal:</span>
+                  <span className="font-medium">₹{parseFloat(selectedQuotation.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                  <span>Tax (18% GST):</span>
-                  <span>₹{parseFloat(selectedQuotation.taxAmount || 0).toFixed(2)}</span>
+                  <span className="text-muted-foreground">Tax (18% GST):</span>
+                  <span className="font-medium">₹{parseFloat(selectedQuotation.taxAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between items-center text-lg font-bold border-t pt-2 mt-2">
                   <span>Grand Total:</span>
-                  <span>₹{parseFloat(selectedQuotation.grandTotal || 0).toFixed(2)}</span>
+                  <span className="text-green-600">₹{parseFloat(selectedQuotation.grandTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
@@ -3942,7 +3960,7 @@ M/S SRI HM BITUMEN CO`;
             </div>
           )}
 
-          <DialogFooter className="flex gap-2">
+          <DialogFooter className="flex flex-wrap gap-2 pt-4 border-t">
             <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)}>
               Close
             </Button>
@@ -3950,36 +3968,39 @@ M/S SRI HM BITUMEN CO`;
               <>
                 <Button 
                   variant="outline"
+                  size="sm"
                   onClick={() => handleDownloadPDF(selectedQuotation, 'bitumen')}
                 >
-                  <Download className="h-4 w-4 mr-2" />
+                  <Download className="h-4 w-4 mr-1" />
                   Download PDF
                 </Button>
                 
                 <Button 
                   variant="outline"
+                  size="sm"
                   onClick={() => handleSendQuotationToWhatsApp(selectedQuotation)}
                   className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
                 >
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Send To WhatsApp
+                  <MessageCircle className="h-4 w-4 mr-1" />
+                  WhatsApp
                 </Button>
                 
                 <Button 
                   variant="outline"
+                  size="sm"
                   onClick={() => handleSendQuotationToEmail(selectedQuotation)}
                   className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
                 >
-                  <Mail className="h-4 w-4 mr-2" />
-                  Send To Email
+                  <Mail className="h-4 w-4 mr-1" />
+                  Email
                 </Button>
                 
                 {selectedQuotation.status === 'DRAFT' && (
-                  <Button onClick={() => {
+                  <Button size="sm" onClick={() => {
                     handleUpdateStatus(selectedQuotation.id, 'SENT');
                     setIsDetailsDialogOpen(false);
                   }}>
-                    <Send className="h-4 w-4 mr-2" />
+                    <Send className="h-4 w-4 mr-1" />
                     Send to Client
                   </Button>
                 )}
@@ -4017,8 +4038,62 @@ function SalesOrderSection() {
   // Dialog states
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedSalesOrder, setSelectedSalesOrder] = useState<any>(null);
+  const [salesOrderToDelete, setSalesOrderToDelete] = useState<any>(null);
   const [whatsappStatus, setWhatsappStatus] = useState<string>('');
+
+  // Delete mutation
+  const deleteSalesOrderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/sales-orders/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete sales order');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sales-orders'] });
+      toast({
+        title: "Success",
+        description: "Sales order deleted successfully",
+      });
+      setIsDeleteDialogOpen(false);
+      setSalesOrderToDelete(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete sales order",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete handler
+  const handleDeleteSalesOrder = (salesOrder: any) => {
+    // Check permissions
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'SALES_MANAGER')) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to delete this order.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setSalesOrderToDelete(salesOrder);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteSalesOrder = () => {
+    if (salesOrderToDelete) {
+      deleteSalesOrderMutation.mutate(salesOrderToDelete.id);
+    }
+  };
 
   const getSalesOrderClientName = (salesOrder: any) => {
     const client = (clients as any[])?.find((c: any) => c.id === salesOrder.clientId);
@@ -4055,15 +4130,15 @@ function SalesOrderSection() {
 
 Sales Order Details:
 Order Number: ${salesOrder.orderNumber}
-Total Amount: ₹${parseFloat(salesOrder.totalAmount || 0).toFixed(2)}
+Total Amount: Rs.${parseFloat(salesOrder.totalAmount || 0).toFixed(2)}
 Status: ${salesOrder.status}
 
 Thank you for your business!
 
 Regards,
 M/S SRI HM BITUMEN CO
-📞 +91 8453059698
-📧 info.srihmbitumen@gmail.com`;
+Phone: +91 8453059698
+Email: info.srihmbitumen@gmail.com`;
       
       // Open WhatsApp
       const whatsappUrl = `https://wa.me/${formattedNumber}?text=${encodeURIComponent(message)}`;
@@ -4126,7 +4201,7 @@ Thank you for your business! Please find the attached sales order PDF for the fo
 
 Order Number: ${salesOrder.orderNumber}
 Order Date: ${new Date(salesOrder.orderDate || salesOrder.createdAt).toLocaleDateString()}
-Total Amount: ₹${parseFloat(salesOrder.totalAmount || 0).toFixed(2)}
+Total Amount: Rs.${parseFloat(salesOrder.totalAmount || 0).toFixed(2)}
 Status: ${salesOrder.status}
 
 The detailed sales order document is attached to this email.
@@ -4164,7 +4239,7 @@ Thank you for your business! Here are your sales order details:
 
 Order Number: ${salesOrder.orderNumber}
 Order Date: ${new Date(salesOrder.orderDate || salesOrder.createdAt).toLocaleDateString()}
-Total Amount: ₹${parseFloat(salesOrder.totalAmount || 0).toFixed(2)}
+Total Amount: Rs.${parseFloat(salesOrder.totalAmount || 0).toFixed(2)}
 Status: ${salesOrder.status}
 
 Best regards,
@@ -4409,6 +4484,16 @@ M/S SRI HM BITUMEN CO`;
                         >
                           <MessageCircle className="h-4 w-4" />
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDeleteSalesOrder(salesOrder)}
+                          data-testid={`button-delete-sales-order-${salesOrder.id}`}
+                          title="Delete Order"
+                          className="bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -4578,6 +4663,59 @@ M/S SRI HM BITUMEN CO`;
               }}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Sales Order
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this sales order? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {salesOrderToDelete && (
+            <div className="py-4">
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Order Number:</span>
+                  <span className="font-medium">{salesOrderToDelete.orderNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Client:</span>
+                  <span className="font-medium">{getSalesOrderClientName(salesOrderToDelete)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Amount:</span>
+                  <span className="font-medium">₹{parseFloat(salesOrderToDelete.totalAmount || 0).toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setSalesOrderToDelete(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteSalesOrder}
+              disabled={deleteSalesOrderMutation.isPending}
+            >
+              {deleteSalesOrderMutation.isPending ? "Deleting..." : "Delete Order"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Card>
