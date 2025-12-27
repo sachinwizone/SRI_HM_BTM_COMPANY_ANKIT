@@ -81,6 +81,7 @@ const SelectContent = React.forwardRef<
         className
       )}
       position={position}
+      style={{ backgroundColor: '#ffffff', color: '#111827' }}
       {...props}
     >
       <SelectScrollUpButton />
@@ -90,6 +91,7 @@ const SelectContent = React.forwardRef<
           position === "popper" &&
             "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
         )}
+        style={{ backgroundColor: '#ffffff', color: '#111827' }}
       >
         {children}
       </SelectPrimitive.Viewport>
@@ -121,15 +123,25 @@ const SelectItem = React.forwardRef<
       "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className
     )}
+    style={{ 
+      color: '#000000',
+      backgroundColor: '#ffffff'
+    }}
     {...props}
   >
     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
       <SelectPrimitive.ItemIndicator>
-        <Check className="h-4 w-4" />
+        <Check className="h-4 w-4" style={{ color: '#000000' }} />
       </SelectPrimitive.ItemIndicator>
     </span>
 
-    <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+    <SelectPrimitive.ItemText style={{ 
+      color: '#000000',
+      fontWeight: '700',
+      fontSize: '14px'
+    }}>
+      <span style={{ color: '#000000' }}>{children}</span>
+    </SelectPrimitive.ItemText>
   </SelectPrimitive.Item>
 ))
 SelectItem.displayName = SelectPrimitive.Item.displayName

@@ -141,6 +141,119 @@ export async function syncSupplierToInvoiceParties(supplier: any): Promise<Party
   }
 }
 
+// Sync client from clients master to invoice_parties
+export async function syncClientToInvoiceParties(client: any): Promise<Party> {
+  // Check if client already exists in invoice_parties by name
+  const existing = await db
+    .select()
+    .from(invoiceParties)
+    .where(and(
+      eq(invoiceParties.partyName, client.name || client.clientName || client.companyName),
+      eq(invoiceParties.partyType, 'CUSTOMER')
+    ))
+    .limit(1);
+
+  const addressParts = [
+    client.address_line1,
+    client.address_line2,
+    client.city,
+    client.state,
+    client.country
+  ].filter(Boolean);
+  const fullAddress = addressParts.join(', ') || 'N/A';
+  
+  const state = client.state || 'N/A';
+  const partyData = {
+    partyName: client.name || client.clientName || client.companyName || 'Unknown',
+    partyType: 'CUSTOMER' as const,
+    billingAddress: fullAddress,
+    city: client.city || 'N/A',
+    state: state,
+    stateCode: getStateCode(state),
+    pincode: client.postal_code || client.pincode || '000000',
+    gstin: client.gst_number || client.gstin || null,
+    pan: client.pan || null,
+    contactPerson: client.contact_person || null,
+    contactNumber: client.phone || client.contact_phone || null,
+    email: client.email || null,
+    creditDays: client.payment_terms || 30,
+    isActive: true
+  };
+
+  if (existing.length > 0) {
+    // Update existing
+    const [party] = await db
+      .update(invoiceParties)
+      .set({ ...partyData, updatedAt: new Date() })
+      .where(eq(invoiceParties.id, existing[0].id))
+      .returning();
+    return party;
+  } else {
+    // Create new
+    const [party] = await db.insert(invoiceParties).values(partyData).returning();
+    return party;
+  }
+}
+
+// Sync product from products master to invoice_products
+export async function syncProductToInvoiceProducts(product: any): Promise<Product> {
+  // Check if product already exists in invoice_products by name
+  const existing = await db
+    .select()
+    .from(invoiceProducts)
+    .where(eq(invoiceProducts.productName, product.name || product.productName))
+    .limit(1);
+
+  const productData = {
+    productName: product.name || product.productName || 'Unknown',
+    productDescription: product.description || product.productDescription || null,
+    hsnSacCode: product.hsnCode || product.hsn_code || product.hsn || '0000',
+    unitOfMeasurement: mapUnitToEnum(product.unit || 'PIECE'),
+    gstRate: String(product.gstRate || product.gst_rate || product.taxRate || 18),
+    isService: product.isService || product.is_service || false,
+    openingStock: String(product.openingStock || product.opening_stock || 0),
+    currentStock: String(product.currentStock || product.current_stock || product.stock || 0),
+    minimumStockLevel: String(product.minimumStockLevel || product.minimum_stock_level || 0),
+    purchaseRate: String(product.purchaseRate || product.purchase_rate || product.costPrice || 0),
+    saleRate: String(product.saleRate || product.sale_rate || product.sellingPrice || product.rate || 0),
+    isActive: product.isActive !== undefined ? product.isActive : true
+  };
+
+  if (existing.length > 0) {
+    // Update existing
+    const [prod] = await db
+      .update(invoiceProducts)
+      .set({ ...productData, updatedAt: new Date() })
+      .where(eq(invoiceProducts.id, existing[0].id))
+      .returning();
+    return prod;
+  } else {
+    // Create new
+    const [prod] = await db.insert(invoiceProducts).values(productData).returning();
+    return prod;
+  }
+}
+
+// Helper to map unit values
+function mapUnitToEnum(unit: string): 'DRUM' | 'KG' | 'LITRE' | 'PIECE' | 'METER' | 'TON' | 'BOX' {
+  const unitMap: { [key: string]: 'DRUM' | 'KG' | 'LITRE' | 'PIECE' | 'METER' | 'TON' | 'BOX' } = {
+    'DRUM': 'DRUM',
+    'KG': 'KG',
+    'LITRE': 'LITRE',
+    'LITER': 'LITRE',
+    'L': 'LITRE',
+    'PIECE': 'PIECE',
+    'PCS': 'PIECE',
+    'PC': 'PIECE',
+    'METER': 'METER',
+    'M': 'METER',
+    'TON': 'TON',
+    'MT': 'TON',
+    'BOX': 'BOX'
+  };
+  return unitMap[unit.toUpperCase()] || 'PIECE';
+}
+
 // Product Management
 export async function createProduct(data: InsertProduct): Promise<Product> {
   const [product] = await db.insert(invoiceProducts).values(data).returning();
@@ -247,13 +360,157 @@ export async function createSalesInvoice(invoiceData: InsertSalesInvoice, itemsD
   });
 }
 
-export async function getAllSalesInvoices(): Promise<SalesInvoice[]> {
-  return await db.select().from(salesInvoices).orderBy(desc(salesInvoices.createdAt));
+export async function getAllSalesInvoices(): Promise<any[]> {
+  const result = await db.execute(sql`
+    SELECT 
+      si.id,
+      si.invoice_number as "invoiceNumber",
+      si.invoice_date as "invoiceDate",
+      si.invoice_type as "invoiceType",
+      si.financial_year as "financialYear",
+      si.customer_id as "customerId",
+      si.billing_party_id as "billingPartyId",
+      si.shipping_party_id as "shippingPartyId",
+      si.place_of_supply as "placeOfSupply",
+      si.place_of_supply_state_code as "placeOfSupplyStateCode",
+      si.buyer_order_number as "buyerOrderNumber",
+      si.buyer_order_date as "buyerOrderDate",
+      si.eway_bill_number as "ewayBillNumber",
+      si.eway_bill_date as "ewayBillDate",
+      si.eway_bill_valid_upto as "ewayBillValidUpto",
+      si.eway_bill_distance as "ewayBillDistance",
+      si.transaction_type as "transactionType",
+      si.supply_type as "supplyType",
+      si.transporter_id as "transporterId",
+      si.transporter_name as "transporterName",
+      si.vehicle_number as "vehicleNumber",
+      si.lr_rr_number as "lrRrNumber",
+      si.lr_rr_date as "lrRrDate",
+      si.dispatch_from as "dispatchFrom",
+      si.dispatch_city as "dispatchCity",
+      si.port_of_loading as "portOfLoading",
+      si.port_of_discharge as "portOfDischarge",
+      si.destination,
+      si.freight_type as "freightType",
+      si.payment_terms as "paymentTerms",
+      si.payment_mode as "paymentMode",
+      si.due_date as "dueDate",
+      si.interest_rate_after_due as "interestRateAfterDue",
+      si.subtotal_amount as "subtotalAmount",
+      si.cgst_amount as "cgstAmount",
+      si.sgst_amount as "sgstAmount",
+      si.igst_amount as "igstAmount",
+      si.other_charges as "otherCharges",
+      si.round_off as "roundOff",
+      si.total_invoice_amount as "totalInvoiceAmount",
+      si.total_in_words as "totalInWords",
+      si.paid_amount as "paidAmount",
+      si.remaining_balance as "remainingBalance",
+      si.invoice_status as "invoiceStatus",
+      si.payment_status as "paymentStatus",
+      si.created_by as "createdBy",
+      si.created_at as "createdAt",
+      si.modified_by as "modifiedBy",
+      si.modified_at as "modifiedAt",
+      ip.party_name as "customerName",
+      ip.gstin as "customerGstin",
+      ip.billing_address as "customerAddress",
+      ip.city as "customerCity",
+      ip.state as "customerState",
+      ip.pincode as "customerPincode",
+      ip.contact_number as "customerPhone",
+      ip.email as "customerEmail"
+    FROM sales_invoices si
+    LEFT JOIN invoice_parties ip ON si.customer_id = ip.id
+    ORDER BY si.created_at DESC
+  `);
+  
+  console.log('🔍 GET ALL SALES INVOICES - Sample row:', result.rows[0] ? {
+    id: result.rows[0].id,
+    invoiceNumber: result.rows[0].invoiceNumber,
+    customerId: result.rows[0].customerId,
+    customerName: result.rows[0].customerName,
+    totalInvoiceAmount: result.rows[0].totalInvoiceAmount
+  } : 'No invoices found');
+  
+  return result.rows as any[];
 }
 
-export async function getSalesInvoiceById(id: string): Promise<SalesInvoice | null> {
-  const invoice = await db.select().from(salesInvoices).where(eq(salesInvoices.id, id)).limit(1);
-  return invoice[0] || null;
+export async function getSalesInvoiceById(id: string): Promise<any | null> {
+  const result = await db.execute(sql`
+    SELECT 
+      si.id,
+      si.invoice_number as "invoiceNumber",
+      si.invoice_date as "invoiceDate",
+      si.invoice_type as "invoiceType",
+      si.financial_year as "financialYear",
+      si.customer_id as "customerId",
+      si.billing_party_id as "billingPartyId",
+      si.shipping_party_id as "shippingPartyId",
+      si.place_of_supply as "placeOfSupply",
+      si.place_of_supply_state_code as "placeOfSupplyStateCode",
+      si.buyer_order_number as "buyerOrderNumber",
+      si.buyer_order_date as "buyerOrderDate",
+      si.eway_bill_number as "ewayBillNumber",
+      si.eway_bill_date as "ewayBillDate",
+      si.eway_bill_valid_upto as "ewayBillValidUpto",
+      si.eway_bill_distance as "ewayBillDistance",
+      si.transaction_type as "transactionType",
+      si.supply_type as "supplyType",
+      si.transporter_id as "transporterId",
+      si.transporter_name as "transporterName",
+      si.vehicle_number as "vehicleNumber",
+      si.lr_rr_number as "lrRrNumber",
+      si.lr_rr_date as "lrRrDate",
+      si.dispatch_from as "dispatchFrom",
+      si.dispatch_city as "dispatchCity",
+      si.port_of_loading as "portOfLoading",
+      si.port_of_discharge as "portOfDischarge",
+      si.destination,
+      si.freight_type as "freightType",
+      si.payment_terms as "paymentTerms",
+      si.payment_mode as "paymentMode",
+      si.due_date as "dueDate",
+      si.interest_rate_after_due as "interestRateAfterDue",
+      si.subtotal_amount as "subtotalAmount",
+      si.cgst_amount as "cgstAmount",
+      si.sgst_amount as "sgstAmount",
+      si.igst_amount as "igstAmount",
+      si.other_charges as "otherCharges",
+      si.round_off as "roundOff",
+      si.total_invoice_amount as "totalInvoiceAmount",
+      si.total_in_words as "totalInWords",
+      si.paid_amount as "paidAmount",
+      si.remaining_balance as "remainingBalance",
+      si.invoice_status as "invoiceStatus",
+      si.payment_status as "paymentStatus",
+      si.created_by as "createdBy",
+      si.created_at as "createdAt",
+      si.modified_by as "modifiedBy",
+      si.modified_at as "modifiedAt",
+      ip.party_name as "customerName",
+      ip.gstin as "customerGstin",
+      ip.billing_address as "customerAddress",
+      ip.city as "customerCity",
+      ip.state as "customerState",
+      ip.pincode as "customerPincode",
+      ip.contact_number as "customerPhone",
+      ip.email as "customerEmail"
+    FROM sales_invoices si
+    LEFT JOIN invoice_parties ip ON si.customer_id = ip.id
+    WHERE si.id = ${id}
+    LIMIT 1
+  `);
+  
+  const invoice = result.rows[0] || null;
+  console.log('🔍 GET SALES INVOICE BY ID:', id, '- Customer data:', invoice ? {
+    invoiceNumber: invoice.invoiceNumber,
+    customerName: invoice.customerName,
+    customerAddress: invoice.customerAddress,
+    totalInvoiceAmount: invoice.totalInvoiceAmount
+  } : 'Invoice not found');
+  
+  return invoice;
 }
 
 export async function getSalesInvoiceWithItems(id: string): Promise<{ invoice: SalesInvoice; items: SalesInvoiceItem[] } | null> {
@@ -345,13 +602,119 @@ export async function createPurchaseInvoice(invoiceData: InsertPurchaseInvoice, 
   });
 }
 
-export async function getAllPurchaseInvoices(): Promise<PurchaseInvoice[]> {
-  return await db.select().from(purchaseInvoices).orderBy(desc(purchaseInvoices.createdAt));
+export async function getAllPurchaseInvoices(): Promise<any[]> {
+  const result = await db.execute(sql`
+    SELECT 
+      pi.id,
+      pi.invoice_number as "invoiceNumber",
+      pi.invoice_date as "invoiceDate",
+      pi.invoice_type as "invoiceType",
+      pi.financial_year as "financialYear",
+      pi.supplier_id as "supplierId",
+      pi.supplier_invoice_number as "supplierInvoiceNumber",
+      pi.supplier_invoice_date as "supplierInvoiceDate",
+      pi.grn_number as "grnNumber",
+      pi.place_of_supply as "placeOfSupply",
+      pi.place_of_supply_state_code as "placeOfSupplyStateCode",
+      pi.payment_terms as "paymentTerms",
+      pi.payment_mode as "paymentMode",
+      pi.due_date as "dueDate",
+      pi.subtotal_amount as "subtotalAmount",
+      pi.cgst_amount as "cgstAmount",
+      pi.sgst_amount as "sgstAmount",
+      pi.igst_amount as "igstAmount",
+      pi.other_charges as "otherCharges",
+      pi.round_off as "roundOff",
+      pi.total_invoice_amount as "totalInvoiceAmount",
+      pi.total_in_words as "totalInWords",
+      pi.paid_amount as "paidAmount",
+      pi.remaining_balance as "remainingBalance",
+      pi.invoice_status as "invoiceStatus",
+      pi.payment_status as "paymentStatus",
+      pi.created_by as "createdBy",
+      pi.created_at as "createdAt",
+      pi.modified_by as "modifiedBy",
+      pi.modified_at as "modifiedAt",
+      ip.party_name as "supplierName",
+      ip.gstin as "supplierGstin",
+      ip.billing_address as "supplierAddress",
+      ip.city as "supplierCity",
+      ip.state as "supplierState",
+      ip.pincode as "supplierPincode",
+      ip.contact_number as "supplierPhone",
+      ip.email as "supplierEmail"
+    FROM purchase_invoices pi
+    LEFT JOIN invoice_parties ip ON pi.supplier_id = ip.id
+    ORDER BY pi.created_at DESC
+  `);
+  
+  console.log('🔍 GET ALL PURCHASE INVOICES - Sample row:', result.rows[0] ? {
+    id: result.rows[0].id,
+    invoiceNumber: result.rows[0].invoiceNumber,
+    supplierId: result.rows[0].supplierId,
+    supplierName: result.rows[0].supplierName,
+    totalInvoiceAmount: result.rows[0].totalInvoiceAmount
+  } : 'No invoices found');
+  
+  return result.rows as any[];
 }
 
-export async function getPurchaseInvoiceById(id: string): Promise<PurchaseInvoice | null> {
-  const invoice = await db.select().from(purchaseInvoices).where(eq(purchaseInvoices.id, id)).limit(1);
-  return invoice[0] || null;
+export async function getPurchaseInvoiceById(id: string): Promise<any | null> {
+  const result = await db.execute(sql`
+    SELECT 
+      pi.id,
+      pi.invoice_number as "invoiceNumber",
+      pi.invoice_date as "invoiceDate",
+      pi.invoice_type as "invoiceType",
+      pi.financial_year as "financialYear",
+      pi.supplier_id as "supplierId",
+      pi.supplier_invoice_number as "supplierInvoiceNumber",
+      pi.supplier_invoice_date as "supplierInvoiceDate",
+      pi.grn_number as "grnNumber",
+      pi.place_of_supply as "placeOfSupply",
+      pi.place_of_supply_state_code as "placeOfSupplyStateCode",
+      pi.payment_terms as "paymentTerms",
+      pi.payment_mode as "paymentMode",
+      pi.due_date as "dueDate",
+      pi.subtotal_amount as "subtotalAmount",
+      pi.cgst_amount as "cgstAmount",
+      pi.sgst_amount as "sgstAmount",
+      pi.igst_amount as "igstAmount",
+      pi.other_charges as "otherCharges",
+      pi.round_off as "roundOff",
+      pi.total_invoice_amount as "totalInvoiceAmount",
+      pi.total_in_words as "totalInWords",
+      pi.paid_amount as "paidAmount",
+      pi.remaining_balance as "remainingBalance",
+      pi.invoice_status as "invoiceStatus",
+      pi.payment_status as "paymentStatus",
+      pi.created_by as "createdBy",
+      pi.created_at as "createdAt",
+      pi.modified_by as "modifiedBy",
+      pi.modified_at as "modifiedAt",
+      ip.party_name as "supplierName",
+      ip.gstin as "supplierGstin",
+      ip.billing_address as "supplierAddress",
+      ip.city as "supplierCity",
+      ip.state as "supplierState",
+      ip.pincode as "supplierPincode",
+      ip.contact_number as "supplierPhone",
+      ip.email as "supplierEmail"
+    FROM purchase_invoices pi
+    LEFT JOIN invoice_parties ip ON pi.supplier_id = ip.id
+    WHERE pi.id = ${id}
+    LIMIT 1
+  `);
+  
+  const invoice = result.rows[0] || null;
+  console.log('🔍 GET PURCHASE INVOICE BY ID:', id, '- Supplier data:', invoice ? {
+    invoiceNumber: invoice.invoiceNumber,
+    supplierName: invoice.supplierName,
+    supplierAddress: invoice.supplierAddress,
+    totalInvoiceAmount: invoice.totalInvoiceAmount
+  } : 'Invoice not found');
+  
+  return invoice;
 }
 
 export async function getPurchaseInvoiceWithItems(id: string): Promise<{ invoice: PurchaseInvoice; items: PurchaseInvoiceItem[] } | null> {

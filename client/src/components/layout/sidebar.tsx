@@ -77,7 +77,6 @@ const navigation: NavigationEntry[] = [
       { name: "Reports & Analytics", href: "/reports", icon: BarChart3, module: "REPORTS" },
     ],
   },
-
   {
     section: "SYSTEM",
     items: [
@@ -92,20 +91,25 @@ export default function Sidebar() {
   const { user, logout } = useAuth();
   const { hasViewPermission } = usePermissions();
 
+  // Check if user is admin - admins see everything
+  const isAdmin = user?.role === 'ADMIN';
+
   // Filter navigation based on permissions
   const filteredNavigation = navigation.map(item => {
     if ('href' in item) {
-      // Single item - check if user has permission for the module
-      return !item.module || hasViewPermission(item.module) ? item : null;
+      // Single item - admin sees all, others need permission
+      return isAdmin || !item.module || hasViewPermission(item.module) ? item : null;
     } else {
-      // Section - filter items and only show section if it has any visible items
+      // Section - filter items based on role
       const visibleItems = item.items.filter(subItem => 
-        !subItem.module || hasViewPermission(subItem.module)
+        isAdmin || !subItem.module || hasViewPermission(subItem.module)
       );
       return visibleItems.length > 0 ? { ...item, items: visibleItems } : null;
     }
   }).filter(Boolean) as NavigationEntry[];
 
+  console.log('User role:', user?.role);
+  console.log('Is Admin:', isAdmin);
   console.log('Filtered navigation:', filteredNavigation);
 
   return (

@@ -128,6 +128,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/users/:id/permissions", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const permissions = req.body;
+      
+      if (!Array.isArray(permissions)) {
+        return res.status(400).json({ error: "Permissions must be an array" });
+      }
+      
+      await AuthService.setUserPermissions(id, permissions);
+      res.json({ message: "Permissions updated successfully" });
+    } catch (error: any) {
+      console.error("Update user permissions error:", error);
+      res.status(500).json({ error: "Failed to update user permissions" });
+    }
+  });
+
   app.delete("/api/users/:id/permissions", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;

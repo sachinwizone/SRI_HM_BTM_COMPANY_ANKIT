@@ -8,7 +8,7 @@
   --muted: hsl(60, 4.8%, 95.9%);
   --muted-foreground: hsl(25, 5.3%, 44.7%);
   --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(20, 14.3%, 4.1%);
+  --popover-foreground: hsl(222, 47%, 11%);
   --card: hsl(0, 0%, 100%);
   --card-foreground: hsl(20, 14.3%, 4.1%);
   --border: hsl(20, 5.9%, 90%);
@@ -155,3 +155,88 @@
     border-color: hsl(var(--info) / 0.2);
   }
 }
+
+/* Force dark text in Select dropdowns - ULTRA AGGRESSIVE */
+/* Target all possible Radix Select elements */
+[data-radix-select-content],
+[data-radix-popper-content-wrapper],
+[role="listbox"],
+div[data-radix-select-content],
+div[role="listbox"] {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+  border: 2px solid #3B82F6 !important;
+}
+
+[data-radix-select-item],
+[role="option"],
+div[data-radix-select-item],
+div[role="option"] {
+  color: #000000 !important;
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 16px !important;
+  text-shadow: 0 0 1px #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+[data-radix-select-item]:hover,
+[role="option"]:hover {
+  background-color: #EFF6FF !important;
+  background: #EFF6FF !important;
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+[data-radix-select-item][data-disabled],
+[role="option"][data-disabled] {
+  color: #9CA3AF !important;
+  opacity: 0.5 !important;
+}
+
+/* NUCLEAR OPTION - Force text color on EVERYTHING */
+[data-radix-select-item] *,
+[data-radix-select-item] span,
+[data-radix-select-item] div,
+[role="option"] *,
+[role="option"] span,
+[role="option"] div,
+[data-radix-select-content] *,
+[data-radix-select-content] span,
+[data-radix-select-content] div {
+  color: #000000 !important;
+  font-weight: 700 !important;
+  -webkit-text-fill-color: #000000 !important;
+  text-shadow: 0 0 1px #000000 !important;
+}
+
+/* Specific targeting for SelectItemText */
+[data-radix-select-item-text],
+span[data-radix-select-item-text],
+[data-radix-select-item] [data-radix-select-item-text] {
+  color: #000000 !important;
+  font-weight: 900 !important;
+  -webkit-text-fill-color: #000000 !important;
+  text-shadow: none !important;
+}
+
+/* Override any focus/active states */
+[data-radix-select-item][data-highlighted],
+[role="option"][data-selected],
+[role="option"][data-state="checked"] {
+  background-color: #DBEAFE !important;
+  color: #111827 !important;
+}
+
+/* Additional Radix Portal overrides */
+[data-radix-portal] [data-radix-select-content] {
+  background: white !important;
+}
+
+[data-radix-portal] [data-radix-select-viewport] {
+  background: white !important;
+}
+/* Updated: Wed Dec 24 04:56:00 UTC 2025 */
+

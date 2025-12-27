@@ -5,6 +5,9 @@ import type { Express } from "express";
 import * as storage from "./sales-operations-storage";
 import { requireAuth } from "./auth";
 import { storage as mainStorage } from "./storage";
+import { db } from "./db";
+import { clients, productMaster } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 export default function setupSalesOperationsRoutes(app: Express) {
   
@@ -230,17 +233,94 @@ export default function setupSalesOperationsRoutes(app: Express) {
     }
   });
 
+  // Update sales invoice payment status
+  app.patch("/api/sales-operations/sales-invoices/:id/status", requireAuth, async (req, res) => {
+    try {
+      const { paymentStatus } = req.body;
+      const validStatuses = ['PENDING', 'OVERDUE', 'PAID', 'PARTIAL'];
+      
+      if (!paymentStatus || !validStatuses.includes(paymentStatus)) {
+        return res.status(400).json({ error: "Valid payment status is required (PENDING, OVERDUE, PAID, PARTIAL)" });
+      }
+
+      const updated = await storage.updateSalesInvoice(req.params.id, { paymentStatus });
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating sales invoice status:", error);
+      res.status(500).json({ error: "Failed to update sales invoice status" });
+    }
+  });
+
   // Create sales invoice
   app.post("/api/sales-operations/sales-invoices", requireAuth, async (req, res) => {
     try {
       const { invoice, items } = req.body;
       const currentUser = (req as any).user;
       
+      // Validate required fields
+      if (!invoice) {
+        return res.status(400).json({ error: "Invoice data is required" });
+      }
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: "At least one item is required" });
+      }
+      if (!invoice.customerId) {
+        return res.status(400).json({ error: "Customer ID is required" });
+      }
+      
+      // Sync client to invoice_parties if needed
+      console.log('🔍 SYNCING CUSTOMER - START', { customerId: invoice.customerId });
+      const client = await db.select().from(clients).where(eq(clients.id, invoice.customerId)).limit(1);
+      console.log('🔍 Found client:', client[0] ? { id: client[0].id, name: client[0].name } : 'NOT FOUND');
+      if (!client || client.length === 0) {
+        return res.status(400).json({ error: "Customer not found" });
+      }
+      
+      const syncedCustomer = await storage.syncClientToInvoiceParties(client[0]);
+      console.log('✅ Customer synced to invoice_parties:', { oldId: invoice.customerId, newId: syncedCustomer.id, name: syncedCustomer.partyName });
+      // Use the invoice_parties ID instead of clients ID
+      invoice.customerId = syncedCustomer.id;
+      
+      // Sync products to invoice_products if needed
+      console.log('🔍 SYNCING PRODUCTS - START', { itemsCount: items.length });
+      for (const item of items) {
+        console.log(`🔍 Processing item: productId=${item.productId}, productName=${item.productName}`);
+        if (item.productId) {
+          const product = await db.select().from(productMaster).where(eq(productMaster.id, item.productId)).limit(1);
+          console.log(`🔍 Found product in productMaster table:`, product[0] ? {id: product[0].id, name: product[0].name} : '❌ NOT FOUND');
+          if (product && product.length > 0) {
+            const syncedProduct = await storage.syncProductToInvoiceProducts(product[0]);
+            console.log(`✅ Product synced: oldId=${item.productId}, newId=${syncedProduct.id}, name=${syncedProduct.productName}`);
+            // Update the item's productId to use the invoice_products ID
+            item.productId = syncedProduct.id;
+            console.log(`✅ Item productId updated to: ${item.productId}`);
+          }
+        }
+      }
+      console.log('✅ ALL PRODUCTS SYNCED');
+
+      
       // Generate invoice number if not provided
       if (!invoice.invoiceNumber) {
         const financialYear = await storage.getCurrentFinancialYear();
         invoice.invoiceNumber = await storage.generateInvoiceNumber('SALES', financialYear);
         invoice.financialYear = financialYear;
+      } else {
+        // If invoice number is provided, still need financial year
+        if (!invoice.financialYear) {
+          invoice.financialYear = await storage.getCurrentFinancialYear();
+        }
+      }
+      
+      // Convert date strings to Date objects
+      if (invoice.invoiceDate && typeof invoice.invoiceDate === 'string') {
+        invoice.invoiceDate = new Date(invoice.invoiceDate);
+      }
+      if (invoice.dueDate && typeof invoice.dueDate === 'string') {
+        invoice.dueDate = new Date(invoice.dueDate);
+      }
+      if (invoice.ewayBillValidUpto && typeof invoice.ewayBillValidUpto === 'string') {
+        invoice.ewayBillValidUpto = new Date(invoice.ewayBillValidUpto);
       }
       
       // Set creator
@@ -250,7 +330,12 @@ export default function setupSalesOperationsRoutes(app: Express) {
       res.status(201).json(result);
     } catch (error: any) {
       console.error("Error creating sales invoice:", error);
-      res.status(500).json({ error: "Failed to create sales invoice" });
+      console.error("Error details:", error.message);
+      console.error("Error stack:", error.stack);
+      res.status(500).json({ 
+        error: error.message || "Failed to create sales invoice",
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   });
 
@@ -335,6 +420,24 @@ export default function setupSalesOperationsRoutes(app: Express) {
     } catch (error: any) {
       console.error("Error fetching purchase invoice:", error);
       res.status(500).json({ error: "Failed to fetch purchase invoice" });
+    }
+  });
+
+  // Update purchase invoice payment status
+  app.patch("/api/sales-operations/purchase-invoices/:id/status", requireAuth, async (req, res) => {
+    try {
+      const { paymentStatus } = req.body;
+      const validStatuses = ['PENDING', 'OVERDUE', 'PAID', 'PARTIAL'];
+      
+      if (!paymentStatus || !validStatuses.includes(paymentStatus)) {
+        return res.status(400).json({ error: "Valid payment status is required (PENDING, OVERDUE, PAID, PARTIAL)" });
+      }
+
+      const updated = await storage.updatePurchaseInvoice(req.params.id, { paymentStatus });
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating purchase invoice status:", error);
+      res.status(500).json({ error: "Failed to update purchase invoice status" });
     }
   });
 

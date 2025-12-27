@@ -98,7 +98,6 @@ const PurchaseInvoiceForm = ({ onBack }: { onBack: () => void }) => {
     invoiceNo: '',
     invoiceDate: new Date().toISOString().split('T')[0],
     ewayBill: '',
-    irn: '',
     ackNo: '',
     ackDate: '',
     supplierId: '',
@@ -127,7 +126,11 @@ const PurchaseInvoiceForm = ({ onBack }: { onBack: () => void }) => {
       unit: '',
       rate: 0,
       amount: 0,
-      taxRate: 0
+      transitInsurance: 0,
+      totalAmount: 0,
+      taxRate: 0,
+      taxAmount: 0,
+      taxableAmount: 0
     }],
     insurance: 0,
     freight: 0,
@@ -137,23 +140,7 @@ const PurchaseInvoiceForm = ({ onBack }: { onBack: () => void }) => {
     remarks: ''
   });
 
-  // Auto-generate invoice number on form load
-  useEffect(() => {
-    const fetchNextInvoiceNumber = async () => {
-      try {
-        const res = await fetch('/api/sales-operations/next-invoice-number?type=PURCHASE', {
-          credentials: 'include'
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setFormData(prev => ({ ...prev, invoiceNo: data.invoiceNumber }));
-        }
-      } catch (error) {
-        console.error('Failed to fetch next invoice number:', error);
-      }
-    };
-    fetchNextInvoiceNumber();
-  }, []);
+  // No auto-generation for purchase invoice - manual entry required
 
   // Handle supplier selection and auto-fill (from Suppliers Master)
   const handleSupplierChange = (supplierId: string) => {
@@ -215,14 +202,26 @@ const PurchaseInvoiceForm = ({ onBack }: { onBack: () => void }) => {
       };
       unit = unitMap[unit.toUpperCase()] || unit.toUpperCase();
       
+      const quantity = newItems[itemIndex].quantity;
+      const rate = parseFloat(product.rate || '0');
+      const amount = quantity * rate;
+      const taxRate = parseFloat(product.taxRate || '18');
+      const transitInsurance = newItems[itemIndex].transitInsurance || 0;
+      const totalAmount = amount + transitInsurance;
+      const taxAmount = (totalAmount * taxRate) / 100;
+      const taxableAmount = totalAmount + taxAmount;
+      
       newItems[itemIndex] = {
         ...newItems[itemIndex],
         description: product.name || product.description || '',
         hsn: product.hsnCode || '',
         unit: unit,
-        rate: parseFloat(product.rate || '0'),
-        taxRate: parseFloat(product.taxRate || '18'),
-        amount: newItems[itemIndex].quantity * parseFloat(product.rate || '0')
+        rate: rate,
+        taxRate: taxRate,
+        amount: amount,
+        totalAmount: totalAmount,
+        taxAmount: taxAmount,
+        taxableAmount: taxableAmount
       };
       setFormData(prev => ({ ...prev, items: newItems }));
     }
@@ -243,7 +242,11 @@ const PurchaseInvoiceForm = ({ onBack }: { onBack: () => void }) => {
           unit: 'DRUM',
           rate: 0,
           amount: 0,
-          taxRate: 18
+          taxRate: 18,
+          transitInsurance: 0,
+          totalAmount: 0,
+          taxAmount: 0,
+          taxableAmount: 0
         }
       ]
     }));
@@ -272,28 +275,31 @@ const PurchaseInvoiceForm = ({ onBack }: { onBack: () => void }) => {
   };
 
   const calculateTotals = () => {
-    let totalTaxable = 0;
-    let totalCgst = 0;
-    let totalSgst = 0;
+    let subtotal = 0; // Sum of base amounts (Qty × Rate)
+    let totalTaxAmount = 0;
     
-    // Calculate tax for each item based on its tax rate
+    // Calculate for each item
     formData.items.forEach(item => {
-      totalTaxable += item.amount;
-      const itemTaxRate = item.taxRate || 0;
-      const cgstRate = itemTaxRate / 2; // Half of tax rate for CGST
-      const sgstRate = itemTaxRate / 2; // Half of tax rate for SGST
-      totalCgst += (item.amount * cgstRate) / 100;
-      totalSgst += (item.amount * sgstRate) / 100;
+      // For purchase invoice, we need to sum the base amounts + transit insurance
+      subtotal += (item.totalAmount || 0); // This is Amount + Transit Insurance
+      totalTaxAmount += (item.taxAmount || 0); // This is the tax on totalAmount
     });
     
-    totalTaxable += formData.insurance + formData.freight + formData.otherCharges;
+    // Add additional charges to subtotal
+    const additionalCharges = formData.insurance + formData.freight + formData.otherCharges;
+    const taxableAmount = subtotal + additionalCharges;
     
-    const totalBeforeRound = totalTaxable + totalCgst + totalSgst;
+    // Split tax into CGST and SGST
+    const totalCgst = totalTaxAmount / 2;
+    const totalSgst = totalTaxAmount / 2;
+    
+    // Final total = Taxable Amount + Total Tax
+    const totalBeforeRound = taxableAmount + totalTaxAmount;
     const roundedTotal = Math.round(totalBeforeRound);
     const roundOff = roundedTotal - totalBeforeRound;
 
     return {
-      taxableAmount: totalTaxable,
+      taxableAmount: taxableAmount,
       cgstAmount: totalCgst,
       sgstAmount: totalSgst,
       igstAmount: 0,
@@ -465,7 +471,6 @@ const PurchaseInvoiceForm = ({ onBack }: { onBack: () => void }) => {
     invoiceNo: formData.invoiceNo,
     invoiceDate: formData.invoiceDate,
     ewayBill: formData.ewayBill,
-    irn: formData.irn,
     ackNo: formData.ackNo,
     ackDate: formData.ackDate,
     paymentTerms: formData.paymentTerms,
@@ -568,14 +573,14 @@ const PurchaseInvoiceForm = ({ onBack }: { onBack: () => void }) => {
             <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Number * <span className="text-xs text-green-600">(Auto-generated)</span></label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Number * <span className="text-xs text-blue-600">(Manual Entry)</span></label>
                   <input
                     type="text"
                     value={formData.invoiceNo}
-                    placeholder="Auto-generated (e.g., SRIHM/01/25-26)"
+                    onChange={(e) => setFormData(prev => ({ ...prev, invoiceNo: e.target.value }))}
+                    placeholder="Enter invoice number (e.g., SRIHM/01/25-26)"
                     required
-                    readOnly
-                    className="w-full p-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   />
                 </div>
                 <div>
@@ -601,17 +606,7 @@ const PurchaseInvoiceForm = ({ onBack }: { onBack: () => void }) => {
               </div>
               
               {/* e-Invoice Details Row */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">IRN (e-Invoice Reference)</label>
-                  <input
-                    type="text"
-                    value={formData.irn}
-                    onChange={(e) => setFormData(prev => ({ ...prev, irn: e.target.value }))}
-                    placeholder="e.g., 5eb7b1812e2d81c97d2b1faaf3ef795e22160..."
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  />
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Ack No.</label>
                   <input
@@ -757,8 +752,16 @@ const PurchaseInvoiceForm = ({ onBack }: { onBack: () => void }) => {
                             value={item.quantity}
                             onChange={(e) => {
                               const newItems = [...formData.items];
-                              newItems[index].quantity = parseFloat(e.target.value) || 0;
-                              newItems[index].amount = newItems[index].quantity * newItems[index].rate;
+                              const quantity = parseFloat(e.target.value) || 0;
+                              newItems[index].quantity = quantity;
+                              // Calculate amount
+                              newItems[index].amount = quantity * newItems[index].rate;
+                              // Calculate total amount (Amount + Transit Insurance)
+                              newItems[index].totalAmount = newItems[index].amount + (newItems[index].transitInsurance || 0);
+                              // Calculate tax amount
+                              newItems[index].taxAmount = (newItems[index].totalAmount * newItems[index].taxRate) / 100;
+                              // Calculate taxable amount
+                              newItems[index].taxableAmount = newItems[index].totalAmount + newItems[index].taxAmount;
                               setFormData(prev => ({ ...prev, items: newItems }));
                             }}
                             className="w-full p-1 border border-gray-200 rounded"
@@ -790,8 +793,16 @@ const PurchaseInvoiceForm = ({ onBack }: { onBack: () => void }) => {
                             value={item.rate}
                             onChange={(e) => {
                               const newItems = [...formData.items];
-                              newItems[index].rate = parseFloat(e.target.value) || 0;
-                              newItems[index].amount = newItems[index].quantity * newItems[index].rate;
+                              const rate = parseFloat(e.target.value) || 0;
+                              newItems[index].rate = rate;
+                              // Calculate amount
+                              newItems[index].amount = newItems[index].quantity * rate;
+                              // Calculate total amount (Amount + Transit Insurance)
+                              newItems[index].totalAmount = newItems[index].amount + (newItems[index].transitInsurance || 0);
+                              // Calculate tax amount
+                              newItems[index].taxAmount = (newItems[index].totalAmount * newItems[index].taxRate) / 100;
+                              // Calculate taxable amount
+                              newItems[index].taxableAmount = newItems[index].totalAmount + newItems[index].taxAmount;
                               setFormData(prev => ({ ...prev, items: newItems }));
                             }}
                             className="w-full p-1 border border-gray-200 rounded"
@@ -807,7 +818,12 @@ const PurchaseInvoiceForm = ({ onBack }: { onBack: () => void }) => {
                             value={item.taxRate}
                             onChange={(e) => {
                               const newItems = [...formData.items];
-                              newItems[index].taxRate = parseFloat(e.target.value) || 0;
+                              const taxRate = parseFloat(e.target.value) || 0;
+                              newItems[index].taxRate = taxRate;
+                              // Recalculate tax amount
+                              newItems[index].taxAmount = (newItems[index].totalAmount * taxRate) / 100;
+                              // Recalculate taxable amount
+                              newItems[index].taxableAmount = newItems[index].totalAmount + newItems[index].taxAmount;
                               setFormData(prev => ({ ...prev, items: newItems }));
                             }}
                             className="w-full p-1 border border-gray-200 rounded"
@@ -894,22 +910,152 @@ const PurchaseInvoiceForm = ({ onBack }: { onBack: () => void }) => {
 
 // Sales Invoice Form Component
 const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Fetch clients from Client Master
+  const { data: clients = [], isLoading: clientsLoading } = useQuery<any[]>({
+    queryKey: ['/api/clients'],
+  });
+
+  // Fetch products from Product Master
+  const { data: products = [], isLoading: productsLoading } = useQuery<any[]>({
+    queryKey: ['/api/product-master'],
+  });
+
+  // Debug logging
+  useEffect(() => {
+    console.log('=== SALES FORM DEBUG ===');
+    console.log('Clients loaded:', clients.length, 'Loading:', clientsLoading);
+    console.log('Clients data:', clients);
+    console.log('Products loaded:', products.length, 'Loading:', productsLoading);
+    console.log('Products data:', products);
+  }, [clients, products, clientsLoading, productsLoading]);
+
+  // Helper function to map unit values to valid enum values
+  const mapUnitToEnum = (unit: string): string => {
+    const unitMap: { [key: string]: string } = {
+      'PCS': 'PIECE',
+      'PC': 'PIECE',
+      'PIECE': 'PIECE',
+      'MT': 'TON',
+      'TON': 'TON',
+      'DRUM': 'DRUM',
+      'KG': 'KG',
+      'LITRE': 'LITRE',
+      'LITER': 'LITRE',
+      'L': 'LITRE',
+      'METER': 'METER',
+      'M': 'METER',
+      'BOX': 'BOX',
+      '': 'PIECE' // Default to PIECE if empty
+    };
+    return unitMap[unit.toUpperCase()] || 'PIECE';
+  };
+
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [selectedProductIds, setSelectedProductIds] = useState<{ [key: number]: string }>({});
   const [formData, setFormData] = useState({
     invoiceNo: '',
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
+    ewayBillNo: '',
+    ewayBillExpiryDate: '',
+    customerId: '',
     customerName: '',
     customerGSTIN: '',
     customerAddress: '',
     items: [{
       id: 1,
       description: '',
+      hsn: '',
+      unit: '',
       quantity: 1,
       rate: 0,
       amount: 0,
-      taxRate: 18
+      taxRate: 18,
+      transitInsurance: 0,
+      totalAmount: 0,
+      taxAmount: 0,
+      taxableAmount: 0
     }]
   });
+
+  // Auto-generate sales order number on form load
+  useEffect(() => {
+    const fetchNextSalesOrderNumber = async () => {
+      try {
+        const res = await fetch('/api/sales-operations/next-invoice-number?type=SALES', {
+          credentials: 'include'
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setFormData(prev => ({ ...prev, invoiceNo: data.invoiceNumber }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch next sales order number:', error);
+      }
+    };
+    fetchNextSalesOrderNumber();
+  }, []);
+
+  // Handle client selection and auto-fill
+  const handleClientChange = (clientId: string) => {
+    setSelectedClientId(clientId);
+    const client = clients.find(c => c.id === clientId);
+    
+    if (client) {
+      // Build full address
+      const addressParts = [
+        client.billing_address_line || client.address,
+        client.billing_city || client.city,
+        client.billing_state || client.state,
+        client.billing_pincode || client.pincode
+      ].filter(Boolean);
+      
+      const fullAddress = addressParts.join(', ') || 'N/A';
+      
+      setFormData(prev => ({
+        ...prev,
+        customerId: client.id,
+        customerName: client.name || client.clientName || client.companyName || '',
+        customerGSTIN: client.gst_number || client.gstin || '',
+        customerAddress: fullAddress
+      }));
+    }
+  };
+
+  // Handle product selection and auto-fill
+  const handleProductChange = (productId: string, index: number) => {
+    setSelectedProductIds(prev => ({ ...prev, [index]: productId }));
+    const product = products.find(p => p.id === productId);
+    
+    if (product) {
+      const newItems = [...formData.items];
+      const quantity = newItems[index].quantity;
+      const rate = product.rate || product.sellingPrice || 0;
+      const amount = rate * quantity;
+      const taxRate = product.gstRate || product.gst_rate || 18; // Auto-populate tax rate from product
+      const transitInsurance = newItems[index].transitInsurance || 0;
+      const totalAmount = amount + transitInsurance;
+      const taxAmount = (totalAmount * taxRate) / 100;
+      const taxableAmount = totalAmount + taxAmount;
+      
+      newItems[index] = {
+        ...newItems[index],
+        description: product.name || product.productName || '',
+        hsn: product.hsnCode || product.hsn_code || '',
+        unit: product.unit || 'MT',
+        rate: rate,
+        amount: amount,
+        taxRate: taxRate,
+        totalAmount: totalAmount,
+        taxAmount: taxAmount,
+        taxableAmount: taxableAmount
+      };
+      setFormData(prev => ({ ...prev, items: newItems }));
+    }
+  };
 
   // Add new item row
   const addSalesItem = () => {
@@ -921,10 +1067,16 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
         {
           id: newItemId,
           description: '',
+          hsn: '',
+          unit: '',
           quantity: 1,
           rate: 0,
           amount: 0,
-          taxRate: 18
+          taxRate: 18,
+          transitInsurance: 0,
+          totalAmount: 0,
+          taxAmount: 0,
+          taxableAmount: 0
         }
       ]
     }));
@@ -935,35 +1087,215 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
     if (formData.items.length > 1) {
       const newItems = formData.items.filter((_, i) => i !== index);
       setFormData(prev => ({ ...prev, items: newItems }));
+      
+      // Clean up selectedProductIds and reindex
+      const newSelectedProductIds = { ...selectedProductIds };
+      delete newSelectedProductIds[index];
+      
+      // Reindex remaining product IDs
+      const reindexedProductIds: { [key: number]: string } = {};
+      Object.keys(newSelectedProductIds).forEach(key => {
+        const oldIndex = parseInt(key);
+        if (oldIndex > index) {
+          reindexedProductIds[oldIndex - 1] = newSelectedProductIds[oldIndex];
+        } else {
+          reindexedProductIds[oldIndex] = newSelectedProductIds[oldIndex];
+        }
+      });
+      
+      setSelectedProductIds(reindexedProductIds);
     }
   };
 
   const calculateTotals = () => {
-    let totalTaxable = 0;
+    let subtotal = 0; // Sum of base amounts + transit insurance
+    let totalTax = 0;
+    
     formData.items.forEach(item => {
-      totalTaxable += item.amount;
+      // For sales invoice: sum the totalAmount (Amount + Transit Insurance)
+      subtotal += item.totalAmount || 0;
+      totalTax += item.taxAmount || 0;
     });
     
-    const cgstAmount = (totalTaxable * 9) / 100;
-    const sgstAmount = (totalTaxable * 9) / 100;
-    const totalBeforeRound = totalTaxable + cgstAmount + sgstAmount;
+    const cgstAmount = totalTax / 2; // Half of total tax is CGST
+    const sgstAmount = totalTax / 2; // Half of total tax is SGST
+    
+    // Total = Subtotal + Tax
+    const totalBeforeRound = subtotal + totalTax;
     const roundedTotal = Math.round(totalBeforeRound);
 
     return {
-      taxableAmount: totalTaxable,
+      taxableAmount: subtotal, // This is the amount before tax
       cgstAmount,
       sgstAmount,
-      totalAmount: roundedTotal
+      totalAmount: roundedTotal // This includes tax
     };
   };
 
   const totals = calculateTotals();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const invoiceData = { ...formData, summary: totals };
-    console.log('Sales Invoice Data:', invoiceData);
-    alert('✅ Sales Invoice saved successfully!\n\nCheck the browser console (F12) to see the complete data.');
+    
+    try {
+      console.log('=== STARTING FORM SUBMISSION ===');
+      console.log('Form Data:', formData);
+      console.log('Selected Product IDs:', selectedProductIds);
+      
+      // Validate required fields
+      if (!formData.customerId) {
+        throw new Error('Please select a customer');
+      }
+      if (!formData.invoiceNo) {
+        throw new Error('Invoice number is required');
+      }
+      if (!formData.invoiceDate) {
+        throw new Error('Invoice date is required');
+      }
+      if (formData.items.length === 0) {
+        throw new Error('At least one item is required');
+      }
+      
+      console.log('Basic validation passed');
+      
+      // Prepare invoice data
+      const invoice = {
+        invoiceNumber: formData.invoiceNo,
+        invoiceDate: formData.invoiceDate, // Keep as string, backend will handle
+        invoiceType: 'TAX_INVOICE',
+        customerId: formData.customerId,
+        placeOfSupply: formData.customerAddress || 'N/A',
+        placeOfSupplyStateCode: '00',
+        ewayBillNumber: formData.ewayBillNo || null,
+        ewayBillValidUpto: formData.ewayBillExpiryDate || null, // Keep as string
+        dueDate: formData.dueDate || null, // Keep as string
+        paymentTerms: '30 Days Credit',
+        subtotalAmount: totals.taxableAmount.toFixed(2),
+        cgstAmount: totals.cgstAmount.toFixed(2),
+        sgstAmount: totals.sgstAmount.toFixed(2),
+        igstAmount: '0',
+        totalInvoiceAmount: totals.totalAmount.toFixed(2),
+        remainingBalance: totals.totalAmount.toFixed(2),
+        invoiceStatus: 'SUBMITTED', // Valid: DRAFT, SUBMITTED, CANCELLED
+        paymentStatus: 'PENDING'
+      };
+
+      // Prepare items data
+      const items = formData.items.map((item, index) => {
+        const quantity = Number(item.quantity) || 0;
+        const rate = Number(item.rate) || 0;
+        const amount = Number(item.amount) || 0;
+        const productId = selectedProductIds[index];
+        
+        console.log(`Processing item ${index + 1}:`, {
+          productId,
+          description: item.description,
+          hsn: item.hsn,
+          unit: item.unit,
+          quantity,
+          rate,
+          amount
+        });
+        
+        // Validate required fields
+        if (!productId) {
+          throw new Error(`Product not selected for item ${index + 1}`);
+        }
+        if (!item.description) {
+          throw new Error(`Product name is required for item ${index + 1}`);
+        }
+        if (!item.hsn) {
+          throw new Error(`HSN/SAC code is required for item ${index + 1}`);
+        }
+        if (quantity <= 0) {
+          throw new Error(`Quantity must be greater than 0 for item ${index + 1}`);
+        }
+        if (rate <= 0) {
+          throw new Error(`Rate must be greater than 0 for item ${index + 1}`);
+        }
+        
+        // Validate and map unit of measurement
+        const mappedUnit = mapUnitToEnum(item.unit || '');
+        console.log(`Mapped unit for item ${index + 1}: ${item.unit} → ${mappedUnit}`);
+        
+        return {
+          productId: productId,
+          productName: item.description,
+          productDescription: item.description,
+          hsnSacCode: item.hsn,
+          quantity: quantity.toString(),
+          unitOfMeasurement: mappedUnit,
+          ratePerUnit: rate.toFixed(2),
+          grossAmount: amount.toFixed(2),
+          discountPercentage: '0',
+          discountAmount: '0',
+          taxableAmount: amount.toFixed(2),
+          cgstRate: '9.00',
+          cgstAmount: ((amount * 9) / 100).toFixed(2),
+          sgstRate: '9.00',
+          sgstAmount: ((amount * 9) / 100).toFixed(2),
+          igstRate: '0',
+          igstAmount: '0',
+          totalAmount: (amount * 1.18).toFixed(2)
+        };
+      });
+
+      console.log('Prepared invoice data:', JSON.stringify(invoice, null, 2));
+      console.log('Prepared items data:', JSON.stringify(items, null, 2));
+
+      const response = await fetch('/api/sales-operations/sales-invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ invoice, items })
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
+      if (!response.ok) {
+        let errorMessage = 'Failed to create invoice';
+        try {
+          const error = await response.json();
+          console.error('Server error response:', error);
+          errorMessage = error.error || error.message || errorMessage;
+        } catch (parseError) {
+          // If response is not JSON, get text
+          const errorText = await response.text();
+          console.error('Server error (non-JSON):', errorText);
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      console.log('Invoice created successfully:', result);
+
+      toast({
+        title: 'Success',
+        description: 'Sales invoice created successfully!',
+      });
+
+      // Reset form and go back
+      onBack();
+    } catch (error: any) {
+      console.error('Error creating invoice:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        invoice: {
+          customerId: formData.customerId,
+          invoiceNo: formData.invoiceNo,
+          itemsCount: formData.items.length
+        }
+      });
+      
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to create sales invoice',
+        variant: 'destructive'
+      });
+    }
   };
 
   return (
@@ -984,29 +1316,29 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Invoice Information */}
+          {/* Sales Invoice Information */}
           <Card className="shadow-lg">
             <CardHeader className="bg-gray-50 border-b">
               <CardTitle className="text-lg text-blue-600 flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                Invoice Information
+                Sales Invoice Information
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Number *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sales Order Number * <span className="text-xs text-green-600">(Auto-generated)</span></label>
                   <input
                     type="text"
                     value={formData.invoiceNo}
-                    onChange={(e) => setFormData(prev => ({ ...prev, invoiceNo: e.target.value }))}
-                    placeholder="e.g., SI-001/2025"
+                    placeholder="Auto-generated (e.g., SO-001/2025)"
                     required
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    readOnly
+                    className="w-full p-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Date *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sales Date *</label>
                   <input
                     type="date"
                     value={formData.invoiceDate}
@@ -1021,6 +1353,25 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
                     type="date"
                     value={formData.dueDate}
                     onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">E-way Bill Number</label>
+                  <input
+                    type="text"
+                    value={formData.ewayBillNo}
+                    onChange={(e) => setFormData(prev => ({ ...prev, ewayBillNo: e.target.value }))}
+                    placeholder="Enter E-way Bill Number"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">E-way Bill Expiry Date</label>
+                  <input
+                    type="date"
+                    value={formData.ewayBillExpiryDate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, ewayBillExpiryDate: e.target.value }))}
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
@@ -1039,33 +1390,65 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
             <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Customer *</label>
+                  <Select 
+                    value={selectedClientId}
+                    onValueChange={handleClientChange}
+                  >
+                    <SelectTrigger className="w-full" style={{ backgroundColor: '#ffffff', color: '#111827' }}>
+                      <SelectValue placeholder="Select Customer from Client Master" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white" style={{ backgroundColor: '#ffffff' }}>
+                      {clientsLoading ? (
+                        <SelectItem value="loading" disabled style={{ color: '#6B7280', backgroundColor: '#FEE2E2' }}>Loading customers...</SelectItem>
+                      ) : clients.length === 0 ? (
+                        <SelectItem value="no-clients" disabled style={{ color: '#DC2626', backgroundColor: '#FEE2E2' }}>No customers found - Add in Client Master</SelectItem>
+                      ) : (
+                        clients.map((client) => (
+                          <SelectItem 
+                            key={client.id} 
+                            value={client.id} 
+                            style={{ 
+                              color: '#000000',
+                              backgroundColor: '#ffffff',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            {client.name || client.clientName || client.companyName || 'Unnamed Client'}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
                   <input
                     type="text"
                     value={formData.customerName}
                     onChange={(e) => setFormData(prev => ({ ...prev, customerName: e.target.value }))}
-                    placeholder="e.g., RAMKRISHNA TRADERS"
-                    required
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">GSTIN</label>
-                  <input
-                    type="text"
-                    value={formData.customerGSTIN}
-                    onChange={(e) => setFormData(prev => ({ ...prev, customerGSTIN: e.target.value }))}
-                    placeholder="e.g., 18BCWPP7863H1ZL"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Auto-filled from selection"
+                    readOnly
+                    className="w-full p-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
                   />
                 </div>
               </div>
-              <div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">GSTIN</label>
+                <input
+                  type="text"
+                  value={formData.customerGSTIN}
+                  onChange={(e) => setFormData(prev => ({ ...prev, customerGSTIN: e.target.value }))}
+                  placeholder="Auto-filled from selection"
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
                 <textarea
                   value={formData.customerAddress}
                   onChange={(e) => setFormData(prev => ({ ...prev, customerAddress: e.target.value }))}
-                  placeholder="Complete customer address"
+                  placeholder="Auto-filled from selection"
                   rows={3}
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
@@ -1086,10 +1469,17 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
                 <table className="w-full border-collapse border border-gray-300">
                   <thead>
                     <tr className="bg-blue-500 text-white">
-                      <th className="border border-gray-300 p-2 text-left">Description</th>
+                      <th className="border border-gray-300 p-2 text-left">Product/Description</th>
+                      <th className="border border-gray-300 p-2 text-left">HSN/SAC</th>
+                      <th className="border border-gray-300 p-2 text-left">Unit</th>
                       <th className="border border-gray-300 p-2 text-left">Qty</th>
                       <th className="border border-gray-300 p-2 text-left">Rate</th>
                       <th className="border border-gray-300 p-2 text-left">Amount</th>
+                      <th className="border border-gray-300 p-2 text-left">Tax Rate %</th>
+                      <th className="border border-gray-300 p-2 text-left">Transit Insurance</th>
+                      <th className="border border-gray-300 p-2 text-left">Total Amount</th>
+                      <th className="border border-gray-300 p-2 text-left">Tax Amount</th>
+                      <th className="border border-gray-300 p-2 text-left">Taxable Amount</th>
                       <th className="border border-gray-300 p-2 text-center w-20">Action</th>
                     </tr>
                   </thead>
@@ -1097,6 +1487,27 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
                     {formData.items.map((item, index) => (
                       <tr key={item.id}>
                         <td className="border border-gray-300 p-2">
+                          <Select
+                            value={selectedProductIds[index] || ''}
+                            onValueChange={(value) => handleProductChange(value, index)}
+                          >
+                            <SelectTrigger className="w-full mb-1" style={{ backgroundColor: '#ffffff', color: '#111827' }}>
+                              <SelectValue placeholder="Select Product" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white max-h-[300px]" style={{ backgroundColor: '#ffffff' }}>
+                              {productsLoading ? (
+                                <SelectItem value="loading" disabled style={{ color: '#6B7280' }}>Loading products...</SelectItem>
+                              ) : products.length === 0 ? (
+                                <SelectItem value="no-products" disabled style={{ color: '#DC2626' }}>No products - Add in Product Master</SelectItem>
+                              ) : (
+                                products.map((product) => (
+                                  <SelectItem key={product.id} value={product.id} style={{ color: '#111827' }}>
+                                    {product.name || product.productName || 'Unnamed Product'}
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
                           <input
                             type="text"
                             value={item.description}
@@ -1106,7 +1517,33 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
                               setFormData(prev => ({ ...prev, items: newItems }));
                             }}
                             className="w-full p-1 border border-gray-200 rounded"
-                            placeholder="Item description"
+                            placeholder="Or type manually"
+                          />
+                        </td>
+                        <td className="border border-gray-300 p-2">
+                          <input
+                            type="text"
+                            value={item.hsn}
+                            onChange={(e) => {
+                              const newItems = [...formData.items];
+                              newItems[index].hsn = e.target.value;
+                              setFormData(prev => ({ ...prev, items: newItems }));
+                            }}
+                            className="w-full p-1 border border-gray-200 rounded"
+                            placeholder="HSN/SAC"
+                          />
+                        </td>
+                        <td className="border border-gray-300 p-2">
+                          <input
+                            type="text"
+                            value={item.unit}
+                            onChange={(e) => {
+                              const newItems = [...formData.items];
+                              newItems[index].unit = e.target.value;
+                              setFormData(prev => ({ ...prev, items: newItems }));
+                            }}
+                            className="w-full p-1 border border-gray-200 rounded"
+                            placeholder="Unit"
                           />
                         </td>
                         <td className="border border-gray-300 p-2">
@@ -1115,8 +1552,16 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
                             value={item.quantity}
                             onChange={(e) => {
                               const newItems = [...formData.items];
-                              newItems[index].quantity = parseFloat(e.target.value) || 0;
-                              newItems[index].amount = newItems[index].quantity * newItems[index].rate;
+                              const quantity = parseFloat(e.target.value) || 0;
+                              newItems[index].quantity = quantity;
+                              // Calculate amount
+                              newItems[index].amount = quantity * newItems[index].rate;
+                              // Calculate total amount (Amount + Transit Insurance)
+                              newItems[index].totalAmount = newItems[index].amount + newItems[index].transitInsurance;
+                              // Calculate tax amount
+                              newItems[index].taxAmount = (newItems[index].totalAmount * newItems[index].taxRate) / 100;
+                              // Calculate taxable amount
+                              newItems[index].taxableAmount = newItems[index].totalAmount + newItems[index].taxAmount;
                               setFormData(prev => ({ ...prev, items: newItems }));
                             }}
                             className="w-full p-1 border border-gray-200 rounded"
@@ -1129,8 +1574,16 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
                             value={item.rate}
                             onChange={(e) => {
                               const newItems = [...formData.items];
-                              newItems[index].rate = parseFloat(e.target.value) || 0;
-                              newItems[index].amount = newItems[index].quantity * newItems[index].rate;
+                              const rate = parseFloat(e.target.value) || 0;
+                              newItems[index].rate = rate;
+                              // Calculate amount
+                              newItems[index].amount = newItems[index].quantity * rate;
+                              // Calculate total amount (Amount + Transit Insurance)
+                              newItems[index].totalAmount = newItems[index].amount + newItems[index].transitInsurance;
+                              // Calculate tax amount
+                              newItems[index].taxAmount = (newItems[index].totalAmount * newItems[index].taxRate) / 100;
+                              // Calculate taxable amount
+                              newItems[index].taxableAmount = newItems[index].totalAmount + newItems[index].taxAmount;
                               setFormData(prev => ({ ...prev, items: newItems }));
                             }}
                             className="w-full p-1 border border-gray-200 rounded"
@@ -1139,6 +1592,44 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
                         </td>
                         <td className="border border-gray-300 p-2 font-medium">
                           ₹{item.amount.toFixed(2)}
+                        </td>
+                        <td className="border border-gray-300 p-2">
+                          <input
+                            type="number"
+                            value={item.taxRate}
+                            readOnly
+                            className="w-full p-1 border border-gray-200 rounded bg-gray-50"
+                          />
+                        </td>
+                        <td className="border border-gray-300 p-2">
+                          <input
+                            type="number"
+                            value={item.transitInsurance}
+                            onChange={(e) => {
+                              const newItems = [...formData.items];
+                              const transitInsurance = parseFloat(e.target.value) || 0;
+                              newItems[index].transitInsurance = transitInsurance;
+                              // Calculate total amount (Amount + Transit Insurance)
+                              newItems[index].totalAmount = newItems[index].amount + transitInsurance;
+                              // Calculate tax amount
+                              newItems[index].taxAmount = (newItems[index].totalAmount * newItems[index].taxRate) / 100;
+                              // Calculate taxable amount
+                              newItems[index].taxableAmount = newItems[index].totalAmount + newItems[index].taxAmount;
+                              setFormData(prev => ({ ...prev, items: newItems }));
+                            }}
+                            className="w-full p-1 border border-gray-200 rounded"
+                            step="0.01"
+                            placeholder="0.00"
+                          />
+                        </td>
+                        <td className="border border-gray-300 p-2 font-medium">
+                          ₹{item.totalAmount.toFixed(2)}
+                        </td>
+                        <td className="border border-gray-300 p-2 font-medium">
+                          ₹{item.taxAmount.toFixed(2)}
+                        </td>
+                        <td className="border border-gray-300 p-2 font-medium">
+                          ₹{item.taxableAmount.toFixed(2)}
                         </td>
                         <td className="border border-gray-300 p-2 text-center">
                           {formData.items.length > 1 && (
@@ -1410,6 +1901,7 @@ const InvoiceManagement: React.FC = () => {
   // State for view/delete dialogs
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [viewDialogLoading, setViewDialogLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<{ id: string; type: 'sales' | 'purchase'; invoiceNumber: string } | null>(null);
   
@@ -1426,6 +1918,20 @@ const InvoiceManagement: React.FC = () => {
   // State for filters
   const [supplierFilter, setSupplierFilter] = useState<string>('all');
   const [invoiceSearch, setInvoiceSearch] = useState<string>('');
+
+  // State for E-way Bill details dialog
+  const [ewayBillDialogOpen, setEwayBillDialogOpen] = useState(false);
+  const [ewayBillFilteredInvoices, setEwayBillFilteredInvoices] = useState<any[]>([]);
+  const [ewayBillDialogTitle, setEwayBillDialogTitle] = useState<string>('');
+
+  // Debug: Monitor viewDialogOpen state
+  useEffect(() => {
+    console.log('📊 viewDialogOpen state changed:', viewDialogOpen);
+  }, [viewDialogOpen]);
+
+  useEffect(() => {
+    console.log('📊 selectedInvoice state changed:', selectedInvoice?.invoiceNumber || 'null');
+  }, [selectedInvoice]);
 
   // Fetch real sales invoices
   const { data: salesInvoices = [], isLoading: salesLoading } = useQuery<any[]>({
@@ -1544,10 +2050,173 @@ const InvoiceManagement: React.FC = () => {
     }
   });
 
+  // Status change mutation
+  const statusChangeMutation = useMutation({
+    mutationFn: async ({ id, paymentStatus, type }: { id: string; paymentStatus: string; type: 'sales' | 'purchase' }) => {
+      const endpoint = type === 'purchase' 
+        ? `/api/sales-operations/purchase-invoices/${id}/status`
+        : `/api/sales-operations/sales-invoices/${id}/status`;
+      const res = await fetch(endpoint, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentStatus })
+      });
+      if (!res.ok) throw new Error('Failed to update status');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sales-operations/purchase-invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sales-operations/sales-invoices'] });
+      toast({ title: 'Status Updated', description: 'Payment status has been updated successfully' });
+    },
+    onError: () => {
+      toast({ title: 'Error', description: 'Failed to update status', variant: 'destructive' });
+    }
+  });
+
+  // Handle status change
+  const handleStatusChange = (invoiceId: string, newStatus: string, type: 'sales' | 'purchase') => {
+    statusChangeMutation.mutate({ id: invoiceId, paymentStatus: newStatus, type });
+  };
+
   // Handle View Invoice
-  const handleViewInvoice = (invoice: any) => {
+  const handleViewInvoice = async (invoice: any, invoiceType?: 'sales' | 'purchase') => {
+    // Determine type from parameter or by checking fields
+    const type = invoiceType || (invoice.customerId ? 'sales' : 'purchase');
+    console.log('🔍 Opening invoice view:', { id: invoice.id, type, invoice });
+    
+    // First set the invoice data
     setSelectedInvoice(invoice);
+    console.log('✅ selectedInvoice set:', invoice.invoiceNumber);
+    
+    // Then set loading state
+    setViewDialogLoading(true);
+    console.log('✅ viewDialogLoading set to true');
+    
+    // Finally open the dialog
     setViewDialogOpen(true);
+    console.log('✅ viewDialogOpen set to true');
+    
+    // Log state immediately after
+    setTimeout(() => {
+      console.log('📊 State check after 100ms:', { viewDialogOpen, selectedInvoice: selectedInvoice?.invoiceNumber });
+    }, 100);
+    
+    // Fetch full invoice details including items
+    try {
+      const endpoint = type === 'sales'
+        ? `/api/sales-operations/sales-invoices/${invoice.id}`
+        : `/api/sales-operations/purchase-invoices/${invoice.id}`;
+      
+      console.log('📡 Fetching from:', endpoint);
+      const response = await fetch(endpoint);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Full invoice loaded - RAW DATA:', data);
+        
+        // Handle nested structure: { invoice: {...}, items: [...] } or flat structure
+        const fullInvoice = data.invoice ? { ...data.invoice, items: data.items } : data;
+        
+        console.log('✅ Processed invoice:', fullInvoice);
+        console.log('🔍 Customer/Supplier data:', {
+          customerName: fullInvoice.customerName,
+          supplierName: fullInvoice.supplierName,
+          customerAddress: fullInvoice.customerAddress,
+          supplierAddress: fullInvoice.supplierAddress,
+          customerGstin: fullInvoice.customerGstin,
+          supplierGstin: fullInvoice.supplierGstin,
+          customerId: fullInvoice.customerId,
+          supplierId: fullInvoice.supplierId
+        });
+        console.log('🔍 Amount data:', {
+          subtotalAmount: fullInvoice.subtotalAmount,
+          cgstAmount: fullInvoice.cgstAmount,
+          sgstAmount: fullInvoice.sgstAmount,
+          igstAmount: fullInvoice.igstAmount,
+          totalInvoiceAmount: fullInvoice.totalInvoiceAmount
+        });
+        console.log('🔍 Date fields:', {
+          invoiceNumber: fullInvoice.invoiceNumber,
+          invoiceDate: fullInvoice.invoiceDate,
+          dueDate: fullInvoice.dueDate,
+          paymentStatus: fullInvoice.paymentStatus
+        });
+        setSelectedInvoice(fullInvoice);
+      } else {
+        console.log('⚠️ Could not fetch full details, using list data. Status:', response.status);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching invoice details:', error);
+    } finally {
+      setViewDialogLoading(false);
+      console.log('✅ viewDialogLoading set to false');
+    }
+  };
+
+  // Handle E-way Bill Details Click
+  const handleEwayBillClick = (filterType: 'today' | 'tomorrow' | 'thisWeek' | 'thisMonth' | 'thisYear', invoices: any[]) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const weekEnd = new Date(today);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    const monthEnd = new Date(today);
+    monthEnd.setMonth(monthEnd.getMonth() + 1);
+    const yearEnd = new Date(today);
+    yearEnd.setFullYear(yearEnd.getFullYear() + 1);
+
+    let filtered: any[] = [];
+    let title = '';
+
+    switch (filterType) {
+      case 'today':
+        filtered = invoices.filter(inv => {
+          if (!inv.ewayBillValidUpto) return false;
+          const expiryDate = new Date(inv.ewayBillValidUpto);
+          expiryDate.setHours(0, 0, 0, 0);
+          return expiryDate.getTime() === today.getTime();
+        });
+        title = 'E-way Bills Expiring Today';
+        break;
+      case 'tomorrow':
+        filtered = invoices.filter(inv => {
+          if (!inv.ewayBillValidUpto) return false;
+          const expiryDate = new Date(inv.ewayBillValidUpto);
+          expiryDate.setHours(0, 0, 0, 0);
+          return expiryDate.getTime() === tomorrow.getTime();
+        });
+        title = 'E-way Bills Expiring Tomorrow';
+        break;
+      case 'thisWeek':
+        filtered = invoices.filter(inv => {
+          if (!inv.ewayBillValidUpto) return false;
+          const expiryDate = new Date(inv.ewayBillValidUpto);
+          return expiryDate >= today && expiryDate <= weekEnd;
+        });
+        title = 'E-way Bills Expiring This Week';
+        break;
+      case 'thisMonth':
+        filtered = invoices.filter(inv => {
+          if (!inv.ewayBillValidUpto) return false;
+          const expiryDate = new Date(inv.ewayBillValidUpto);
+          return expiryDate >= today && expiryDate <= monthEnd;
+        });
+        title = 'E-way Bills Expiring This Month';
+        break;
+      case 'thisYear':
+        filtered = invoices.filter(inv => {
+          if (!inv.ewayBillValidUpto) return false;
+          const expiryDate = new Date(inv.ewayBillValidUpto);
+          return expiryDate >= today && expiryDate <= yearEnd;
+        });
+        title = 'E-way Bills Expiring This Year';
+        break;
+    }
+
+    setEwayBillFilteredInvoices(filtered);
+    setEwayBillDialogTitle(title);
+    setEwayBillDialogOpen(true);
   };
 
   // Handle Delete Invoice
@@ -1664,8 +2333,517 @@ const InvoiceManagement: React.FC = () => {
     setSelectedType(null);
   };
 
+  // Render all dialogs at component level (before conditional returns)
+  const renderDialogs = () => (
+    <>
+      {/* View Invoice Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={(open) => {
+        setViewDialogOpen(open);
+        if (!open) {
+          setTimeout(() => setSelectedInvoice(null), 200);
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Invoice Details - {selectedInvoice?.invoiceNumber}</DialogTitle>
+          </DialogHeader>
+          {viewDialogLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              <span className="ml-3">Loading invoice details...</span>
+            </div>
+          ) : selectedInvoice && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-semibold text-gray-700 mb-2">Invoice Information</h3>
+                  <p><strong>Invoice No:</strong> {selectedInvoice.invoiceNumber}</p>
+                  <p><strong>Date:</strong> {selectedInvoice.invoiceDate ? new Date(selectedInvoice.invoiceDate).toLocaleDateString('en-IN') : 'N/A'}</p>
+                  <p><strong>Status:</strong> <Badge className={
+                    (selectedInvoice.paymentStatus || selectedInvoice.status) === 'PAID' ? 'bg-green-100 text-green-800' :
+                    (selectedInvoice.paymentStatus || selectedInvoice.status) === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }>{selectedInvoice.paymentStatus || selectedInvoice.status || 'PENDING'}</Badge></p>
+                  <p><strong>Due Date:</strong> {selectedInvoice.dueDate ? new Date(selectedInvoice.dueDate).toLocaleDateString('en-IN') : 'N/A'}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-700 mb-2">{selectedInvoice.customerName ? 'Customer' : 'Supplier'} Details</h3>
+                  <p><strong>Name:</strong> {selectedInvoice.customerName || selectedInvoice.supplierName || 'N/A'}</p>
+                  <p><strong>GSTIN:</strong> {selectedInvoice.customerGstin || selectedInvoice.supplierGstin || 'N/A'}</p>
+                  <p><strong>Address:</strong> {selectedInvoice.customerAddress || selectedInvoice.supplierAddress || 'N/A'}</p>
+                  <p><strong>State:</strong> {selectedInvoice.customerState || selectedInvoice.supplierState || 'N/A'}</p>
+                </div>
+              </div>
+              <div className="border-t pt-4">
+                <h3 className="font-semibold text-gray-700 mb-2">Amount Details</h3>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <p>Taxable Amount:</p>
+                    <p className="text-right">₹{parseFloat(selectedInvoice.subtotalAmount || selectedInvoice.totalTaxableAmount || '0').toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                    <p>CGST:</p>
+                    <p className="text-right">₹{parseFloat(selectedInvoice.cgstAmount || selectedInvoice.totalCgst || '0').toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                    <p>SGST:</p>
+                    <p className="text-right">₹{parseFloat(selectedInvoice.sgstAmount || selectedInvoice.totalSgst || '0').toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                    <p>IGST:</p>
+                    <p className="text-right">₹{parseFloat(selectedInvoice.igstAmount || selectedInvoice.totalIgst || '0').toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                    <p className="font-bold border-t pt-2">Total Amount:</p>
+                    <p className="text-right font-bold border-t pt-2">₹{parseFloat(selectedInvoice.totalInvoiceAmount || '0').toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={() => setViewDialogOpen(false)}>Close</Button>
+                <Button onClick={() => handlePrintInvoice(selectedInvoice, selectedInvoice.customerName ? 'sales' : 'purchase')}>
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print / PDF
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete invoice <strong>{invoiceToDelete?.invoiceNumber}</strong>? 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setInvoiceToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* E-way Bill Details Dialog */}
+      <Dialog open={ewayBillDialogOpen} onOpenChange={setEwayBillDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-orange-500" />
+              {ewayBillDialogTitle}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {ewayBillFilteredInvoices.length === 0 ? (
+              <p className="text-center text-gray-500 py-8">No invoices found</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Invoice No</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Customer</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">E-way Bill No</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Expiry Date</th>
+                      <th className="px-4 py-3 text-right font-medium text-gray-700">Amount</th>
+                      <th className="px-4 py-3 text-center font-medium text-gray-700">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {ewayBillFilteredInvoices.map((invoice) => {
+                      const expiryDate = invoice.ewayBillValidUpto ? new Date(invoice.ewayBillValidUpto) : null;
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const daysUntilExpiry = expiryDate ? Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : null;
+                      
+                      let urgencyColor = 'text-gray-600';
+                      if (daysUntilExpiry !== null) {
+                        if (daysUntilExpiry === 0) urgencyColor = 'text-red-600 font-bold';
+                        else if (daysUntilExpiry === 1) urgencyColor = 'text-orange-600 font-bold';
+                        else if (daysUntilExpiry <= 7) urgencyColor = 'text-yellow-600 font-semibold';
+                        else if (daysUntilExpiry <= 30) urgencyColor = 'text-blue-600';
+                      }
+
+                      return (
+                        <tr key={invoice.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">{invoice.invoiceNumber}</td>
+                          <td className="px-4 py-3">{invoice.customerName || 'N/A'}</td>
+                          <td className="px-4 py-3">{invoice.ewayBillNumber || 'N/A'}</td>
+                          <td className={`px-4 py-3 ${urgencyColor}`}>
+                            {expiryDate ? expiryDate.toLocaleDateString('en-IN') : 'N/A'}
+                            {daysUntilExpiry !== null && daysUntilExpiry >= 0 && (
+                              <span className="ml-2 text-xs">
+                                ({daysUntilExpiry === 0 ? 'Today' : daysUntilExpiry === 1 ? 'Tomorrow' : `${daysUntilExpiry} days`})
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            ₹{parseFloat(invoice.totalInvoiceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEwayBillDialogOpen(false);
+                                handleViewInvoice(invoice, 'sales');
+                              }}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="flex justify-end pt-4 border-t">
+              <Button variant="outline" onClick={() => setEwayBillDialogOpen(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+
   if (viewMode === 'purchase-form') {
-    return <PurchaseInvoiceForm onBack={handleBackToMain} />;
+    return (
+      <>
+        {renderDialogs()}
+        <PurchaseInvoiceForm onBack={handleBackToMain} />
+      </>
+    );
+  }
+
+  if (viewMode === 'sales-form') {
+    return (
+      <>
+        {renderDialogs()}
+        <SalesInvoiceForm onBack={handleBackToMain} />
+      </>
+    );
+  }
+
+  if (viewMode === 'sales-list') {
+    // Calculate summary stats for sales invoices
+    const totalAmount = salesInvoices.reduce((sum, inv) => sum + parseFloat(inv.totalInvoiceAmount || 0), 0);
+    const paidAmountTotal = salesInvoices.reduce((sum, inv) => sum + parseFloat(inv.paidAmount || 0), 0);
+    const overdueAmount = salesInvoices.filter(inv => {
+      if (!inv.dueDate) return false;
+      const dueDate = new Date(inv.dueDate);
+      const today = new Date();
+      return dueDate < today && inv.paymentStatus !== 'PAID';
+    }).reduce((sum, inv) => sum + parseFloat(inv.remainingBalance || inv.totalInvoiceAmount || 0), 0);
+
+    // Calculate E-way Bill Expiry Stats
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const weekEnd = new Date(today);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    const monthEnd = new Date(today);
+    monthEnd.setMonth(monthEnd.getMonth() + 1);
+    const yearEnd = new Date(today);
+    yearEnd.setFullYear(yearEnd.getFullYear() + 1);
+
+    const ewayBillStats = {
+      today: salesInvoices.filter(inv => {
+        if (!inv.ewayBillValidUpto) return false;
+        const expiryDate = new Date(inv.ewayBillValidUpto);
+        expiryDate.setHours(0, 0, 0, 0);
+        return expiryDate.getTime() === today.getTime();
+      }).length,
+      tomorrow: salesInvoices.filter(inv => {
+        if (!inv.ewayBillValidUpto) return false;
+        const expiryDate = new Date(inv.ewayBillValidUpto);
+        expiryDate.setHours(0, 0, 0, 0);
+        return expiryDate.getTime() === tomorrow.getTime();
+      }).length,
+      thisWeek: salesInvoices.filter(inv => {
+        if (!inv.ewayBillValidUpto) return false;
+        const expiryDate = new Date(inv.ewayBillValidUpto);
+        return expiryDate >= today && expiryDate <= weekEnd;
+      }).length,
+      thisMonth: salesInvoices.filter(inv => {
+        if (!inv.ewayBillValidUpto) return false;
+        const expiryDate = new Date(inv.ewayBillValidUpto);
+        return expiryDate >= today && expiryDate <= monthEnd;
+      }).length,
+      thisYear: salesInvoices.filter(inv => {
+        if (!inv.ewayBillValidUpto) return false;
+        const expiryDate = new Date(inv.ewayBillValidUpto);
+        return expiryDate >= today && expiryDate <= yearEnd;
+      }).length,
+    };
+
+    // Get unique customers for filter
+    const uniqueCustomers = Array.from(new Set(salesInvoices.map(inv => inv.customerName).filter(Boolean)));
+
+    // Filtered invoices
+    const filteredInvoices = salesInvoices.filter(inv => {
+      const matchesCustomer = supplierFilter === 'all' || inv.customerName === supplierFilter;
+      const matchesSearch = !invoiceSearch || 
+        (inv.invoiceNumber?.toLowerCase().includes(invoiceSearch.toLowerCase()));
+      return matchesCustomer && matchesSearch;
+    });
+
+    return (
+      <>
+        {renderDialogs()}
+        <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-4">
+            <Button variant="outline" onClick={() => setViewMode('main')} className="flex items-center space-x-2">
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Dashboard</span>
+            </Button>
+            <h1 className="text-2xl font-bold text-gray-900">All Sales Invoices</h1>
+          </div>
+          <Button onClick={() => handleTypeSelection('sales')} className="bg-blue-600 hover:bg-blue-700">
+            <Plus className="w-4 h-4 mr-2" />
+            New Sales Invoice
+          </Button>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="border-l-4 border-l-blue-500">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Total Amount</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    ₹{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <TrendingUp className="w-8 h-8 text-blue-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-green-500">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Paid Amount</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    ₹{paidAmountTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <FileText className="w-8 h-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-red-500">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Overdue Amount</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    ₹{overdueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <Package className="w-8 h-8 text-red-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-orange-500">
+            <CardContent className="p-6">
+              <div className="flex flex-col space-y-2">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-500">E-way Bill Expiry</p>
+                  <Receipt className="w-6 h-6 text-orange-500" />
+                </div>
+                <div className="space-y-1">
+                  <button 
+                    onClick={() => ewayBillStats.today > 0 && handleEwayBillClick('today', salesInvoices)}
+                    className={`flex justify-between items-center w-full hover:bg-gray-50 rounded px-2 py-1 transition-colors ${ewayBillStats.today > 0 ? 'cursor-pointer' : 'cursor-default'}`}
+                    disabled={ewayBillStats.today === 0}
+                  >
+                    <span className="text-xs text-gray-600">Today:</span>
+                    <span className={`text-sm font-bold ${ewayBillStats.today > 0 ? 'text-red-600 hover:underline' : 'text-gray-400'}`}>
+                      {ewayBillStats.today}
+                    </span>
+                  </button>
+                  <button 
+                    onClick={() => ewayBillStats.tomorrow > 0 && handleEwayBillClick('tomorrow', salesInvoices)}
+                    className={`flex justify-between items-center w-full hover:bg-gray-50 rounded px-2 py-1 transition-colors ${ewayBillStats.tomorrow > 0 ? 'cursor-pointer' : 'cursor-default'}`}
+                    disabled={ewayBillStats.tomorrow === 0}
+                  >
+                    <span className="text-xs text-gray-600">Tomorrow:</span>
+                    <span className={`text-sm font-bold ${ewayBillStats.tomorrow > 0 ? 'text-orange-600 hover:underline' : 'text-gray-400'}`}>
+                      {ewayBillStats.tomorrow}
+                    </span>
+                  </button>
+                  <button 
+                    onClick={() => ewayBillStats.thisWeek > 0 && handleEwayBillClick('thisWeek', salesInvoices)}
+                    className={`flex justify-between items-center w-full hover:bg-gray-50 rounded px-2 py-1 transition-colors ${ewayBillStats.thisWeek > 0 ? 'cursor-pointer' : 'cursor-default'}`}
+                    disabled={ewayBillStats.thisWeek === 0}
+                  >
+                    <span className="text-xs text-gray-600">This Week:</span>
+                    <span className={`text-sm font-semibold ${ewayBillStats.thisWeek > 0 ? 'text-yellow-600 hover:underline' : 'text-gray-400'}`}>
+                      {ewayBillStats.thisWeek}
+                    </span>
+                  </button>
+                  <button 
+                    onClick={() => ewayBillStats.thisMonth > 0 && handleEwayBillClick('thisMonth', salesInvoices)}
+                    className={`flex justify-between items-center w-full hover:bg-gray-50 rounded px-2 py-1 transition-colors ${ewayBillStats.thisMonth > 0 ? 'cursor-pointer' : 'cursor-default'}`}
+                    disabled={ewayBillStats.thisMonth === 0}
+                  >
+                    <span className="text-xs text-gray-600">This Month:</span>
+                    <span className={`text-sm font-semibold ${ewayBillStats.thisMonth > 0 ? 'text-blue-600 hover:underline' : 'text-gray-400'}`}>
+                      {ewayBillStats.thisMonth}
+                    </span>
+                  </button>
+                  <button 
+                    onClick={() => ewayBillStats.thisYear > 0 && handleEwayBillClick('thisYear', salesInvoices)}
+                    className={`flex justify-between items-center w-full hover:bg-gray-50 rounded px-2 py-1 transition-colors ${ewayBillStats.thisYear > 0 ? 'cursor-pointer' : 'cursor-default'}`}
+                    disabled={ewayBillStats.thisYear === 0}
+                  >
+                    <span className="text-xs text-gray-600">This Year:</span>
+                    <span className={`text-sm font-semibold ${ewayBillStats.thisYear > 0 ? 'text-green-600 hover:underline' : 'text-gray-400'}`}>
+                      {ewayBillStats.thisYear}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters and Search */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <Input
+                  placeholder="Search by invoice number..."
+                  value={invoiceSearch}
+                  onChange={(e) => setInvoiceSearch(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                <SelectTrigger className="w-full md:w-64">
+                  <SelectValue placeholder="Filter by customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Customers</SelectItem>
+                  {uniqueCustomers.map(customer => (
+                    <SelectItem key={customer} value={customer}>{customer}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Invoices Table */}
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice No</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredInvoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                        No sales invoices found
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredInvoices.map((invoice) => (
+                      <tr key={invoice.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {invoice.invoiceNumber}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {invoice.invoiceDate ? new Date(invoice.invoiceDate).toLocaleDateString('en-IN') : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {invoice.customerName || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          ₹{parseFloat(invoice.totalInvoiceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Badge className={
+                            (invoice.paymentStatus || invoice.status) === 'PAID' ? 'bg-green-100 text-green-800' :
+                            (invoice.paymentStatus || invoice.status) === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                            (invoice.paymentStatus || invoice.status) === 'OVERDUE' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }>
+                            {invoice.paymentStatus || invoice.status || 'PENDING'}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex gap-2 items-center">
+                            <Select
+                              value={invoice.paymentStatus || invoice.status || 'PENDING'}
+                              onValueChange={(value) => handleStatusChange(invoice.id, value, 'sales')}
+                            >
+                              <SelectTrigger className="w-28 h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="PENDING">Pending</SelectItem>
+                                <SelectItem value="PARTIAL">Partial</SelectItem>
+                                <SelectItem value="PAID">Paid</SelectItem>
+                                <SelectItem value="OVERDUE">Overdue</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleViewInvoice(invoice, 'sales')}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handlePrintInvoice(invoice, 'sales')}
+                            >
+                              <Printer className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => handleDeleteClick(invoice, 'sales')}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      </>
+    );
   }
 
   if (viewMode === 'purchase-list') {
@@ -1691,7 +2869,9 @@ const InvoiceManagement: React.FC = () => {
     });
 
     return (
-      <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+      <>
+        {renderDialogs()}
+        <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4">
             <Button variant="outline" onClick={() => setViewMode('main')} className="flex items-center space-x-2">
@@ -1885,8 +3065,22 @@ const InvoiceManagement: React.FC = () => {
                             </Badge>
                           </td>
                           <td className="p-3">
-                            <div className="flex justify-center gap-2">
-                              <Button variant="outline" size="sm" title="View Invoice" onClick={() => handleViewInvoice(invoice)}>
+                            <div className="flex justify-center gap-2 items-center">
+                              <Select
+                                value={isFullyPaid ? 'PAID' : (invoice.paymentStatus || 'PENDING')}
+                                onValueChange={(value) => handleStatusChange(invoice.id, value, 'purchase')}
+                              >
+                                <SelectTrigger className="w-28 h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="PENDING">Pending</SelectItem>
+                                  <SelectItem value="PARTIAL">Partial</SelectItem>
+                                  <SelectItem value="PAID">Paid</SelectItem>
+                                  <SelectItem value="OVERDUE">Overdue</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Button variant="outline" size="sm" title="View Invoice" onClick={() => handleViewInvoice(invoice, 'purchase')}>
                                 <Eye className="w-4 h-4" />
                               </Button>
                               {!isFullyPaid && (
@@ -1894,9 +3088,6 @@ const InvoiceManagement: React.FC = () => {
                                   <IndianRupee className="w-4 h-4" />
                                 </Button>
                               )}
-                              <Button variant="outline" size="sm" title="Change Status" className="text-blue-600 hover:bg-blue-50" onClick={() => handleStatusClick(invoice, 'purchase')}>
-                                <RefreshCw className="w-4 h-4" />
-                              </Button>
                               <Button variant="outline" size="sm" title="Print/PDF Invoice" onClick={() => handlePrintInvoice(invoice, 'purchase')}>
                                 <Printer className="w-4 h-4" />
                               </Button>
@@ -1914,227 +3105,17 @@ const InvoiceManagement: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* View Invoice Dialog */}
-        <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-xl">Invoice Details - {selectedInvoice?.invoiceNumber}</DialogTitle>
-            </DialogHeader>
-            {selectedInvoice && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="font-semibold text-gray-700 mb-2">Invoice Information</h3>
-                    <p><strong>Invoice No:</strong> {selectedInvoice.invoiceNumber}</p>
-                    <p><strong>Date:</strong> {selectedInvoice.invoiceDate ? new Date(selectedInvoice.invoiceDate).toLocaleDateString('en-IN') : 'N/A'}</p>
-                    <p><strong>Status:</strong> <Badge className={
-                      selectedInvoice.paymentStatus === 'PAID' ? 'bg-green-100 text-green-800' :
-                      selectedInvoice.paymentStatus === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                      selectedInvoice.paymentStatus === 'PARTIAL' ? 'bg-blue-100 text-blue-800' :
-                      selectedInvoice.paymentStatus === 'OVERDUE' ? 'bg-red-100 text-red-800' :
-                      selectedInvoice.paymentStatus === 'CANCELLED' ? 'bg-gray-100 text-gray-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }>{selectedInvoice.paymentStatus || 'PENDING'}</Badge></p>
-                    <p><strong>Due Date:</strong> {selectedInvoice.dueDate ? new Date(selectedInvoice.dueDate).toLocaleDateString('en-IN') : 'N/A'}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-700 mb-2">{selectedInvoice.customerName ? 'Customer' : 'Supplier'} Details</h3>
-                    <p><strong>Name:</strong> {selectedInvoice.customerName || selectedInvoice.supplierName || 'N/A'}</p>
-                    <p><strong>GSTIN:</strong> {selectedInvoice.customerGstin || selectedInvoice.supplierGstin || 'N/A'}</p>
-                    <p><strong>Address:</strong> {selectedInvoice.customerAddress || selectedInvoice.supplierAddress || 'N/A'}</p>
-                    <p><strong>State:</strong> {selectedInvoice.customerState || selectedInvoice.supplierState || 'N/A'}</p>
-                  </div>
-                </div>
-                
-                <div className="border-t pt-4">
-                  <h3 className="font-semibold text-gray-700 mb-2">Amount Details</h3>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <p>Taxable Amount:</p>
-                      <p className="text-right">₹{parseFloat(selectedInvoice.totalTaxableAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                      <p>CGST:</p>
-                      <p className="text-right">₹{parseFloat(selectedInvoice.totalCgst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                      <p>SGST:</p>
-                      <p className="text-right">₹{parseFloat(selectedInvoice.totalSgst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                      <p>IGST:</p>
-                      <p className="text-right">₹{parseFloat(selectedInvoice.totalIgst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                      <p className="font-bold border-t pt-2">Total Amount:</p>
-                      <p className="text-right font-bold border-t pt-2">₹{parseFloat(selectedInvoice.totalInvoiceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 mt-4">
-                  <Button variant="outline" onClick={() => setViewDialogOpen(false)}>Close</Button>
-                  <Button onClick={() => handlePrintInvoice(selectedInvoice, 'purchase')}>
-                    <Printer className="w-4 h-4 mr-2" />
-                    Print / PDF
-                  </Button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete invoice <strong>{invoiceToDelete?.invoiceNumber}</strong>? 
-                This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setInvoiceToDelete(null)}>Cancel</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={confirmDelete}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Status Change Dialog */}
-        <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Change Invoice Status</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <p className="text-sm text-gray-600">
-                Update status for invoice: <strong>{invoiceToUpdateStatus?.invoiceNumber}</strong>
-              </p>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Select New Status:</label>
-                <Select value={newStatus} onValueChange={setNewStatus}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PENDING">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-                        Pending
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="PAID">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                        Paid
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="PARTIAL">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                        Partial Payment
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="OVERDUE">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                        Overdue
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="CANCELLED">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-gray-500"></span>
-                        Cancelled
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => { setStatusDialogOpen(false); setInvoiceToUpdateStatus(null); }}>
-                  Cancel
-                </Button>
-                <Button onClick={confirmStatusChange} className="bg-blue-600 hover:bg-blue-700">
-                  Update Status
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Record Payment Dialog */}
-        <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <IndianRupee className="w-5 h-5 text-green-600" />
-                Record Payment
-              </DialogTitle>
-            </DialogHeader>
-            {invoiceToPayment && (
-              <div className="space-y-4 py-4">
-                <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                  <p className="text-sm text-gray-600">
-                    Invoice: <strong className="text-green-600">{invoiceToPayment.invoiceNumber}</strong>
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Supplier: <strong>{invoiceToPayment.supplierName}</strong>
-                  </p>
-                  <div className="flex justify-between pt-2 border-t">
-                    <span className="text-sm">Total Amount:</span>
-                    <span className="font-semibold">₹{parseFloat(invoiceToPayment.totalInvoiceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Already Paid:</span>
-                    <span className="font-semibold text-green-600">₹{parseFloat(invoiceToPayment.paidAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Remaining Balance:</span>
-                    <span className="font-semibold text-red-600">₹{parseFloat(invoiceToPayment.remainingBalance || (parseFloat(invoiceToPayment.totalInvoiceAmount || 0) - parseFloat(invoiceToPayment.paidAmount || 0))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="paymentAmount">Total Paid Amount (cumulative)</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
-                    <Input
-                      id="paymentAmount"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max={parseFloat(invoiceToPayment.totalInvoiceAmount || 0)}
-                      value={paymentAmount}
-                      onChange={(e) => setPaymentAmount(e.target.value)}
-                      placeholder="Enter total paid amount"
-                      className="pl-8"
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    Enter the total cumulative amount paid (not just this payment)
-                  </p>
-                </div>
-                
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button variant="outline" onClick={() => { setPaymentDialogOpen(false); setInvoiceToPayment(null); setPaymentAmount(''); }}>
-                    Cancel
-                  </Button>
-                  <Button onClick={confirmPayment} className="bg-green-600 hover:bg-green-700">
-                    <IndianRupee className="w-4 h-4 mr-2" />
-                    Save Payment
-                  </Button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
       </div>
+      </>
     );
   }
 
   // Show loading state
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+      <>
+        {renderDialogs()}
+        <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center space-x-3 mb-4">
             <div className="bg-indigo-100 p-3 rounded-full">
@@ -2147,11 +3128,14 @@ const InvoiceManagement: React.FC = () => {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <>
+      {renderDialogs()}
+      <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center space-x-3 mb-4">
@@ -2222,132 +3206,116 @@ const InvoiceManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Create Invoice Section - Purchase Invoice Only */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-        <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Create New Invoice</h2>
-          <p className="text-gray-600">Create purchase invoices for supplier transactions</p>
-        </div>
+      {/* Create Invoice Section - Separate Sales & Purchase Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Sales Invoice Card */}
+        <Card className="shadow-lg border-2 border-blue-200 hover:border-blue-400 transition-all duration-300 hover:shadow-xl">
+          <CardHeader className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+            <CardTitle className="flex items-center gap-3 text-2xl">
+              <ShoppingCart className="w-8 h-8" />
+              Sales Invoice
+            </CardTitle>
+            <p className="text-blue-100 text-sm mt-1">Create and manage customer sales invoices</p>
+          </CardHeader>
+          <CardContent className="p-6 space-y-6">
+            {/* Sales Stats */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-blue-50 p-4 rounded-lg text-center">
+                <p className="text-sm text-gray-600 mb-1">Total Invoices</p>
+                <p className="text-2xl font-bold text-blue-600">{salesStats.total}</p>
+              </div>
+              <div className="bg-green-50 p-4 rounded-lg text-center">
+                <p className="text-sm text-gray-600 mb-1">Total Amount</p>
+                <p className="text-2xl font-bold text-green-600">₹{salesStats.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div className="bg-yellow-50 p-4 rounded-lg text-center">
+                <p className="text-sm text-gray-600 mb-1">Pending</p>
+                <p className="text-2xl font-bold text-yellow-600">{salesStats.pending}</p>
+              </div>
+              <div className="bg-red-50 p-4 rounded-lg text-center">
+                <p className="text-sm text-gray-600 mb-1">Overdue</p>
+                <p className="text-2xl font-bold text-red-600">{salesStats.overdue}</p>
+              </div>
+            </div>
 
-        <div className="flex justify-center max-w-xl mx-auto">
-          {/* Purchase Invoice Button */}
-          <button
-            onClick={() => handleTypeSelection('purchase')}
-            className="group relative p-8 bg-gradient-to-br from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 rounded-xl border-2 border-green-200 hover:border-green-400 transition-all duration-300 hover:shadow-xl transform hover:-translate-y-1 w-full"
-          >
-            <div className="flex flex-col items-center space-y-4">
-              <div className="bg-green-500 group-hover:bg-green-600 p-6 rounded-full transition-colors duration-300">
-                <Package className="w-12 h-12 text-white" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Purchase Invoice</h3>
-                <p className="text-sm text-gray-600">Create invoice for supplier purchases</p>
-              </div>
-              <div className="flex gap-4 text-sm">
-                <Badge variant="secondary" className="bg-green-100 text-green-800">
-                  {purchaseStats.total} Invoices
-                </Badge>
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                  ₹{purchaseStats.amount.toLocaleString()}
-                </Badge>
-              </div>
+            {/* Sales Actions */}
+            <div className="space-y-3 pt-4 border-t">
+              <Button 
+                onClick={() => handleTypeSelection('sales')}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg font-semibold"
+                size="lg"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Create New Sales Invoice
+              </Button>
               <Button 
                 variant="outline" 
-                size="sm" 
-                className="mt-2"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setViewMode('purchase-list');
-                }}
+                className="w-full border-blue-300 text-blue-700 hover:bg-blue-50 py-6 text-lg"
+                onClick={() => setViewMode('sales-list')}
+                size="lg"
               >
-                View All Purchases
+                <Eye className="w-5 h-5 mr-2" />
+                View All Sales Invoices
               </Button>
             </div>
-          </button>
-        </div>
-      </div>
+          </CardContent>
+        </Card>
 
-      {/* View Invoice Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl">Invoice Details - {selectedInvoice?.invoiceNumber}</DialogTitle>
-          </DialogHeader>
-          {selectedInvoice && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h3 className="font-semibold text-gray-700 mb-2">Invoice Information</h3>
-                  <p><strong>Invoice No:</strong> {selectedInvoice.invoiceNumber}</p>
-                  <p><strong>Date:</strong> {selectedInvoice.invoiceDate ? new Date(selectedInvoice.invoiceDate).toLocaleDateString('en-IN') : 'N/A'}</p>
-                  <p><strong>Status:</strong> <Badge className={
-                    selectedInvoice.status === 'PAID' ? 'bg-green-100 text-green-800' :
-                    selectedInvoice.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }>{selectedInvoice.status || 'PENDING'}</Badge></p>
-                  <p><strong>Due Date:</strong> {selectedInvoice.dueDate ? new Date(selectedInvoice.dueDate).toLocaleDateString('en-IN') : 'N/A'}</p>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-700 mb-2">{selectedInvoice.customerName ? 'Customer' : 'Supplier'} Details</h3>
-                  <p><strong>Name:</strong> {selectedInvoice.customerName || selectedInvoice.supplierName || 'N/A'}</p>
-                  <p><strong>GSTIN:</strong> {selectedInvoice.customerGstin || selectedInvoice.supplierGstin || 'N/A'}</p>
-                  <p><strong>Address:</strong> {selectedInvoice.customerAddress || selectedInvoice.supplierAddress || 'N/A'}</p>
-                  <p><strong>State:</strong> {selectedInvoice.customerState || selectedInvoice.supplierState || 'N/A'}</p>
-                </div>
+        {/* Purchase Invoice Card */}
+        <Card className="shadow-lg border-2 border-green-200 hover:border-green-400 transition-all duration-300 hover:shadow-xl">
+          <CardHeader className="bg-gradient-to-r from-green-500 to-green-600 text-white">
+            <CardTitle className="flex items-center gap-3 text-2xl">
+              <Package className="w-8 h-8" />
+              Purchase Invoice
+            </CardTitle>
+            <p className="text-green-100 text-sm mt-1">Create and manage supplier purchase invoices</p>
+          </CardHeader>
+          <CardContent className="p-6 space-y-6">
+            {/* Purchase Stats */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-green-50 p-4 rounded-lg text-center">
+                <p className="text-sm text-gray-600 mb-1">Total Invoices</p>
+                <p className="text-2xl font-bold text-green-600">{purchaseStats.total}</p>
               </div>
-              
-              <div className="border-t pt-4">
-                <h3 className="font-semibold text-gray-700 mb-2">Amount Details</h3>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <p>Taxable Amount:</p>
-                    <p className="text-right">₹{parseFloat(selectedInvoice.totalTaxableAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                    <p>CGST:</p>
-                    <p className="text-right">₹{parseFloat(selectedInvoice.totalCgst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                    <p>SGST:</p>
-                    <p className="text-right">₹{parseFloat(selectedInvoice.totalSgst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                    <p>IGST:</p>
-                    <p className="text-right">₹{parseFloat(selectedInvoice.totalIgst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                    <p className="font-bold border-t pt-2">Total Amount:</p>
-                    <p className="text-right font-bold border-t pt-2">₹{parseFloat(selectedInvoice.totalInvoiceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                  </div>
-                </div>
+              <div className="bg-blue-50 p-4 rounded-lg text-center">
+                <p className="text-sm text-gray-600 mb-1">Total Amount</p>
+                <p className="text-2xl font-bold text-blue-600">₹{purchaseStats.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
               </div>
-
-              <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline" onClick={() => setViewDialogOpen(false)}>Close</Button>
-                <Button onClick={() => handlePrintInvoice(selectedInvoice, selectedInvoice.customerName ? 'sales' : 'purchase')}>
-                  <Printer className="w-4 h-4 mr-2" />
-                  Print / PDF
-                </Button>
+              <div className="bg-yellow-50 p-4 rounded-lg text-center">
+                <p className="text-sm text-gray-600 mb-1">Pending</p>
+                <p className="text-2xl font-bold text-yellow-600">{purchaseStats.pending}</p>
+              </div>
+              <div className="bg-red-50 p-4 rounded-lg text-center">
+                <p className="text-sm text-gray-600 mb-1">Overdue</p>
+                <p className="text-2xl font-bold text-red-600">{purchaseStats.overdue}</p>
               </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete invoice <strong>{invoiceToDelete?.invoiceNumber}</strong>? 
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setInvoiceToDelete(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={confirmDelete}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            {/* Purchase Actions */}
+            <div className="space-y-3 pt-4 border-t">
+              <Button 
+                onClick={() => handleTypeSelection('purchase')}
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-6 text-lg font-semibold"
+                size="lg"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Create New Purchase Invoice
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full border-green-300 text-green-700 hover:bg-green-50 py-6 text-lg"
+                onClick={() => setViewMode('purchase-list')}
+                size="lg"
+              >
+                <Eye className="w-5 h-5 mr-2" />
+                View All Purchase Invoices
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
+    </>
   );
 };
 

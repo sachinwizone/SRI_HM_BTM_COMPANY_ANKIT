@@ -42,16 +42,13 @@ export function usePermissions() {
     // If still loading permissions, don't show anything
     if (isLoading) return false;
     
-    // Temporary: Always allow INVOICE_MANAGEMENT and REPORTS access
-    if (module === 'INVOICE_MANAGEMENT' || module === 'REPORTS') return true;
-    
     // Check if user has explicit permission for this module and action
     const permission = permissions.find(
       p => p.module === module && p.action === action && p.granted
     );
     
-    // Always use explicit permissions - no fallback to true
-    // This ensures proper restriction based on granted permissions
+    // Only return true if explicit permission is granted
+    // This ensures proper role-based access control
     return !!permission;
   };
 

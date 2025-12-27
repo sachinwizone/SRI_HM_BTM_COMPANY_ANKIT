@@ -1,7 +1,7 @@
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { db } from './db';
-import { users, userSessions, type User, type UserSession } from '@shared/schema';
+import { users, userSessions, userPermissions, type User, type UserSession } from '@shared/schema';
 import { eq, and, gt, lt } from 'drizzle-orm';
 import type { Request, Response, NextFunction } from 'express';
 
@@ -31,12 +31,27 @@ export class AuthService {
     firstName: string;
     lastName: string;
     email: string;
+    employeeCode?: string;
+    mobileNumber?: string;
+    designation?: string;
+    department?: string;
+    workLocation?: string;
     role?: 'ADMIN' | 'MANAGER' | 'ACCOUNTANT' | 'EMPLOYEE' | 'SALES_MANAGER' | 'SALES_EXECUTIVE' | 'OPERATIONS';
   }): Promise<User> {
     const hashedPassword = await this.hashPassword(userData.password);
     
-    const [user] = await db.insert(users).values({
+    // Clean up empty strings to null for unique fields
+    const cleanedData = {
       ...userData,
+      employeeCode: userData.employeeCode?.trim() || null,
+      mobileNumber: userData.mobileNumber?.trim() || null,
+      designation: userData.designation?.trim() || null,
+      department: userData.department?.trim() || null,
+      workLocation: userData.workLocation?.trim() || null,
+    };
+    
+    const [user] = await db.insert(users).values({
+      ...cleanedData,
       password: hashedPassword,
       role: userData.role || 'EMPLOYEE',
     }).returning();
@@ -153,51 +168,56 @@ export class AuthService {
   // User Permissions Management
   static async setUserPermissions(userId: string, permissions: Array<{module: string, action: string, granted?: boolean}>): Promise<void> {
     try {
-      // Store permissions in memory for now (until database is ready)
-      if (!this.userPermissionsStore) {
-        this.userPermissionsStore = new Map();
+      // First, delete all existing permissions for this user
+      await db.delete(userPermissions).where(eq(userPermissions.userId, userId));
+      
+      // Then insert the new permissions
+      if (permissions.length > 0) {
+        const permissionData = permissions.map(perm => ({
+          userId,
+          module: perm.module,
+          action: perm.action,
+          granted: perm.granted !== false
+        }));
+        
+        await db.insert(userPermissions).values(permissionData);
+        console.log('Permissions saved to database for user:', userId, permissionData.length, 'permissions');
+      } else {
+        console.log('All permissions cleared for user:', userId);
       }
-      
-      const permissionData = permissions.map(perm => ({
-        userId,
-        module: perm.module,
-        action: perm.action,
-        granted: perm.granted !== false
-      }));
-      
-      // Store in memory
-      this.userPermissionsStore.set(userId, permissionData);
-      console.log('Permissions saved for user:', userId, permissionData);
     } catch (error) {
       console.error('Error setting user permissions:', error);
       throw error;
     }
   }
 
-  // Memory store for permissions (temporary until database is ready)
-  private static userPermissionsStore: Map<string, Array<{userId: string, module: string, action: string, granted: boolean}>> = new Map();
-
-  // Method to clear user permissions (for debugging)
+  // Method to clear user permissions
   static async clearUserPermissions(userId: string): Promise<void> {
-    if (this.userPermissionsStore) {
-      this.userPermissionsStore.delete(userId);
-      console.log('Cleared permissions for user:', userId);
+    try {
+      await db.delete(userPermissions).where(eq(userPermissions.userId, userId));
+      console.log('Cleared all permissions for user:', userId);
+    } catch (error) {
+      console.error('Error clearing user permissions:', error);
+      throw error;
     }
   }
 
   static async getUserPermissions(userId: string): Promise<Array<{module: string, action: string, granted: boolean}>> {
     try {
-      // Check memory store first
-      if (this.userPermissionsStore && this.userPermissionsStore.has(userId)) {
-        const storedPermissions = this.userPermissionsStore.get(userId)!;
-        return storedPermissions.map(p => ({ 
-          module: p.module, 
-          action: p.action, 
-          granted: p.granted 
-        }));
+      // Fetch permissions from database
+      const dbPermissions = await db.select({
+        module: userPermissions.module,
+        action: userPermissions.action,
+        granted: userPermissions.granted,
+      })
+      .from(userPermissions)
+      .where(eq(userPermissions.userId, userId));
+      
+      if (dbPermissions.length > 0) {
+        return dbPermissions;
       }
       
-      // Fallback to role-based permissions for existing users
+      // Fallback to role-based permissions for admin users or users without explicit permissions
       const user = await this.getUserById(userId);
       if (!user) return [];
       
@@ -232,17 +252,15 @@ export class AuthService {
 
   static async hasPermission(userId: string, module: string, action: string): Promise<boolean> {
     try {
-      // When database is ready, uncomment this:
-      // const [permission] = await db.select().from(userPermissions)
-      //   .where(and(
-      //     eq(userPermissions.userId, userId),
-      //     eq(userPermissions.module, module),
-      //     eq(userPermissions.action, action),
-      //     eq(userPermissions.granted, true)
-      //   ));
-      // return !!permission;
+      const [permission] = await db.select().from(userPermissions)
+        .where(and(
+          eq(userPermissions.userId, userId),
+          eq(userPermissions.module, module),
+          eq(userPermissions.action, action),
+          eq(userPermissions.granted, true)
+        ));
       
-      // For now, return true for testing
+      return !!permission;
       return true;
     } catch (error) {
       console.error('Error checking user permission:', error);
