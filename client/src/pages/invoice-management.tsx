@@ -955,12 +955,18 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
 
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [selectedProductIds, setSelectedProductIds] = useState<{ [key: number]: string }>({});
+  const [gstType, setGstType] = useState<'CGST_SGST' | 'IGST'>('CGST_SGST'); // GST Type selection
   const [formData, setFormData] = useState({
     invoiceNo: '',
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
     ewayBillNo: '',
     ewayBillExpiryDate: '',
+    vehicleNumber: '',
+    salesOrderNumber: '',
+    lrNumber: '',
+    partyMobileNumber: '',
+    transitInsurance: 0,
     customerId: '',
     customerName: '',
     customerGSTIN: '',
@@ -974,7 +980,6 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
       rate: 0,
       amount: 0,
       taxRate: 18,
-      transitInsurance: 0,
       totalAmount: 0,
       taxAmount: 0,
       taxableAmount: 0
@@ -1036,8 +1041,7 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
       const rate = product.rate || product.sellingPrice || 0;
       const amount = rate * quantity;
       const taxRate = product.gstRate || product.gst_rate || 18; // Auto-populate tax rate from product
-      const transitInsurance = newItems[index].transitInsurance || 0;
-      const totalAmount = amount + transitInsurance;
+      const totalAmount = amount; // No transit insurance in items
       const taxAmount = (totalAmount * taxRate) / 100;
       const taxableAmount = totalAmount + taxAmount;
       
@@ -1073,7 +1077,6 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
           rate: 0,
           amount: 0,
           taxRate: 18,
-          transitInsurance: 0,
           totalAmount: 0,
           taxAmount: 0,
           taxableAmount: 0
@@ -1108,27 +1111,44 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
   };
 
   const calculateTotals = () => {
-    let subtotal = 0; // Sum of base amounts + transit insurance
+    let subtotal = 0; // Sum of base amounts
     let totalTax = 0;
     
     formData.items.forEach(item => {
-      // For sales invoice: sum the totalAmount (Amount + Transit Insurance)
-      subtotal += item.totalAmount || 0;
+      // For sales invoice: sum the amounts (without transit insurance in items)
+      subtotal += item.amount || 0;
       totalTax += item.taxAmount || 0;
     });
     
-    const cgstAmount = totalTax / 2; // Half of total tax is CGST
-    const sgstAmount = totalTax / 2; // Half of total tax is SGST
+    // Add transit insurance to subtotal
+    const transitInsurance = formData.transitInsurance || 0;
+    const subtotalWithInsurance = subtotal + transitInsurance;
     
-    // Total = Subtotal + Tax
-    const totalBeforeRound = subtotal + totalTax;
+    // Calculate CGST, SGST, or IGST based on gstType selection
+    let cgstAmount = 0;
+    let sgstAmount = 0;
+    let igstAmount = 0;
+    
+    if (gstType === 'IGST') {
+      // For inter-state: IGST = full tax amount
+      igstAmount = totalTax;
+    } else {
+      // For intra-state: CGST + SGST (split equally)
+      cgstAmount = totalTax / 2;
+      sgstAmount = totalTax / 2;
+    }
+    
+    // Total = Subtotal + Transit Insurance + Tax
+    const totalBeforeRound = subtotalWithInsurance + totalTax;
     const roundedTotal = Math.round(totalBeforeRound);
 
     return {
-      taxableAmount: subtotal, // This is the amount before tax
+      taxableAmount: subtotal, // Base amount before insurance and tax
+      transitInsurance, // Transit insurance from invoice level
       cgstAmount,
       sgstAmount,
-      totalAmount: roundedTotal // This includes tax
+      igstAmount,
+      totalAmount: roundedTotal // This includes insurance and tax
     };
   };
 
@@ -1173,7 +1193,7 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
         subtotalAmount: totals.taxableAmount.toFixed(2),
         cgstAmount: totals.cgstAmount.toFixed(2),
         sgstAmount: totals.sgstAmount.toFixed(2),
-        igstAmount: '0',
+        igstAmount: totals.igstAmount.toFixed(2),
         totalInvoiceAmount: totals.totalAmount.toFixed(2),
         remainingBalance: totals.totalAmount.toFixed(2),
         invoiceStatus: 'SUBMITTED', // Valid: DRAFT, SUBMITTED, CANCELLED
@@ -1270,6 +1290,9 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
 
       const result = await response.json();
       console.log('Invoice created successfully:', result);
+
+      // Invalidate and refetch sales invoices list
+      queryClient.invalidateQueries({ queryKey: ['/api/sales-operations/sales-invoices'] });
 
       toast({
         title: 'Success',
@@ -1375,6 +1398,57 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Number</label>
+                  <input
+                    type="text"
+                    value={formData.vehicleNumber}
+                    onChange={(e) => setFormData(prev => ({ ...prev, vehicleNumber: e.target.value }))}
+                    placeholder="Enter Vehicle Number"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sales Order Number</label>
+                  <input
+                    type="text"
+                    value={formData.salesOrderNumber}
+                    onChange={(e) => setFormData(prev => ({ ...prev, salesOrderNumber: e.target.value }))}
+                    placeholder="Enter Sales Order Number"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">LR Number</label>
+                  <input
+                    type="text"
+                    value={formData.lrNumber}
+                    onChange={(e) => setFormData(prev => ({ ...prev, lrNumber: e.target.value }))}
+                    placeholder="Enter LR Number"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Party Mobile Number</label>
+                  <input
+                    type="tel"
+                    value={formData.partyMobileNumber}
+                    onChange={(e) => setFormData(prev => ({ ...prev, partyMobileNumber: e.target.value }))}
+                    placeholder="Enter Party Mobile Number"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Transit Insurance (₹)</label>
+                  <input
+                    type="number"
+                    value={formData.transitInsurance}
+                    onChange={(e) => setFormData(prev => ({ ...prev, transitInsurance: parseFloat(e.target.value) || 0 }))}
+                    placeholder="Enter Transit Insurance"
+                    step="0.01"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -1476,7 +1550,6 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
                       <th className="border border-gray-300 p-2 text-left">Rate</th>
                       <th className="border border-gray-300 p-2 text-left">Amount</th>
                       <th className="border border-gray-300 p-2 text-left">Tax Rate %</th>
-                      <th className="border border-gray-300 p-2 text-left">Transit Insurance</th>
                       <th className="border border-gray-300 p-2 text-left">Total Amount</th>
                       <th className="border border-gray-300 p-2 text-left">Tax Amount</th>
                       <th className="border border-gray-300 p-2 text-left">Taxable Amount</th>
@@ -1556,8 +1629,8 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
                               newItems[index].quantity = quantity;
                               // Calculate amount
                               newItems[index].amount = quantity * newItems[index].rate;
-                              // Calculate total amount (Amount + Transit Insurance)
-                              newItems[index].totalAmount = newItems[index].amount + newItems[index].transitInsurance;
+                              // Calculate total amount
+                              newItems[index].totalAmount = newItems[index].amount;
                               // Calculate tax amount
                               newItems[index].taxAmount = (newItems[index].totalAmount * newItems[index].taxRate) / 100;
                               // Calculate taxable amount
@@ -1578,8 +1651,8 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
                               newItems[index].rate = rate;
                               // Calculate amount
                               newItems[index].amount = newItems[index].quantity * rate;
-                              // Calculate total amount (Amount + Transit Insurance)
-                              newItems[index].totalAmount = newItems[index].amount + newItems[index].transitInsurance;
+                              // Calculate total amount
+                              newItems[index].totalAmount = newItems[index].amount;
                               // Calculate tax amount
                               newItems[index].taxAmount = (newItems[index].totalAmount * newItems[index].taxRate) / 100;
                               // Calculate taxable amount
@@ -1599,27 +1672,6 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
                             value={item.taxRate}
                             readOnly
                             className="w-full p-1 border border-gray-200 rounded bg-gray-50"
-                          />
-                        </td>
-                        <td className="border border-gray-300 p-2">
-                          <input
-                            type="number"
-                            value={item.transitInsurance}
-                            onChange={(e) => {
-                              const newItems = [...formData.items];
-                              const transitInsurance = parseFloat(e.target.value) || 0;
-                              newItems[index].transitInsurance = transitInsurance;
-                              // Calculate total amount (Amount + Transit Insurance)
-                              newItems[index].totalAmount = newItems[index].amount + transitInsurance;
-                              // Calculate tax amount
-                              newItems[index].taxAmount = (newItems[index].totalAmount * newItems[index].taxRate) / 100;
-                              // Calculate taxable amount
-                              newItems[index].taxableAmount = newItems[index].totalAmount + newItems[index].taxAmount;
-                              setFormData(prev => ({ ...prev, items: newItems }));
-                            }}
-                            className="w-full p-1 border border-gray-200 rounded"
-                            step="0.01"
-                            placeholder="0.00"
                           />
                         </td>
                         <td className="border border-gray-300 p-2 font-medium">
@@ -1674,14 +1726,47 @@ const SalesInvoiceForm = ({ onBack }: { onBack: () => void }) => {
                   <span className="font-medium">Taxable Amount:</span>
                   <span className="font-semibold">₹ {totals.taxableAmount.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="font-medium">CGST Amount:</span>
-                  <span className="font-semibold">₹ {totals.cgstAmount.toFixed(2)}</span>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Transit Insurance:</span>
+                  <input
+                    type="number"
+                    value={formData.transitInsurance}
+                    onChange={(e) => setFormData(prev => ({ ...prev, transitInsurance: parseFloat(e.target.value) || 0 }))}
+                    placeholder="0.00"
+                    step="0.01"
+                    className="w-32 p-1 border border-gray-300 rounded text-right font-semibold"
+                  />
                 </div>
-                <div className="flex justify-between">
-                  <span className="font-medium">SGST Amount:</span>
-                  <span className="font-semibold">₹ {totals.sgstAmount.toFixed(2)}</span>
+                {/* GST Type Selection */}
+                <div className="flex justify-between items-center border-t pt-2 mt-2">
+                  <span className="font-medium">GST Type:</span>
+                  <select
+                    value={gstType}
+                    onChange={(e) => setGstType(e.target.value as 'CGST_SGST' | 'IGST')}
+                    className="w-40 p-1 border border-gray-300 rounded font-semibold bg-white"
+                  >
+                    <option value="CGST_SGST">CGST + SGST</option>
+                    <option value="IGST">IGST</option>
+                  </select>
                 </div>
+                {/* Show CGST/SGST or IGST based on selection */}
+                {gstType === 'CGST_SGST' ? (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="font-medium">CGST Amount:</span>
+                      <span className="font-semibold">₹ {totals.cgstAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium">SGST Amount:</span>
+                      <span className="font-semibold">₹ {totals.sgstAmount.toFixed(2)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between">
+                    <span className="font-medium">IGST Amount:</span>
+                    <span className="font-semibold">₹ {totals.igstAmount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-lg font-bold text-blue-600 border-t pt-2">
                   <span>Total Invoice Amount:</span>
                   <span>₹ {totals.totalAmount.toFixed(2)}</span>
