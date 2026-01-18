@@ -1350,6 +1350,7 @@ export const quotations = pgTable("quotations", {
   destination: text("destination"),
   loadingFrom: text("loading_from"),
   specialInstructions: text("special_instructions"),
+  salesPersonId: varchar("sales_person_id").references(() => users.id),
   preparedByUserId: varchar("prepared_by_user_id").notNull().references(() => users.id),
   approvedByUserId: varchar("approved_by_user_id").references(() => users.id),
   approvalStatus: approvalStatusEnum("approval_status").notNull().default('PENDING'),

@@ -1,0 +1,1 @@
+ALTER TABLE "quotations" ADD COLUMN "sales_person_id" varchar(255);--> statement-breakpoint

@@ -2625,7 +2625,8 @@ function QuotationSection() {
   const [validUntil, setValidUntil] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
   const [description, setDescription] = useState("");
-  const [freightCharged, setFreightCharged] = useState<number>(0);
+  const [salesPersonId, setSalesPersonId] = useState("");
+  const [freightCharged, setFreightCharged] = useState<number>(0); // Keep for backward compatibility, always 0
   const [quotationData, setQuotationData] = useState({
     destination: "",
     loadingFrom: ""
@@ -2689,7 +2690,7 @@ function QuotationSection() {
       setValidUntil("");
       setPaymentTerms("");
       setDescription("");
-      setFreightCharged(0);
+      setSalesPersonId("");
       setQuotationData({ destination: "", loadingFrom: "" });
       setEditingQuotationId(null);
     },
@@ -2768,11 +2769,38 @@ function QuotationSection() {
   };
 
   const calculateTotals = () => {
-    const subtotal = quotationItems.reduce((sum, item) => sum + parseFloat(String(item.amount || "0")), 0);
-    const tax = subtotal * 0.18; // 18% GST
-    const freightAmount = parseFloat(String(freightCharged || 0));
-    const total = subtotal + tax + freightAmount; // Freight is non-GST, added directly to final total
-    return { subtotal, tax, freight: freightAmount, total };
+    // Get product description for each item
+    let productSubtotal = 0; // Items without FREIGHT
+    let freightSubtotal = 0; // Items with FREIGHT
+    let productTax = 0;      // Tax only on products
+
+    quotationItems.forEach((item) => {
+      const amount = parseFloat(String(item.amount || "0"));
+      const productId = item.productId;
+      
+      // Find product name to check if it contains "FREIGHT"
+      const productName = (products as any[])?.find((p: any) => p.id === productId)?.name || "";
+      const isFreightProduct = productName.toLowerCase().includes("freight");
+
+      if (isFreightProduct) {
+        // Freight products: 0% GST
+        freightSubtotal += amount;
+      } else {
+        // Regular products: 18% GST
+        productSubtotal += amount;
+        productTax += amount * 0.18;
+      }
+    });
+
+    const freightAmount = 0; // Freight now handled via items, not separate field
+    const total = productSubtotal + productTax + freightSubtotal + freightAmount;
+    
+    return { 
+      subtotal: productSubtotal,        // Only products (without freight items)
+      tax: productTax,                  // 18% tax only on products
+      freight: freightSubtotal + freightAmount,  // All freight items combined
+      total: total 
+    };
   };
 
   const totals = calculateTotals();
@@ -2785,7 +2813,7 @@ function QuotationSection() {
     setValidUntil("");
     setPaymentTerms("");
     setDescription("");
-    setFreightCharged(0);
+    setSalesPersonId("");
     setQuotationItems([{ productId: "", quantity: 0, unit: "", rate: 0, amount: 0 }]);
     setEditingQuotationId(null); // Reset editing mode
     setIsQuotationDialogOpen(true);
@@ -2819,7 +2847,7 @@ function QuotationSection() {
       return;
     }
 
-    const freightAmount = parseFloat(String(freightCharged || 0));
+    const freightAmount = 0; // Freight now handled via items, not separate field
 
     const quotationPayload = {
       clientId: selectedClient,
@@ -2830,7 +2858,8 @@ function QuotationSection() {
       discountPercentage: 0,
       discountAmount: 0,
       taxAmount: totals.tax,
-      freightCharged: freightAmount,
+      salesPersonId: salesPersonId,
+      freightCharged: 0, // Freight now handled via items
       grandTotal: totals.total,
       paymentTerms: `${parseInt(paymentTerms) || 30}`,
       deliveryTerms: "Standard delivery terms",
@@ -3035,6 +3064,7 @@ M/S SRI HM BITUMEN CO`;
     setClientType(quotation.clientType);
     setPaymentTerms(quotation.paymentTerms.toString());
     setDescription(quotation.specialInstructions || "");
+    setSalesPersonId(quotation.salesPersonId || "");
     setQuotationDate(quotation.quotationDate.split('T')[0]);
     setValidUntil(quotation.validUntil ? quotation.validUntil.split('T')[0] : "");
     setFreightCharged(parseFloat(quotation.freightCharged || 0));
@@ -3383,21 +3413,51 @@ M/S SRI HM BITUMEN CO`;
         }
 
         // Transform items for the new template
-        const items = (quotation.items || []).map((item: any) => ({
-          description: item.description || (products as any[])?.find((p: any) => p.id === item.productId)?.name || 'Product Item',
-          quantity: parseFloat(item.quantity || 1),
-          unit: item.unit || 'Nos',
-          rate: parseFloat(item.unitPrice || item.rate || 0),
-          amount: parseFloat(item.totalPrice || item.amount || 0),
-          gstRate: 18,
-          gstAmount: parseFloat(item.totalPrice || item.amount || 0) * 0.18,
-          totalAmount: parseFloat(item.totalPrice || item.amount || 0) * 1.18
-        }));
+        const items = (quotation.items || []).map((item: any) => {
+          const description = item.description || (products as any[])?.find((p: any) => p.id === item.productId)?.name || 'Product Item';
+          const amount = parseFloat(item.totalPrice || item.amount || 0);
+          const isFreightItem = description.toLowerCase().includes('freight');
+          
+          // Apply GST based on whether it's a freight item
+          const gstRate = isFreightItem ? 0 : 18;
+          const gstAmount = isFreightItem ? 0 : (amount * 0.18);
+          const totalAmount = amount + gstAmount;
+          
+          return {
+            id: item.productId || '',
+            description: description,
+            quantity: parseFloat(item.quantity || 1),
+            unit: item.unit || 'Nos',
+            rate: parseFloat(item.unitPrice || item.rate || 0),
+            amount: amount,
+            gstRate: gstRate,
+            gstAmount: gstAmount,
+            totalAmount: totalAmount,
+            isFreight: isFreightItem
+          };
+        });
 
-        const subtotal = items.reduce((sum: number, item: any) => sum + item.amount, 0);
-        const taxAmount = subtotal * 0.18; // 18% GST
+        // Add freight from the freight charged field if present
         const freightAmount = parseFloat(quotation.freightCharged || 0);
-        const total = subtotal + taxAmount + freightAmount; // Freight is non-GST
+        if (freightAmount > 0) {
+          items.push({
+            id: 'freight-item',
+            description: 'FREIGHT CHARGED',
+            quantity: 1,
+            unit: 'Nos',
+            rate: freightAmount,
+            amount: freightAmount,
+            gstRate: 0,
+            gstAmount: 0,
+            totalAmount: freightAmount,
+            isFreight: true
+          });
+        }
+
+        // Calculate totals: only apply GST to non-freight items
+        const subtotal = items.reduce((sum: number, item: any) => sum + (item.isFreight ? 0 : item.amount), 0);
+        const taxAmount = items.reduce((sum: number, item: any) => sum + item.gstAmount, 0);
+        const total = items.reduce((sum: number, item: any) => sum + item.totalAmount, 0);
 
         const quotationData = {
           quotationNumber: quotation.quotationNumber,
@@ -3409,7 +3469,15 @@ M/S SRI HM BITUMEN CO`;
           loadingFrom: quotation.loadingFrom || 'Kandla',
           client: clientDetails,
           items: items,
-          salesPersonName: preparedByName,
+          salesPersonName: (() => {
+            if (quotation.salesPersonId) {
+              const salesPerson = (users as any[])?.find((u: any) => u.id === quotation.salesPersonId);
+              if (salesPerson) {
+                return `${salesPerson.firstName} ${salesPerson.lastName}`;
+              }
+            }
+            return preparedByName;
+          })(),
           description: quotation.description || quotation.specialInstructions || '',
           note: quotation.note || '',
           subtotal: subtotal,
@@ -3434,7 +3502,7 @@ M/S SRI HM BITUMEN CO`;
         doc = generateBitumenQuotationPDF({
           ...quotationData,
           id: quotation.id || '',
-          gstAmount: subtotal * 0.18,
+          gstAmount: taxAmount,
           validityPeriod: 30,
           client: {
             ...quotationData.client,
@@ -3772,19 +3840,20 @@ M/S SRI HM BITUMEN CO`;
               />
             </div>
 
-            <div className="bg-yellow-100 border-2 border-yellow-500 rounded-md p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-lg font-bold text-yellow-800">⚠</span>
-                <label className="text-sm font-bold text-yellow-900">Freight Charged (₹) - Non-GST</label>
-              </div>
-              <Input 
-                type="number"
-                step="0.01"
-                min="0"
-                value={freightCharged || ""}
-                onChange={(e) => setFreightCharged(parseFloat(e.target.value) || 0)}
-                placeholder="0.00"
-              />
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Sales Person</label>
+              <Select value={salesPersonId} onValueChange={setSalesPersonId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select sales person" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(users as any[])?.map((user: any) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.firstName} {user.lastName} ({user.role})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="border rounded-lg p-4">
@@ -4414,11 +4483,14 @@ M/S SRI HM BITUMEN CO`;
           const qty = parseFloat(item.quantity || 1);
           const rate = parseFloat(item.unitPrice || item.rate || 0);
           const amount = qty * rate;
-          const gstRate = 18;
+          // Check if this is a freight item
+          const productDescription = item.description || item.productName || 'Product Item';
+          const isFreightItem = productDescription.toLowerCase().includes('freight');
+          const gstRate = isFreightItem ? 0 : 18;
           const gstAmount = amount * (gstRate / 100);
           return {
-            productName: item.description || item.productName || 'Product Item',
-            description: item.description || item.productName || 'Product Item',
+            productName: productDescription,
+            description: productDescription,
             quantity: qty,
             unitOfMeasurement: item.unit || 'MT',
             unit: item.unit || 'MT',
@@ -4426,35 +4498,57 @@ M/S SRI HM BITUMEN CO`;
             rate: rate,
             grossAmount: amount,
             taxableAmount: amount,
-            cgstRate: 9,
+            cgstRate: isFreightItem ? 0 : 9,
             cgstAmount: gstAmount / 2,
-            sgstRate: 9,
+            sgstRate: isFreightItem ? 0 : 9,
             sgstAmount: gstAmount / 2,
-            totalAmount: amount + gstAmount
+            totalAmount: amount + gstAmount,
+            isFreight: isFreightItem,
+            gstRate: gstRate
           };
         }),
         
-        // Totals
+        // Totals - only apply GST to non-freight items
         subtotalAmount: (quotation?.items || []).reduce((sum: number, item: any) => {
+          const productDescription = item.description || item.productName || 'Product Item';
+          const isFreightItem = productDescription.toLowerCase().includes('freight');
+          // Only include non-freight items in subtotal
+          if (isFreightItem) return sum;
           const qty = parseFloat(item.quantity || 1);
           const rate = parseFloat(item.unitPrice || item.rate || 0);
           return sum + (qty * rate);
         }, 0),
         cgstAmount: (quotation?.items || []).reduce((sum: number, item: any) => {
+          const productDescription = item.description || item.productName || 'Product Item';
+          const isFreightItem = productDescription.toLowerCase().includes('freight');
+          // Only apply GST to non-freight items
+          if (isFreightItem) return sum;
           const qty = parseFloat(item.quantity || 1);
           const rate = parseFloat(item.unitPrice || item.rate || 0);
           return sum + ((qty * rate) * 0.09);
         }, 0),
         sgstAmount: (quotation?.items || []).reduce((sum: number, item: any) => {
+          const productDescription = item.description || item.productName || 'Product Item';
+          const isFreightItem = productDescription.toLowerCase().includes('freight');
+          // Only apply GST to non-freight items
+          if (isFreightItem) return sum;
           const qty = parseFloat(item.quantity || 1);
           const rate = parseFloat(item.unitPrice || item.rate || 0);
           return sum + ((qty * rate) * 0.09);
         }, 0),
         totalInvoiceAmount: parseFloat(salesOrder.totalAmount || 0),
-        freightCharges: 0,
-        transportCharges: 0,
+        freightCharges: parseFloat(quotation?.freightCharged || 0),
+        transportCharges: parseFloat(quotation?.freightCharged || 0),
         
-        salesPersonName: '',
+        salesPersonName: (() => {
+          if (quotation?.salesPersonId) {
+            const salesPerson = (users as any[])?.find((u: any) => u.id === quotation.salesPersonId);
+            if (salesPerson) {
+              return `${salesPerson.firstName} ${salesPerson.lastName}`;
+            }
+          }
+          return '';
+        })(),
         description: salesOrder.notes || ''
       };
 

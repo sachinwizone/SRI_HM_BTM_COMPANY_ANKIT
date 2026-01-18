@@ -23,6 +23,8 @@ interface QuotationData {
     amount: number;
     gstAmount?: number;
     totalAmount: number;
+    isFreight?: boolean;
+    gstRate?: number;
   }>;
   subtotal: number;
   gstAmount: number;
@@ -290,13 +292,16 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
             
             safeRect(margin, currentY, contentWidth, rowHeight);
             
+            // Get GST rate from item (0% for freight, 18% for products)
+            const gstRate = item.gstRate === 0 ? '0%' : '18%';
+            
             safeAddText((index + 1).toString(), colPositions[0] + 2, currentY + 7);
             safeAddText(item.description || 'N/A', colPositions[1] + 2, currentY + 7, { maxWidth: 30 });
             safeAddText((item.quantity || 0).toString(), colPositions[2] + 2, currentY + 7);
             safeAddText(item.unit || 'PCS', colPositions[3] + 2, currentY + 7);
             safeAddText((item.rate || 0).toFixed(0), colPositions[4] + 2, currentY + 7);
             safeAddText((item.amount || 0).toFixed(0), colPositions[5] + 2, currentY + 7);
-            safeAddText('18%', colPositions[6] + 2, currentY + 7);
+            safeAddText(gstRate, colPositions[6] + 2, currentY + 7);
             safeAddText((item.totalAmount || 0).toFixed(0), colPositions[7] + 2, currentY + 7);
             
             currentY += rowHeight;
@@ -358,10 +363,18 @@ export function generateBitumenQuotationPDF(quotationData: QuotationData) {
       const summaryX = margin + contentWidth - summaryWidth;
       const summaryRowHeight = 10;
       
+      // Calculate totals from items with per-item GST rates
+      const nonFreightItems = quotationData.items?.filter(item => !item.isFreight) || [];
+      const freightItems = quotationData.items?.filter(item => item.isFreight) || [];
+      
+      const productSubtotal = nonFreightItems.reduce((sum, item) => sum + item.amount, 0);
+      const taxTotal = nonFreightItems.reduce((sum, item) => sum + (item.gstAmount || 0), 0);
+      const freightTotal = freightItems.reduce((sum, item) => sum + item.amount, 0);
+      
       const summaryItems = [
-        { label: 'Sub-Total', value: quotationData.subtotal || 0 },
-        { label: 'Freight', value: quotationData.freight || 0 },
-        { label: 'Tax Total', value: quotationData.gstAmount || 0 },
+        { label: 'Sub-Total', value: productSubtotal || 0 },
+        { label: 'Tax Total (18%)', value: taxTotal || 0 },
+        { label: 'Freight (Non-GST)', value: freightTotal || 0 },
         { label: 'Grand Total', value: quotationData.total || 0, isBold: true }
       ];
       

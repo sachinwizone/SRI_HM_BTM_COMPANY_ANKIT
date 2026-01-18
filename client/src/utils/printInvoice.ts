@@ -590,21 +590,44 @@ export const generateSalesOrderHtml = (invoice: any): string => {
   
   // If no subtotal from invoice, calculate from items
   if (subtotal === 0 && items.length > 0) {
+    // Calculate subtotal only from non-freight items
     subtotal = items.reduce((sum: number, item: any) => {
       const qty = parseFloat(item.quantity || 0);
       const rate = parseFloat(item.ratePerUnit || item.rate || 0);
+      const productName = item.productName || item.description || '';
+      const isFreightItem = productName.toLowerCase().includes('freight');
+      if (isFreightItem) return sum; // Skip freight items in subtotal
       return sum + (qty * rate);
     }, 0);
     
+    // Calculate GST only from non-freight items
     gstAmount = items.reduce((sum: number, item: any) => {
-      const itemAmount = parseFloat(item.quantity || 0) * parseFloat(item.ratePerUnit || item.rate || 0);
+      const qty = parseFloat(item.quantity || 0);
+      const rate = parseFloat(item.ratePerUnit || item.rate || 0);
+      const productName = item.productName || item.description || '';
+      const isFreightItem = productName.toLowerCase().includes('freight');
+      if (isFreightItem) return sum; // No GST on freight
+      const itemAmount = qty * rate;
       const itemGstRate = parseFloat(item.cgstRate || item.sgstRate || 9) * 2; // CGST + SGST
       return sum + (itemAmount * itemGstRate / 100);
     }, 0);
   }
   
   const gstRate = 18;
-  const freightAmount = parseFloat(invoice.freightCharges || invoice.transportCharges || invoice.otherCharges || 0);
+  
+  // Calculate freight amount from items (FREIGHT items) + separate freight charges
+  const freightFromItems = items.reduce((sum: number, item: any) => {
+    const productName = item.productName || item.description || '';
+    const isFreightItem = productName.toLowerCase().includes('freight');
+    if (isFreightItem) {
+      const qty = parseFloat(item.quantity || 0);
+      const rate = parseFloat(item.ratePerUnit || item.rate || 0);
+      return sum + (qty * rate);
+    }
+    return sum;
+  }, 0);
+  
+  const freightAmount = freightFromItems + parseFloat(invoice.freightCharges || invoice.transportCharges || invoice.otherCharges || 0);
   const totalAmount = parseFloat(invoice.totalInvoiceAmount || 0) || (subtotal + gstAmount + freightAmount);
 
   // Generate items rows
@@ -624,11 +647,25 @@ export const generateSalesOrderHtml = (invoice: any): string => {
       const qty = parseFloat(item.quantity || 0);
       const rate = parseFloat(item.ratePerUnit || item.rate || 0);
       const amount = parseFloat(item.taxableAmount || item.grossAmount || 0) || (qty * rate);
+      const productName = item.productName || item.description || 'BITUMEN VG-30 PHONEIX EMBOSSED';
+      const isFreightItem = productName.toLowerCase().includes('freight');
+      
+      // Use provided gstAmount or cgstAmount/sgstAmount, or calculate based on whether it's freight
+      let itemGst = 0;
       const itemCgst = parseFloat(item.cgstAmount || 0);
       const itemSgst = parseFloat(item.sgstAmount || 0);
-      const itemGst = itemCgst + itemSgst || (amount * gstRate / 100);
+      if (isFreightItem) {
+        // Freight items have 0% GST
+        itemGst = 0;
+      } else if (itemCgst || itemSgst) {
+        // Use calculated CGST + SGST
+        itemGst = itemCgst + itemSgst;
+      } else {
+        // Calculate as 18% of amount
+        itemGst = amount * (gstRate / 100);
+      }
+      
       const itemTotal = parseFloat(item.totalAmount || 0) || (amount + itemGst);
-      const productName = item.productName || item.description || 'BITUMEN VG-30 PHONEIX EMBOSSED';
       const unit = item.unitOfMeasurement || item.unit || 'MT';
       
       rows += `
@@ -643,23 +680,6 @@ export const generateSalesOrderHtml = (invoice: any): string => {
         </tr>
       `;
     });
-    
-    // Transport charges row
-    if (freightAmount > 0) {
-      const transportQty = items[0]?.quantity || 0;
-      const transportRate = freightAmount / (transportQty || 1);
-      rows += `
-        <tr>
-          <td style="border: 1px dashed #E67E22; padding: 8px; font-weight: bold;">Transport Charges</td>
-          <td style="border: 1px dashed #E67E22; padding: 8px; text-align: center;">${transportQty}</td>
-          <td style="border: 1px dashed #E67E22; padding: 8px; text-align: center;">MT</td>
-          <td style="border: 1px dashed #E67E22; padding: 8px; text-align: right;">${formatIndianNumber(transportRate)}</td>
-          <td style="border: 1px dashed #E67E22; padding: 8px; text-align: right;">${formatIndianNumber(freightAmount)}</td>
-          <td style="border: 1px dashed #E67E22; padding: 8px; text-align: right;"></td>
-          <td style="border: 1px dashed #E67E22; padding: 8px; text-align: right;"></td>
-        </tr>
-      `;
-    }
     
     return rows;
   };
@@ -845,7 +865,7 @@ export const generateSalesOrderHtml = (invoice: any): string => {
             </div>
             <div class="totals-row" style="background: #FFF3E0;">
               <div class="totals-label" style="color: #E67E22;">Total</div>
-              <div class="totals-value" style="color: #E67E22;">${formatIndianNumber(totalAmount)}</div>
+              <div class="totals-value" style="color: #E67E22;">${formatIndianNumber(subtotal + gstAmount + freightAmount)}</div>
             </div>
           </div>
         </div>
