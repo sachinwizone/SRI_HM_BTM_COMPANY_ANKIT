@@ -1613,6 +1613,7 @@ export const insertQuotationSchema = z.object({
   destination: z.string().optional(),
   loadingFrom: z.string().optional(),
   specialInstructions: z.string().optional(),
+  salesPersonId: z.string().optional(),
   preparedByUserId: z.string(),
   approvedByUserId: z.string().optional(),
   approvalStatus: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'REQUIRES_REVISION']).default('PENDING'),

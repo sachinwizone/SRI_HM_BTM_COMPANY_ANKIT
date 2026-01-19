@@ -2945,46 +2945,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Fetch items for each quotation and determine client type
+      console.log('🔍 Processing', quotations.length, 'quotations with items and client data...');
       const quotationsWithItems = await Promise.all(
         quotations.map(async (quotation) => {
-          const items = await storage.getQuotationItemsByQuotation(quotation.id);
-          console.log(`Fetched ${items.length} items for quotation ${quotation.id}:`, items.map(i => ({ productId: i.productId, description: i.description, quantity: i.quantity, unit: i.unit, rate: i.rate, amount: i.amount })));
-          
-          // Determine if this is a lead or client
-          let clientName = 'Unknown';
-          let clientType = 'client';
-          
           try {
-            const client = await storage.getClient(quotation.clientId);
-            if (client) {
-              clientName = client.name;
-              clientType = 'client';
-            } else {
-              const lead = await storage.getLead(quotation.clientId);
-              if (lead) {
-                clientName = lead.companyName;
-                clientType = 'lead';
-              }
-            }
-          } catch (e) {
-            // If lookup fails, try to find in leads
+            const items = await storage.getQuotationItemsByQuotation(quotation.id);
+            console.log(`Fetched ${items.length} items for quotation ${quotation.id}:`, items.map(i => ({ productId: i.productId, description: i.description, quantity: i.quantity, unit: i.unit, rate: i.rate, amount: i.amount })));
+            
+            // Determine if this is a lead or client
+            let clientName = 'Unknown';
+            let clientType = 'client';
+            
             try {
-              const lead = await storage.getLead(quotation.clientId);
-              if (lead) {
-                clientName = lead.companyName;
-                clientType = 'lead';
+              const client = await storage.getClient(quotation.clientId);
+              if (client) {
+                clientName = client.name;
+                clientType = 'client';
+              } else {
+                const lead = await storage.getLead(quotation.clientId);
+                if (lead) {
+                  clientName = lead.companyName;
+                  clientType = 'lead';
+                }
               }
-            } catch (e2) {
-              console.error('Failed to find client/lead:', quotation.clientId);
+            } catch (e) {
+              // If lookup fails, try to find in leads
+              try {
+                const lead = await storage.getLead(quotation.clientId);
+                if (lead) {
+                  clientName = lead.companyName;
+                  clientType = 'lead';
+                }
+              } catch (e2) {
+                console.error('Failed to find client/lead:', quotation.clientId);
+              }
             }
+            
+            return {
+              ...quotation,
+              items,
+              clientType,
+              clientName
+            };
+          } catch (error) {
+            console.error('❌ Error processing quotation', quotation.id, ':', error);
+            // Return quotation even if processing fails
+            return {
+              ...quotation,
+              items: [],
+              clientType: 'client',
+              clientName: 'Unknown'
+            };
           }
-          
-          return {
-            ...quotation,
-            items,
-            clientType,
-            clientName
-          };
         })
       );
       
@@ -3245,32 +3257,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Generate proper Sales Order number with financial year format (SO-001/25-26)
       const generateSalesOrderNumber = async () => {
-        const now = new Date();
-        const currentMonth = now.getMonth(); // 0-11
-        const currentYear = now.getFullYear();
-        
-        // Financial year starts in April (month 3)
-        // If current month is Jan-Mar (0-2), we're in the previous FY
-        let fyStart, fyEnd;
-        if (currentMonth < 3) { // Jan, Feb, Mar
-          fyStart = currentYear - 1;
-          fyEnd = currentYear;
-        } else { // Apr-Dec
-          fyStart = currentYear;
-          fyEnd = currentYear + 1;
-        }
-        
-        const fyString = `${fyStart.toString().slice(-2)}-${fyEnd.toString().slice(-2)}`;
-        
-        // Get all sales orders to find the next sequence number for this FY
+        // Get all sales orders to find the next sequence number
         const allOrders = await storage.getAllSalesOrders();
-        const fyPattern = new RegExp(`^SO-\\d+/${fyString}$`);
-        const fyOrders = allOrders.filter(order => fyPattern.test(order.orderNumber));
         
-        // Find the highest sequence number
-        let maxSeq = 0;
-        fyOrders.forEach(order => {
-          const match = order.orderNumber.match(/^SO-(\d+)\//);
+        // Look for SRIHM-SO pattern orders
+        const srihmPattern = new RegExp(`^SRIHM-SO/(\\d+)/25-26$`);
+        const srihmOrders = allOrders.filter(order => srihmPattern.test(order.orderNumber));
+        
+        // Find the highest sequence number, starting from 324 if none exist
+        let maxSeq = 323; // Start from 323 so next will be 324
+        srihmOrders.forEach(order => {
+          const match = order.orderNumber.match(/^SRIHM-SO\/(\d+)\/25-26$/);
           if (match) {
             const seq = parseInt(match[1], 10);
             if (seq > maxSeq) maxSeq = seq;
@@ -3278,9 +3275,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         const nextSeq = maxSeq + 1;
-        const seqStr = nextSeq.toString().padStart(3, '0');
         
-        return `SO-${seqStr}/${fyString}`;
+        return `SRIHM-SO/${nextSeq}/25-26`;
       };
       
       const orderNumber = await generateSalesOrderNumber();
@@ -3394,31 +3390,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Generate proper Sales Order number with financial year format (SO-001/25-26)
       const generateSalesOrderNumber = async () => {
-        const now = new Date();
-        const currentMonth = now.getMonth(); // 0-11
-        const currentYear = now.getFullYear();
-        
-        // Financial year starts in April (month 3)
-        let fyStart, fyEnd;
-        if (currentMonth < 3) { // Jan, Feb, Mar
-          fyStart = currentYear - 1;
-          fyEnd = currentYear;
-        } else { // Apr-Dec
-          fyStart = currentYear;
-          fyEnd = currentYear + 1;
-        }
-        
-        const fyString = `${fyStart.toString().slice(-2)}-${fyEnd.toString().slice(-2)}`;
-        
-        // Get all sales orders to find the next sequence number for this FY
+        // Get all sales orders to find the next sequence number
         const allOrders = await storage.getAllSalesOrders();
-        const fyPattern = new RegExp(`^SO-\\d+/${fyString}$`);
-        const fyOrders = allOrders.filter(order => fyPattern.test(order.orderNumber));
         
-        // Find the highest sequence number
-        let maxSeq = 0;
-        fyOrders.forEach(order => {
-          const match = order.orderNumber.match(/^SO-(\d+)\//);
+        // Look for SRIHM-SO pattern orders
+        const srihmPattern = new RegExp(`^SRIHM-SO/(\\d+)/25-26$`);
+        const srihmOrders = allOrders.filter(order => srihmPattern.test(order.orderNumber));
+        
+        // Find the highest sequence number, starting from 324 if none exist
+        let maxSeq = 323; // Start from 323 so next will be 324
+        srihmOrders.forEach(order => {
+          const match = order.orderNumber.match(/^SRIHM-SO\/(\d+)\/25-26$/);
           if (match) {
             const seq = parseInt(match[1], 10);
             if (seq > maxSeq) maxSeq = seq;
@@ -3426,10 +3408,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         const nextSeq = maxSeq + 1;
-        const seqStr = nextSeq.toString().padStart(3, '0');
         
-        return `SO-${seqStr}/${fyString}`;
-      };
+        return `SRIHM-SO/${nextSeq}/25-26`;
 
       const orderNumber = await generateSalesOrderNumber();
       const validatedData = insertSalesOrderSchema.parse({

@@ -2624,6 +2624,7 @@ function QuotationSection() {
   const [quotationDate, setQuotationDate] = useState(new Date().toISOString().split('T')[0]);
   const [validUntil, setValidUntil] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
+  const [customPaymentTerms, setCustomPaymentTerms] = useState("");
   const [description, setDescription] = useState("");
   const [salesPersonId, setSalesPersonId] = useState("");
   const [freightCharged, setFreightCharged] = useState<number>(0); // Keep for backward compatibility, always 0
@@ -2642,9 +2643,16 @@ function QuotationSection() {
     retry: false,
   });
 
-  const { data: quotations = [], refetch: refetchQuotations } = useQuery({
+  const { data: quotations = [], refetch: refetchQuotations, error: quotationsError } = useQuery({
     queryKey: ["/api/quotations"],
     retry: false,
+    onError: (error) => {
+      console.error("🔴 QUOTATIONS FETCH ERROR:", error);
+      alert("Failed to load quotations: " + error.message);
+    },
+    onSuccess: (data) => {
+      console.log("✅ QUOTATIONS LOADED:", data?.length, "quotations");
+    }
   });
 
   const { data: users = [] } = useQuery({
@@ -2861,7 +2869,7 @@ function QuotationSection() {
       salesPersonId: salesPersonId,
       freightCharged: 0, // Freight now handled via items
       grandTotal: totals.total,
-      paymentTerms: `${parseInt(paymentTerms) || 30}`,
+      paymentTerms: paymentTerms === "Customer Option" ? customPaymentTerms : `${parseInt(paymentTerms) || 30}`,
       deliveryTerms: "Standard delivery terms",
       destination: quotationData.destination,
       loadingFrom: quotationData.loadingFrom,
@@ -3804,8 +3812,20 @@ M/S SRI HM BITUMEN CO`;
                     <SelectItem value="30">30 Days</SelectItem>
                     <SelectItem value="45">45 Days</SelectItem>
                     <SelectItem value="60">60 Days</SelectItem>
+                    <SelectItem value="Customer Option">Customer Option</SelectItem>
                   </SelectContent>
                 </Select>
+                {paymentTerms === "Customer Option" && (
+                  <div className="mt-2">
+                    <Input 
+                      type="text" 
+                      value={customPaymentTerms}
+                      onChange={(e) => setCustomPaymentTerms(e.target.value)}
+                      placeholder="Enter custom payment terms"
+                      className="w-full"
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -4541,15 +4561,24 @@ M/S SRI HM BITUMEN CO`;
         transportCharges: parseFloat(quotation?.freightCharged || 0),
         
         salesPersonName: (() => {
-          if (quotation?.salesPersonId) {
-            const salesPerson = (users as any[])?.find((u: any) => u.id === quotation.salesPersonId);
+          console.log('=== DEBUG SALES PERSON ===');
+          console.log('Quotation:', quotation);
+          console.log('Quotation salesPersonId:', quotation?.salesPersonId);
+          console.log('Users available:', users);
+          
+          if (quotation?.salesPersonId && users && users.length > 0) {
+            const salesPerson = users.find((u: any) => u.id === quotation.salesPersonId);
+            console.log('Found sales person:', salesPerson);
             if (salesPerson) {
-              return `${salesPerson.firstName} ${salesPerson.lastName}`;
+              const fullName = `${salesPerson.firstName || ''} ${salesPerson.lastName || ''}`.trim();
+              console.log('Returning name:', fullName);
+              return fullName;
             }
           }
+          console.log('No sales person found, returning empty');
           return '';
         })(),
-        description: salesOrder.notes || ''
+        description: quotation?.specialInstructions || salesOrder.notes || quotation?.description || ''
       };
 
       // Use the same print format as Invoice Management

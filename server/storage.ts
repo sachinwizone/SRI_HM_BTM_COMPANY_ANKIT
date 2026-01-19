@@ -1786,10 +1786,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllQuotations(): Promise<Quotation[]> {
-    return await db
-      .select()
-      .from(quotations)
-      .orderBy(desc(quotations.createdAt));
+    try {
+      console.log('📋 Fetching all quotations from database...');
+      const result = await db
+        .select()
+        .from(quotations)
+        .orderBy(desc(quotations.createdAt));
+      console.log('📋 Found', result.length, 'quotations in database');
+      console.log('📋 First quotation sample:', result[0] || 'No quotations found');
+      return result;
+    } catch (error) {
+      console.error('❌ Error fetching quotations:', error);
+      throw error;
+    }
   }
 
   async getQuotationsByOpportunity(opportunityId: string): Promise<Quotation[]> {

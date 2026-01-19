@@ -291,12 +291,13 @@ export default function PurchaseLedger() {
     // Header
     const logoSize = 20;
     
-    if (companyProfile?.logo) {
-      try {
-        doc.addImage(companyProfile.logo, 'PNG', margin, yPosition, logoSize, logoSize);
-      } catch (error) {
-        console.log('Could not load logo');
-      }
+    // Add company logo on LEFT
+    try {
+      // Use the company logo from public folder
+      const logoPath = '/logo.jpg';
+      doc.addImage(logoPath, 'JPEG', margin, yPosition, logoSize, logoSize);
+    } catch (error) {
+      console.log('Could not load company logo:', error);
     }
 
     doc.setFontSize(13);

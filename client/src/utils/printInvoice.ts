@@ -747,7 +747,7 @@ export const generateSalesOrderHtml = (invoice: any): string => {
         <!-- Header with Logo and Company Details -->
         <div class="header">
           <div class="logo-section">
-            <img src="/logo.jpg" alt="SRI HM Bitumen Company" style="width: 100px; height: auto;" />
+            <img src="/logo.jpg" alt="SRI HM Bitumen Company" style="width: 80px; height: auto; border: 1px solid #e54a2c; padding: 5px;" />
           </div>
           <div class="company-details">
             <div class="company-name">M/S SRI HM BITUMEN CO</div>

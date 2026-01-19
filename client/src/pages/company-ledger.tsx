@@ -293,12 +293,12 @@ export default function CompanyLedger() {
     const logoSize = 20;
     
     // Add company logo on LEFT
-    if (companyProfile?.logo) {
-      try {
-        doc.addImage(companyProfile.logo, 'PNG', margin, yPosition, logoSize, logoSize);
-      } catch (error) {
-        console.log('Could not load logo');
-      }
+    try {
+      // Use the company logo from public folder
+      const logoPath = '/logo.jpg';
+      doc.addImage(logoPath, 'JPEG', margin, yPosition, logoSize, logoSize);
+    } catch (error) {
+      console.log('Could not load company logo:', error);
     }
 
     // Company name on RIGHT (RED, bold, larger)
