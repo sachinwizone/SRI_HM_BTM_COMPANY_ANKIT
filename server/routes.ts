@@ -3410,6 +3410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const nextSeq = maxSeq + 1;
         
         return `SRIHM-SO/${nextSeq}/25-26`;
+      };
 
       const orderNumber = await generateSalesOrderNumber();
       const validatedData = insertSalesOrderSchema.parse({

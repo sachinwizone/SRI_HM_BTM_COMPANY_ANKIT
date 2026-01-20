@@ -243,8 +243,8 @@ export const generateBitumenSalesOrderPDF = (salesOrderData: SalesOrderData) => 
 
   // ===================== ITEMS TABLE =====================
   const tableWidth = pageWidth - 2 * margin;
-  const colWidths = [15, 85, 25, 25, 35]; // SI, Description, Qty, Unit, Rate, Amount
-  const headers = ['SI No', 'Description of Goods', 'Quantity', 'Rate', 'Amount'];
+  const colWidths = [25, 15, 15, 25, 25, 25, 25]; // Item #, Qty, Unit, Ex Factory Rate, Amount(₹), GST@18%(₹), Total Amount(₹)
+  const headers = ['Item #', 'Qty', 'Unit', 'Ex Factory Rate', 'Amount(₹)', 'GST@18%(₹)', 'Total Amount(₹)'];
   
   // Table Header
   doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
@@ -263,7 +263,7 @@ export const generateBitumenSalesOrderPDF = (salesOrderData: SalesOrderData) => 
   const tableStartY = currentY;
 
   // Table Content
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('helvetica', 'bold'); // Make all content bold
   doc.setFontSize(9);
 
   let subtotal = 0;
@@ -290,18 +290,16 @@ export const generateBitumenSalesOrderPDF = (salesOrderData: SalesOrderData) => 
     colX = margin;
     const rowData = [
       (index + 1).toString(),
-      item.description.substring(0, 45),
-      `${qty} ${item.unit || 'MT'}`,
+      qty.toString(),
+      item.unit || 'MT',
       formatCurrency(rate),
-      formatCurrency(amount)
+      formatCurrency(amount),
+      formatCurrency(taxAmount),
+      formatCurrency(amount + taxAmount)
     ];
 
     rowData.forEach((data, i) => {
-      if (i === 1) {
-        doc.text(data, colX + 3, currentY + 6);
-      } else {
-        doc.text(data, colX + colWidths[i] / 2, currentY + 6, { align: 'center' });
-      }
+      doc.text(data, colX + colWidths[i] / 2, currentY + 6, { align: 'center' });
       colX += colWidths[i];
     });
 

@@ -201,7 +201,7 @@ export const generateTaxInvoiceHtml = (invoice: any, type: 'sales' | 'purchase')
         .main-content { display: flex; border-bottom: 1px solid #000; }
         .company-section { width: 55%; padding: 8px; border-right: 1px solid #000; }
         .company-logo { display: flex; gap: 8px; align-items: flex-start; }
-        .logo-img { width: 60px; height: auto; }
+        .logo-img { width: 120px; height: auto; }
         .company-info { font-size: 8px; line-height: 1.3; }
         .company-name { font-size: 12px; font-weight: bold; color: #e54a2c; }
         .invoice-details { width: 45%; }
@@ -716,6 +716,7 @@ export const generateSalesOrderHtml = (invoice: any): string => {
         .items-table { width: 100%; border-collapse: collapse; }
         .items-header { background: #FFF3E0; }
         .items-header th { border: 1px dashed #e54a2c; padding: 8px; color: #e54a2c; font-weight: bold; font-size: 10px; }
+        .items-table td { border: 1px dashed #e54a2c; padding: 8px; font-weight: bold; }
         .bottom-section { display: flex; border-top: 2px solid #e54a2c; }
         .left-section { flex: 1; padding: 10px; border-right: 2px solid #e54a2c; }
         .right-section { width: 250px; }
@@ -747,7 +748,7 @@ export const generateSalesOrderHtml = (invoice: any): string => {
         <!-- Header with Logo and Company Details -->
         <div class="header">
           <div class="logo-section">
-            <img src="/logo.jpg" alt="SRI HM Bitumen Company" style="width: 80px; height: auto; border: 1px solid #e54a2c; padding: 5px;" />
+            <img src="/logo.jpg" alt="SRI HM Bitumen Company" style="width: 140px; height: auto; border: 1px solid #e54a2c; padding: 5px;" />
           </div>
           <div class="company-details">
             <div class="company-name">M/S SRI HM BITUMEN CO</div>
@@ -828,13 +829,13 @@ export const generateSalesOrderHtml = (invoice: any): string => {
         <table class="items-table">
           <thead class="items-header">
             <tr>
-              <th style="width: 25%;">Item #</th>
-              <th style="width: 8%;">Qty</th>
-              <th style="width: 8%;">Unit</th>
-              <th style="width: 12%;">Ex Factory Rate</th>
-              <th style="width: 15%;">Amount(₹)</th>
-              <th style="width: 15%;">GST@${gstRate}%(₹)</th>
-              <th style="width: 17%;">Total Amount(₹)</th>
+              <th style="width: 25%; font-weight: bold;"><strong>Item #</strong></th>
+              <th style="width: 8%; font-weight: bold;"><strong>Qty</strong></th>
+              <th style="width: 8%; font-weight: bold;"><strong>Unit</strong></th>
+              <th style="width: 12%; font-weight: bold;"><strong>Ex Factory Rate</strong></th>
+              <th style="width: 15%; font-weight: bold;"><strong>Amount(₹)</strong></th>
+              <th style="width: 15%; font-weight: bold;"><strong>GST@${gstRate}%(₹)</strong></th>
+              <th style="width: 17%; font-weight: bold;"><strong>Total Amount(₹)</strong></th>
             </tr>
           </thead>
           <tbody>
@@ -870,10 +871,7 @@ export const generateSalesOrderHtml = (invoice: any): string => {
           </div>
         </div>
 
-        <!-- Freight Note -->
-        <div class="freight-note">
-          FREIGHT ${freightAmount > 0 && items.length > 0 ? formatIndianNumber(freightAmount / parseFloat(items[0]?.quantity || 1)) : '0'} PER TON AS PER GROSS WT..
-        </div>
+
 
         <!-- Terms and Bank Details -->
         <div class="terms-bank">
