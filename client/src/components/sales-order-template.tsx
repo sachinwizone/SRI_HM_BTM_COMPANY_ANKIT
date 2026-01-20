@@ -230,12 +230,39 @@ export const generateBitumenSalesOrderPDF = (salesOrderData: SalesOrderData) => 
     // Bill To
     doc.setFont('helvetica', 'bold');
     doc.text(info.label, margin + 2, y);
-    doc.setFont('helvetica', 'normal');
+    
+    // Highlight name with background color and larger font
+    if (index === 0) { // Name field
+      doc.setFillColor(248, 249, 250); // Light background
+      doc.rect(margin + 22, y - 2, sectionWidth - 24, 4, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(44, 62, 80); // Darker text color
+    } else {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(0, 0, 0);
+    }
     doc.text(info.value.substring(0, 35), margin + 22, y);
+    
     // Ship To
     doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(0, 0, 0);
     doc.text(info.label, margin + sectionWidth + 2, y);
-    doc.setFont('helvetica', 'normal');
+    
+    // Highlight name with background color and larger font
+    if (index === 0) { // Name field
+      doc.setFillColor(248, 249, 250); // Light background
+      doc.rect(margin + sectionWidth + 22, y - 2, sectionWidth - 24, 4, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(44, 62, 80); // Darker text color
+    } else {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(0, 0, 0);
+    }
     doc.text(info.value.substring(0, 35), margin + sectionWidth + 22, y);
   });
 
@@ -361,39 +388,71 @@ export const generateBitumenSalesOrderPDF = (salesOrderData: SalesOrderData) => 
   doc.text('Rs. ' + formatCurrency(totalTax), valueX, currentY + 5, { align: 'right' });
   currentY += 8;
 
-  // Grand Total
+  // Grand Total - Enhanced with highlighting
   const grandTotal = subtotal + freightAmount + totalTax;
-  doc.rect(summaryX, currentY, summaryWidth, 10, 'S');
-  doc.setFontSize(10);
+  doc.setFillColor(230, 126, 34); // Orange background
+  doc.rect(summaryX, currentY, summaryWidth, 12, 'F');
+  doc.setDrawColor(0, 0, 0);
+  doc.rect(summaryX, currentY, summaryWidth, 12, 'S');
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text('Grand Total', labelX, currentY + 7);
-  doc.text('Rs. ' + formatCurrency(grandTotal), valueX, currentY + 7, { align: 'right' });
+  doc.setTextColor(255, 255, 255); // White text
+  doc.text('💰 GRAND TOTAL', labelX, currentY + 8);
+  doc.text('Rs. ' + formatCurrency(grandTotal), valueX, currentY + 8, { align: 'right' });
+  doc.setTextColor(0, 0, 0); // Reset to black
 
-  currentY += 18;
+  currentY += 20;
 
   // ===================== BANK DETAILS & SIGNATORY =====================
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Bank Details:', margin, currentY);
+  // Bank Details Box with highlighting
+  doc.setFillColor(232, 245, 232); // Light green background
+  doc.rect(margin, currentY, 120, 25, 'F');
+  doc.setDrawColor(39, 174, 96); // Green border
+  doc.setLineWidth(1.5);
+  doc.rect(margin, currentY, 120, 25, 'S');
   
-  currentY += 5;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(39, 174, 96); // Green text
+  doc.text('🏦 BANK DETAILS', margin + 3, currentY + 5);
+  
+  currentY += 8;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
+  doc.setTextColor(0, 0, 0); // Black text
 
   const bankDetails = salesOrderData.companyDetails.bankDetails;
-  doc.text(`Bank Name: ${bankDetails.bankName}`, margin, currentY);
-  doc.text(`A/c No: ${bankDetails.accountNumber}`, margin, currentY + 4);
-  doc.text(`Branch: ${bankDetails.branch}`, margin, currentY + 8);
-  doc.text(`IFSC Code: ${bankDetails.ifscCode}`, margin, currentY + 12);
+  doc.text(`Bank: ${bankDetails.bankName}`, margin + 3, currentY);
+  doc.text(`A/c: ${bankDetails.accountNumber}`, margin + 3, currentY + 4);
+  doc.text(`Branch: ${bankDetails.branch}`, margin + 3, currentY + 8);
+  doc.text(`IFSC: ${bankDetails.ifscCode}`, margin + 3, currentY + 12);
 
-  // Authorized Signatory on right
+  // Authorized Signatory on right with stamp
   const sigX = pageWidth - margin - 55;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.text('For ' + salesOrderData.companyDetails.name, sigX, currentY);
+  
+  // Draw circular stamp representation (simple circular border for stamp)
+  doc.setDrawColor(30, 60, 114); // Blue stamp color
+  doc.setLineWidth(1.2);
+  const stampY = currentY + 8;
+  const stampRadius = 8;
+  
+  // Draw stamp circle with text
+  doc.circle(sigX + 25, stampY + 5, stampRadius);
+  doc.setFontSize(6);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(30, 60, 114);
+  doc.text('SRI HM', sigX + 20, stampY + 3);
+  doc.text('BITUMEN', sigX + 19, stampY + 6);
+  
   doc.setFont('helvetica', 'normal');
-  currentY += 15;
+  currentY += 18;
+  doc.setDrawColor(0, 0, 0);
   doc.line(sigX, currentY, sigX + 50, currentY);
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(8);
   doc.text('Authorized Signatory', sigX + 8, currentY + 5);
 
   currentY += 12;

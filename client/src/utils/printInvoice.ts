@@ -712,7 +712,7 @@ export const generateSalesOrderHtml = (invoice: any): string => {
         .bill-to { border-right: 2px solid #e54a2c; }
         .party-title { font-size: 11px; color: #e54a2c; font-weight: bold; margin-bottom: 8px; }
         .party-detail { font-size: 10px; margin: 4px 0; }
-        .party-label { color: #e54a2c; }
+        .party-label { color: #e54a2c; font-weight: bold; }
         .items-table { width: 100%; border-collapse: collapse; }
         .items-header { background: #FFF3E0; }
         .items-header th { border: 1px dashed #e54a2c; padding: 8px; color: #e54a2c; font-weight: bold; font-size: 10px; }
@@ -728,13 +728,15 @@ export const generateSalesOrderHtml = (invoice: any): string => {
         .terms { flex: 1; padding: 10px; border-right: 2px solid #e54a2c; font-size: 9px; }
         .terms-title { font-weight: bold; text-decoration: underline; margin-bottom: 5px; }
         .bank-details { width: 250px; padding: 10px; }
-        .bank-title { font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 3px; margin-bottom: 5px; }
+        .bank-title { font-weight: bold; font-size: 12px; color: #e54a2c; border-bottom: 1px solid #000; padding-bottom: 3px; margin-bottom: 5px; }
         .bank-row { font-size: 10px; margin: 3px 0; }
         .signature-section { display: flex; }
         .signature-left { flex: 1; padding: 15px; border-right: 2px solid #e54a2c; min-height: 80px; }
-        .signature-right { width: 250px; padding: 15px; text-align: center; }
-        .signature-company { font-weight: bold; font-size: 11px; }
-        .signature-line { margin-top: 40px; font-size: 10px; }
+        .signature-right { width: 250px; padding: 15px; text-align: center; position: relative; min-height: 80px; }
+        .signature-company { font-weight: bold; font-size: 11px; margin-bottom: 10px; }
+        .signature-line { margin-top: 5px; font-size: 10px; }
+        .stamp-area { height: 60px; display: flex; align-items: center; justify-content: center; margin: 8px 0; }
+        .auth-stamp { max-width: 70px; max-height: 70px; object-fit: contain; }
         .no-print { margin-top: 20px; text-align: center; }
         @media print { 
           body { padding: 0; } 
@@ -779,7 +781,7 @@ export const generateSalesOrderHtml = (invoice: any): string => {
           </div>
           <div class="info-cell">
             <div class="info-label">Delivery Terms</div>
-            <div class="info-value">${invoice.deliveryTerms || formatDeliveryTerms(invoice.dueDate || invoice.invoiceDate)}</div>
+            <div class="info-value">${invoice.deliveryTerms || 'Within 15-20 Days'}</div>
           </div>
         </div>
 
@@ -803,25 +805,23 @@ export const generateSalesOrderHtml = (invoice: any): string => {
         <div class="party-section">
           <div class="bill-to">
             <div class="party-title">Bill To :</div>
-            <div class="party-detail"><span class="party-label">Name :</span> ${invoice.customerName || ''}</div>
-            <div class="party-detail"><span class="party-label">GST No :</span> ${invoice.customerGstin || invoice.customerGSTIN || ''}</div>
-            <div class="party-detail"><span class="party-label">Address</span></div>
-            <div class="party-detail">${invoice.customerAddress || 'N/A'}</div>
+            <div class="party-detail"><span class="party-label">Name :</span> <strong>${invoice.customerName || 'N/A'}</strong></div>
+            <div class="party-detail"><span class="party-label">GST No :</span> <strong>${invoice.customerGstin || invoice.customerGSTIN || 'N/A'}</strong></div>
+            <div class="party-detail"><span class="party-label">Address :</span> ${invoice.customerAddress || 'N/A'}</div>
             <div class="party-detail"><span class="party-label">State :</span> ${invoice.customerState || invoice.placeOfSupply || 'N/A'}</div>
-            <div class="party-detail"><span class="party-label">Pin Code :</span> ${invoice.customerPincode || ''}</div>
-            <div class="party-detail"><span class="party-label">Mobile No :</span> ${invoice.customerMobile || invoice.customerPhone || invoice.partyMobileNumber || ''}</div>
-            <div class="party-detail"><span class="party-label">Email ID :</span> ${invoice.customerEmail || ''}</div>
+            <div class="party-detail"><span class="party-label">Pin Code :</span> ${invoice.customerPincode || 'N/A'}</div>
+            <div class="party-detail"><span class="party-label">Mobile No :</span> ${invoice.customerMobile || invoice.customerPhone || invoice.partyMobileNumber || 'N/A'}</div>
+            <div class="party-detail"><span class="party-label">Email ID :</span> ${invoice.customerEmail || 'N/A'}</div>
           </div>
           <div class="ship-to">
             <div class="party-title">Ship To :</div>
-            <div class="party-detail"><span class="party-label">Name :</span> ${invoice.shipToName || ''}</div>
-            <div class="party-detail"><span class="party-label">GST No :</span> ${invoice.shipToGstin || ''}</div>
-            <div class="party-detail"><span class="party-label">Address :</span></div>
-            <div class="party-detail">${invoice.shipToAddress || invoice.shippingAddress || ''}</div>
+            <div class="party-detail"><span class="party-label">Name :</span> <strong>${invoice.shipToName || invoice.customerName || 'Same as Bill To'}</strong></div>
+            <div class="party-detail"><span class="party-label">GST No :</span> <strong>${invoice.shipToGstin || invoice.customerGstin || 'N/A'}</strong></div>
+            <div class="party-detail"><span class="party-label">Address :</span> ${invoice.shipToAddress || invoice.shippingAddress || invoice.customerAddress || 'Same as Bill To'}</div>
             <div class="party-detail"><span class="party-label">State :</span> ${invoice.shipToState || invoice.placeOfSupply || 'ASSAM'}</div>
-            <div class="party-detail"><span class="party-label">Pin Code :</span> ${invoice.shipToPincode || ''}</div>
-            <div class="party-detail"><span class="party-label">Mobile No :</span> ${invoice.shipToMobile || ''}</div>
-            <div class="party-detail"><span class="party-label">Email ID :</span> ${invoice.shipToEmail || ''}</div>
+            <div class="party-detail"><span class="party-label">Pin Code :</span> ${invoice.shipToPincode || invoice.customerPincode || 'N/A'}</div>
+            <div class="party-detail"><span class="party-label">Mobile No :</span> ${invoice.shipToMobile || invoice.customerMobile || 'N/A'}</div>
+            <div class="party-detail"><span class="party-label">Email ID :</span> ${invoice.shipToEmail || invoice.customerEmail || 'N/A'}</div>
           </div>
         </div>
 
@@ -889,7 +889,7 @@ export const generateSalesOrderHtml = (invoice: any): string => {
             <div>- Detention of Rs 4000 per day will be charged,if the vehicle is not unloaded within 48 hrs of Reporting.</div>
           </div>
           <div class="bank-details">
-            <div class="bank-title">Bank Details :</div>
+            <div class="bank-title">Bank Details</div>
             <div class="bank-row"><strong>Bank Name :</strong> State Bank of India</div>
             <div class="bank-row"><strong>Account No. :</strong> 43063628954</div>
             <div class="bank-row"><strong>Branch :</strong> Paltan, Bazar</div>
@@ -902,6 +902,9 @@ export const generateSalesOrderHtml = (invoice: any): string => {
           <div class="signature-left"></div>
           <div class="signature-right">
             <div class="signature-company">For M/S SRI HM BITUMEN CO</div>
+            <div class="stamp-area">
+              <img src="/stamp.png" alt="Authorized Signatory Stamp" class="auth-stamp" onerror="this.style.display='none'" />
+            </div>
             <div class="signature-line">Authorized Signatory</div>
           </div>
         </div>
