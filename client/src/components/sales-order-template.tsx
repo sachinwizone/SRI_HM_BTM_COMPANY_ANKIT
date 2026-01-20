@@ -64,8 +64,24 @@ interface SalesOrderData {
   };
 }
 
-export const generateBitumenSalesOrderPDF = (salesOrderData: SalesOrderData) => {
+export const generateBitumenSalesOrderPDF = async (salesOrderData: SalesOrderData) => {
   const doc = new jsPDF();
+  
+  // Load stamp image as base64
+  let stampBase64 = '';
+  try {
+    const stampResponse = await fetch('/stamp.png');
+    if (stampResponse.ok) {
+      const stampBlob = await stampResponse.blob();
+      stampBase64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(stampBlob);
+      });
+    }
+  } catch (err) {
+    console.error('Failed to load stamp:', err);
+  }
   
   // Page setup
   const pageWidth = doc.internal.pageSize.width;
@@ -433,25 +449,22 @@ export const generateBitumenSalesOrderPDF = (salesOrderData: SalesOrderData) => 
   doc.setFontSize(8);
   doc.text('For ' + salesOrderData.companyDetails.name, sigX, currentY);
   
-  // Draw circular stamp representation (simple circular border for stamp)
-  doc.setDrawColor(30, 60, 114); // Blue stamp color
-  doc.setLineWidth(1.2);
+  // Space for stamp image - load and embed if available
   const stampY = currentY + 8;
-  const stampRadius = 8;
+  if (stampBase64) {
+    try {
+      doc.addImage(stampBase64, 'PNG', sigX - 5, stampY, 35, 35);
+    } catch (err) {
+      console.error('Failed to add stamp image:', err);
+    }
+  }
   
-  // Draw stamp circle with text
-  doc.circle(sigX + 25, stampY + 5, stampRadius);
-  doc.setFontSize(6);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 60, 114);
-  doc.text('SRI HM', sigX + 20, stampY + 3);
-  doc.text('BITUMEN', sigX + 19, stampY + 6);
-  
-  doc.setFont('helvetica', 'normal');
-  currentY += 18;
+  currentY += 22;
   doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
   doc.line(sigX, currentY, sigX + 50, currentY);
   doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.text('Authorized Signatory', sigX + 8, currentY + 5);
 
@@ -503,14 +516,14 @@ export const SalesOrderTemplate: React.FC<SalesOrderTemplateProps> = ({
   onDownload,
   onPrint
 }) => {
-  const handleDownload = () => {
-    const doc = generateBitumenSalesOrderPDF(salesOrderData);
+  const handleDownload = async () => {
+    const doc = await generateBitumenSalesOrderPDF(salesOrderData);
     doc.save(`sales-order-${salesOrderData.orderNumber}.pdf`);
     onDownload?.();
   };
 
-  const handlePrint = () => {
-    const doc = generateBitumenSalesOrderPDF(salesOrderData);
+  const handlePrint = async () => {
+    const doc = await generateBitumenSalesOrderPDF(salesOrderData);
     doc.autoPrint();
     window.open(doc.output('bloburl'), '_blank');
     onPrint?.();

@@ -734,9 +734,9 @@ export const generateSalesOrderHtml = (invoice: any): string => {
         .signature-left { flex: 1; padding: 15px; border-right: 2px solid #e54a2c; min-height: 80px; }
         .signature-right { width: 250px; padding: 15px; text-align: center; position: relative; min-height: 80px; }
         .signature-company { font-weight: bold; font-size: 11px; margin-bottom: 10px; }
-        .signature-line { margin-top: 5px; font-size: 10px; }
         .stamp-area { height: 60px; display: flex; align-items: center; justify-content: center; margin: 8px 0; }
         .auth-stamp { max-width: 70px; max-height: 70px; object-fit: contain; }
+        .signature-line { margin-top: 5px; font-size: 10px; }
         .no-print { margin-top: 20px; text-align: center; }
         @media print { 
           body { padding: 0; } 
@@ -903,7 +903,7 @@ export const generateSalesOrderHtml = (invoice: any): string => {
           <div class="signature-right">
             <div class="signature-company">For M/S SRI HM BITUMEN CO</div>
             <div class="stamp-area">
-              <img src="/stamp.png" alt="Authorized Signatory Stamp" class="auth-stamp" onerror="this.style.display='none'" />
+              ${stampBase64 ? `<img src="${stampBase64}" alt="Authorized Signatory Stamp" class="auth-stamp" />` : '<div style="width: 70px; height: 70px; border: 1px dashed #ccc;"></div>'}
             </div>
             <div class="signature-line">Authorized Signatory</div>
           </div>
@@ -925,6 +925,7 @@ export const printSalesOrder = async (invoice: any, showError?: (msg: string) =>
   try {
     // First load the logo as base64
     let logoBase64 = '';
+    let stampBase64 = '';
     try {
       const response = await fetch('/logo.jpg');
       const blob = await response.blob();
@@ -935,6 +936,21 @@ export const printSalesOrder = async (invoice: any, showError?: (msg: string) =>
       });
     } catch (err) {
       console.error('Failed to load logo:', err);
+    }
+
+    // Load stamp image
+    try {
+      const stampResponse = await fetch('/stamp.png');
+      if (stampResponse.ok) {
+        const stampBlob = await stampResponse.blob();
+        stampBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(stampBlob);
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load stamp:', err);
     }
 
     const printWindow = window.open('', '_blank');
