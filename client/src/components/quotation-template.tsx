@@ -56,428 +56,353 @@ interface QuotationData {
   };
 }
 
-export function generateBitumenQuotationPDF(quotationData: QuotationData) {
+export const generateBitumenQuotationPDF = async (quotationData: QuotationData) => {
   try {
-    const doc = new jsPDF('p', 'mm', 'a4');
+    const doc = new jsPDF();
     
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 15;
-    const contentWidth = pageWidth - 2 * margin;
-    
-    // Helper function to safely add text with bounds checking
-    const safeAddText = (text: string | number, x: number, y: number, options?: { align?: 'left' | 'center' | 'right', maxWidth?: number }) => {
-      try {
-        const textStr = String(text || '');
-        const safeX = Math.max(0, Math.min(x, pageWidth - 5));
-        const safeY = Math.max(10, Math.min(y, pageHeight - 10));
-        
-        if (options?.maxWidth && textStr.length > options.maxWidth) {
-          const truncated = textStr.substring(0, options.maxWidth - 3) + '...';
-          if (options.align === 'center') {
-            doc.text(truncated, safeX, safeY, { align: 'center' });
-          } else if (options.align === 'right') {
-            doc.text(truncated, safeX, safeY, { align: 'right' });
-          } else {
-            doc.text(truncated, safeX, safeY);
-          }
-        } else {
-          if (options?.align === 'center') {
-            doc.text(textStr, safeX, safeY, { align: 'center' });
-          } else if (options?.align === 'right') {
-            doc.text(textStr, safeX, safeY, { align: 'right' });
-          } else {
-            doc.text(textStr, safeX, safeY);
-          }
-        }
-      } catch (error) {
-        console.error('Error adding text:', error);
-      }
-    };
-
-    // Helper function to safely draw rectangles
-    const safeRect = (x: number, y: number, width: number, height: number, style?: string) => {
-      try {
-        const safeX = Math.max(0, x);
-        const safeY = Math.max(0, y);
-        const safeWidth = Math.min(width, pageWidth - safeX);
-        const safeHeight = Math.min(height, pageHeight - safeY);
-        
-        if (safeWidth > 0 && safeHeight > 0) {
-          doc.rect(safeX, safeY, safeWidth, safeHeight, style);
-        }
-      } catch (error) {
-        console.error('Error drawing rectangle:', error);
-      }
-    };
-    
-    let currentY = margin;
-    
-    // Header Section
-    const headerHeight = 35;
-    
+    // Load stamp image as base64
+    let stampBase64 = '';
     try {
-      // Company Logo - Simple HM text logo
-      doc.setFillColor(220, 50, 47);
-      doc.circle(margin + 15, currentY + 17, 12, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      safeAddText('HM', margin + 11, currentY + 20);
-      
-      // Company details
-      const detailsX = margin + contentWidth - 100;
-      doc.setTextColor(220, 50, 47);
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      safeAddText('M/S SRI HM BITUMEN CO', detailsX, currentY + 8);
-      
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      safeAddText('Dag No: 1071, Patta No: 264', detailsX, currentY + 14);
-      safeAddText('Guwahati, Assam - 781035', detailsX, currentY + 18);
-      safeAddText('GST: 18CGMPP6536N2ZG', detailsX, currentY + 22);
-      safeAddText('Mobile: +91 8453059698', detailsX, currentY + 26);
-      safeAddText('Email: info.srihmbitumen@gmail.com', detailsX, currentY + 30);
-    } catch (error) {
-      console.error('Error in header section:', error);
-    }
-    
-    currentY += headerHeight + 10;
-    
-    // Main title
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(220, 50, 47);
-    safeAddText('Sales Order', pageWidth/2, currentY, { align: 'center' });
-    currentY += 15;
-    
-    // Top info boxes
-    try {
-      const boxHeight = 20;
-      const boxWidth = contentWidth / 6;
-      const boxes = [
-        { label: 'Order No', value: quotationData.quotationNumber || 'N/A' },
-        { label: 'Date', value: quotationData.quotationDate ? quotationData.quotationDate.toLocaleDateString('en-GB') : 'N/A' },
-        { label: 'Delivery', value: quotationData.deliveryTerms || 'Standard' },
-        { label: 'Destination', value: quotationData.destination || 'TBD' },
-        { label: 'Loading', value: quotationData.loadingFrom || 'Kandla' },
-        { label: 'Payment', value: quotationData.paymentTerms || '30 Days' }
-      ];
-      
-      // Headers
-      doc.setFillColor(220, 50, 47);
-      for (let i = 0; i < boxes.length; i++) {
-        const x = margin + i * boxWidth;
-        safeRect(x, currentY, boxWidth, boxHeight/2, 'F');
-      }
-      
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'bold');
-      for (let i = 0; i < boxes.length; i++) {
-        const x = margin + i * boxWidth;
-        safeAddText(boxes[i].label, x + boxWidth/2, currentY + 7, { align: 'center', maxWidth: 15 });
-      }
-      
-      currentY += boxHeight/2;
-      
-      // Values
-      doc.setFillColor(255, 255, 255);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', 'normal');
-      for (let i = 0; i < boxes.length; i++) {
-        const x = margin + i * boxWidth;
-        safeRect(x, currentY, boxWidth, boxHeight/2);
-        safeAddText(boxes[i].value, x + boxWidth/2, currentY + 6, { align: 'center', maxWidth: 20 });
-      }
-      
-      currentY += boxHeight/2 + 10;
-    } catch (error) {
-      console.error('Error in info boxes:', error);
-      currentY += 30;
-    }
-    
-    // Bill To / Ship To section
-    try {
-      const halfWidth = contentWidth / 2;
-      const clientSectionHeight = 45;
-      
-      // Headers
-      doc.setFillColor(220, 50, 47);
-      safeRect(margin, currentY, halfWidth - 1, 12, 'F');
-      safeRect(margin + halfWidth + 1, currentY, halfWidth - 1, 12, 'F');
-      
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      safeAddText('Bill To', margin + 5, currentY + 8);
-      safeAddText('Ship To', margin + halfWidth + 6, currentY + 8);
-      
-      currentY += 12;
-      
-      // Content
-      doc.setFillColor(240, 240, 240);
-      safeRect(margin, currentY, halfWidth - 1, clientSectionHeight, 'F');
-      safeRect(margin + halfWidth + 1, currentY, halfWidth - 1, clientSectionHeight, 'F');
-      
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      
-      const clientInfo = [
-        `Name: ${quotationData.client.name || 'N/A'}`,
-        `GST: ${quotationData.client.gstNumber || 'N/A'}`,
-        `Address: ${quotationData.client.address || 'N/A'}`,
-        `State: ${quotationData.client.state || 'N/A'}`,
-        `Pin: ${quotationData.client.pinCode || 'N/A'}`,
-        `Mobile: ${quotationData.client.mobileNumber || 'N/A'}`,
-        `Email: ${quotationData.client.email || 'N/A'}`
-      ];
-      
-      let clientY = currentY + 6;
-      for (const info of clientInfo) {
-        safeAddText(info, margin + 3, clientY, { maxWidth: 35 });
-        safeAddText(info, margin + halfWidth + 4, clientY, { maxWidth: 35 });
-        clientY += 6;
-      }
-      
-      currentY += clientSectionHeight + 10;
-    } catch (error) {
-      console.error('Error in client section:', error);
-      currentY += 60;
-    }
-    
-    // Items Table
-    try {
-      const tableHeaders = ['#', 'Description', 'Qty', 'Unit', 'Rate', 'Amount', 'Tax%', 'Total'];
-      const colWidths = [15, 50, 15, 15, 25, 25, 15, 30];
-      let colX = margin;
-      const colPositions = [colX];
-      for (let i = 0; i < colWidths.length - 1; i++) {
-        colX += colWidths[i];
-        colPositions.push(colX);
-      }
-      
-      const tableHeaderHeight = 12;
-      
-      // Table headers
-      doc.setFillColor(220, 50, 47);
-      safeRect(margin, currentY, contentWidth, tableHeaderHeight, 'F');
-      
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      
-      for (let i = 0; i < tableHeaders.length; i++) {
-        safeAddText(tableHeaders[i], colPositions[i] + 2, currentY + 8);
-      }
-      
-      currentY += tableHeaderHeight;
-      
-      // Table rows
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      const rowHeight = 12;
-      
-      if (quotationData.items && quotationData.items.length > 0) {
-        quotationData.items.forEach((item, index) => {
-          try {
-            if (index % 2 === 0) {
-              doc.setFillColor(250, 250, 250);
-              safeRect(margin, currentY, contentWidth, rowHeight, 'F');
-            }
-            
-            safeRect(margin, currentY, contentWidth, rowHeight);
-            
-            // Get GST rate from item (0% for freight, 18% for products)
-            const gstRate = item.gstRate === 0 ? '0%' : '18%';
-            
-            safeAddText((index + 1).toString(), colPositions[0] + 2, currentY + 7);
-            safeAddText(item.description || 'N/A', colPositions[1] + 2, currentY + 7, { maxWidth: 30 });
-            safeAddText((item.quantity || 0).toString(), colPositions[2] + 2, currentY + 7);
-            safeAddText(item.unit || 'PCS', colPositions[3] + 2, currentY + 7);
-            safeAddText((item.rate || 0).toFixed(0), colPositions[4] + 2, currentY + 7);
-            safeAddText((item.amount || 0).toFixed(0), colPositions[5] + 2, currentY + 7);
-            safeAddText(gstRate, colPositions[6] + 2, currentY + 7);
-            safeAddText((item.totalAmount || 0).toFixed(0), colPositions[7] + 2, currentY + 7);
-            
-            currentY += rowHeight;
-          } catch (error) {
-            console.error('Error in table row:', error);
-            currentY += rowHeight;
-          }
+      const stampResponse = await fetch('/stamp.png');
+      if (stampResponse.ok) {
+        const stampBlob = await stampResponse.blob();
+        stampBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(stampBlob);
         });
-      } else {
-        // No items case
-        safeRect(margin, currentY, contentWidth, rowHeight);
-        safeAddText('No items found', margin + contentWidth/2, currentY + 7, { align: 'center' });
-        currentY += rowHeight;
       }
-      
-      currentY += 10;
-    } catch (error) {
-      console.error('Error in items table:', error);
-      currentY += 50;
+    } catch (err) {
+      console.error('Failed to load stamp:', err);
+    }
+    
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
+    const margin = 10;
+    let currentY = 10;
+
+    // Colors - Clean professional colors
+    const orangeColor: [number, number, number] = [230, 126, 34];
+    const blackColor: [number, number, number] = [0, 0, 0];
+    const grayColor: [number, number, number] = [80, 80, 80];
+    const borderColor: [number, number, number] = [0, 0, 0];
+
+    // Format currency in Indian format
+    const formatCurrency = (amount: number): string => {
+      return amount.toLocaleString('en-IN', { 
+        minimumFractionDigits: 2, 
+        maximumFractionDigits: 2 
+      });
+    };
+
+    // Draw page border
+    doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+    doc.setLineWidth(0.5);
+    doc.rect(margin, margin, pageWidth - 2 * margin, pageHeight - 2 * margin, 'S');
+
+    currentY = 15;
+
+    // ===================== HEADER SECTION =====================
+    // Draw "Shri" symbol and HM text
+    doc.setTextColor(orangeColor[0], orangeColor[1], orangeColor[2]);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Shri', margin + 5, currentY + 5);
+    doc.setFontSize(20);
+    doc.text('HM', margin + 5, currentY + 14);
+    doc.setFontSize(8);
+    doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+    doc.text('BITUMEN COMPANY', margin + 3, currentY + 20);
+
+    // Company Name and Details (right side)
+    doc.setTextColor(orangeColor[0], orangeColor[1], orangeColor[2]);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('M/S SRI HM BITUMEN CO', margin + 45, currentY + 8);
+
+    doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    
+    const addressLine = 'Dag No: 1071, Patta No: 264, Guwahati, Assam 781035';
+    doc.text(addressLine, margin + 45, currentY + 14);
+    doc.text('GSTIN/UIN: 18CGMPP6536N2ZG', margin + 45, currentY + 19);
+    doc.text('Mobile: +91 8453059698 | Email: info.srihmbitumen@gmail.com', margin + 45, currentY + 24);
+
+    currentY += 32;
+
+    // ===================== QUOTATION TITLE =====================
+    doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+    doc.setLineWidth(0.3);
+    doc.line(margin, currentY, pageWidth - margin, currentY);
+    
+    currentY += 8;
+    doc.setTextColor(blackColor[0], blackColor[1], blackColor[2]);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('QUOTATION', pageWidth / 2, currentY, { align: 'center' });
+    
+    currentY += 5;
+    doc.setLineWidth(0.3);
+    doc.line(margin, currentY, pageWidth - margin, currentY);
+
+    currentY += 5;
+
+    // ===================== QUOTATION INFO TABLE =====================
+    const infoTableWidth = pageWidth - 2 * margin;
+    const col1Width = infoTableWidth * 0.30;
+    const col2Width = infoTableWidth * 0.20;
+    const col3Width = infoTableWidth * 0.25;
+    const col4Width = infoTableWidth * 0.25;
+
+    const quotationDate = quotationData.quotationDate ? new Date(quotationData.quotationDate).toLocaleDateString('en-GB') : 'N/A';
+    const validityDate = quotationData.quotationDate ? new Date(new Date(quotationData.quotationDate).getTime() + quotationData.validityPeriod * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB') : 'N/A';
+
+    // Headers with orange background
+    doc.setFillColor(230, 126, 34);
+    doc.rect(margin, currentY, col1Width, 8, 'F');
+    doc.rect(margin + col1Width, currentY, col2Width, 8, 'F');
+    doc.rect(margin + col1Width + col2Width, currentY, col3Width, 8, 'F');
+    doc.rect(margin + col1Width + col2Width + col3Width, currentY, col4Width, 8, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Quotation No', margin + 2, currentY + 6);
+    doc.text('Quotation Date', margin + col1Width + 2, currentY + 6);
+    doc.text('Delivery Terms', margin + col1Width + col2Width + 2, currentY + 6);
+    doc.text('Validity', margin + col1Width + col2Width + col3Width + 2, currentY + 6);
+
+    currentY += 8;
+
+    // Values
+    doc.setFillColor(255, 255, 255);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+
+    doc.rect(margin, currentY, col1Width, 8);
+    doc.rect(margin + col1Width, currentY, col2Width, 8);
+    doc.rect(margin + col1Width + col2Width, currentY, col3Width, 8);
+    doc.rect(margin + col1Width + col2Width + col3Width, currentY, col4Width, 8);
+
+    doc.text(quotationData.quotationNumber || 'N/A', margin + 2, currentY + 6);
+    doc.text(quotationDate, margin + col1Width + 2, currentY + 6);
+    doc.text(quotationData.deliveryTerms || 'Within 15-20 Days', margin + col1Width + col2Width + 2, currentY + 6);
+    doc.text(validityDate, margin + col1Width + col2Width + col3Width + 2, currentY + 6);
+
+    currentY += 10;
+
+    // ===================== BILL TO / SHIP TO SECTION =====================
+    const partyWidth = (infoTableWidth - 2) / 2;
+    
+    // Headers
+    doc.setFillColor(230, 126, 34);
+    doc.rect(margin, currentY, partyWidth, 8, 'F');
+    doc.rect(margin + partyWidth + 2, currentY, partyWidth, 8, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Bill To :', margin + 2, currentY + 6);
+    doc.text('Ship To :', margin + partyWidth + 4, currentY + 6);
+
+    currentY += 8;
+
+    // Content boxes
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin, currentY, partyWidth, 35, 'F');
+    doc.rect(margin + partyWidth + 2, currentY, partyWidth, 35, 'F');
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+
+    const clientDetails = [
+      `Name: ${quotationData.client.name || 'N/A'}`,
+      `GST: ${quotationData.client.gstNumber || 'N/A'}`,
+      `Address: ${quotationData.client.address || 'N/A'}`,
+      `State: ${quotationData.client.state || 'N/A'}`,
+      `Pin: ${quotationData.client.pinCode || 'N/A'}`
+    ];
+
+    let detailY = currentY + 3;
+    clientDetails.forEach(detail => {
+      doc.text(detail, margin + 2, detailY);
+      doc.text(detail, margin + partyWidth + 4, detailY);
+      detailY += 6;
+    });
+
+    currentY += 37;
+
+    // ===================== ITEMS TABLE =====================
+    const tableHeaders = ['Item #', 'Description', 'Qty', 'Unit', 'Ex Factory Rate', 'Amount(₹)', 'GST@18%(₹)', 'Total Amount(₹)'];
+    const colWidths = [12, 45, 12, 12, 18, 18, 18, 18];
+    
+    let colX = margin;
+    const colPositions = [colX];
+    for (let i = 0; i < colWidths.length - 1; i++) {
+      colX += colWidths[i];
+      colPositions.push(colX);
     }
 
-    // Transportation Details Section (if provided)
-    if (quotationData.transportationDetails) {
-      try {
-        // Transportation header
-        doc.setFillColor(220, 50, 47);
-        doc.rect(margin, currentY, contentWidth, 8, 'F');
+    // Table headers
+    doc.setFillColor(230, 126, 34);
+    doc.rect(margin, currentY, infoTableWidth, 8, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+
+    tableHeaders.forEach((header, i) => {
+      doc.text(header, colPositions[i] + 1, currentY + 6);
+    });
+
+    currentY += 8;
+
+    // Table rows
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+
+    quotationData.items?.forEach((item, index) => {
+      // Alternate row colors
+      if (index % 2 === 0) {
+        doc.setFillColor(245, 245, 245);
+        doc.rect(margin, currentY, infoTableWidth, 8, 'F');
+      }
+
+      // Draw borders
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(margin, currentY, infoTableWidth, 8);
+
+      // Add text
+      doc.setTextColor(0, 0, 0);
+      doc.text((index + 1).toString(), colPositions[0] + 1, currentY + 6);
+      doc.text(item.description || 'N/A', colPositions[1] + 1, currentY + 6);
+      doc.text(item.quantity.toString(), colPositions[2] + 1, currentY + 6);
+      doc.text(item.unit || 'N/A', colPositions[3] + 1, currentY + 6);
+      doc.text(formatCurrency(item.rate), colPositions[4] + 1, currentY + 6);
+      doc.text(formatCurrency(item.amount), colPositions[5] + 1, currentY + 6);
+      
+      const gstAmount = item.gstRate === 0 ? 0 : (item.gstAmount || 0);
+      doc.text(formatCurrency(gstAmount), colPositions[6] + 1, currentY + 6);
+      doc.text(formatCurrency(item.totalAmount), colPositions[7] + 1, currentY + 6);
+
+      currentY += 8;
+    });
+
+    currentY += 5;
+
+    // ===================== BANK DETAILS =====================
+    doc.setFillColor(39, 174, 96);
+    doc.rect(margin, currentY, 80, 8, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('🏦 BANK DETAILS', margin + 2, currentY + 6);
+
+    currentY += 8;
+    
+    doc.setFillColor(240, 250, 240);
+    doc.rect(margin, currentY, 80, 20, 'F');
+    doc.rect(margin, currentY, 80, 20);
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+
+    doc.text('Bank: State Bank of India', margin + 2, currentY + 4);
+    doc.text('A/c: 40464693538', margin + 2, currentY + 9);
+    doc.text('Branch: Paltan Bazar', margin + 2, currentY + 14);
+    doc.text('IFSC: SBIN0040464', margin + 2, currentY + 19);
+
+    // ===================== TOTALS (RIGHT SIDE) =====================
+    const summaryX = margin + 100;
+    const summaryWidth = pageWidth - 2 * margin - 100;
+    let summaryY = currentY;
+
+    const nonFreightItems = quotationData.items?.filter(item => !item.isFreight) || [];
+    const freightItems = quotationData.items?.filter(item => item.isFreight) || [];
+    
+    const productSubtotal = nonFreightItems.reduce((sum, item) => sum + item.amount, 0);
+    const taxTotal = nonFreightItems.reduce((sum, item) => sum + (item.gstAmount || 0), 0);
+    const freightTotal = freightItems.reduce((sum, item) => sum + item.amount, 0);
+    const grandTotal = (quotationData.total || 0);
+
+    const summaryItems = [
+      { label: 'Sub-Total', value: productSubtotal },
+      { label: 'Tax (18% GST)', value: taxTotal },
+      { label: 'Freight (Non-GST)', value: freightTotal },
+      { label: 'Grand Total', value: grandTotal, isBold: true }
+    ];
+
+    summaryItems.forEach((item) => {
+      if (item.isBold) {
+        doc.setFillColor(230, 126, 34);
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        safeAddText('Transportation Details', margin + 5, currentY + 5.5);
+      } else {
+        doc.setFillColor(245, 245, 245);
         doc.setTextColor(0, 0, 0);
-        currentY += 10;
-        
-        // Transportation details content
-        doc.setFillColor(255, 255, 255);
-        doc.rect(margin, currentY, contentWidth, 20, 'FD');
-        
-        doc.setFontSize(8);
         doc.setFont('helvetica', 'normal');
-        const transportY = currentY + 5;
-        
-        safeAddText(`Transport Mode: ${quotationData.transportationDetails.transportMode || 'Road Transport'}`, margin + 5, transportY);
-        safeAddText(`Vehicle Type: ${quotationData.transportationDetails.vehicleType || 'Truck'}`, margin + 90, transportY);
-        
-        safeAddText(`Estimated Delivery: ${quotationData.transportationDetails.estimatedDelivery || 'As per schedule'}`, margin + 5, transportY + 10);
-        safeAddText(`Route: ${quotationData.transportationDetails.route || 'Standard Route'}`, margin + 90, transportY + 10);
-        
-        currentY += 25;
-      } catch (error) {
-        console.error('Error in transportation details:', error);
-        currentY += 30;
+      }
+
+      doc.rect(summaryX, summaryY, summaryWidth, 7, 'F');
+      doc.rect(summaryX, summaryY, summaryWidth, 7);
+      doc.setFontSize(9);
+      doc.text(item.label, summaryX + 2, summaryY + 5);
+      doc.text(`₹ ${formatCurrency(item.value)}`, summaryX + summaryWidth - 2, summaryY + 5, { align: 'right' });
+
+      summaryY += 7;
+    });
+
+    currentY = Math.max(currentY + 25, summaryY + 3);
+
+    // ===================== SIGNATURE SECTION =====================
+    currentY += 5;
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    doc.line(margin, currentY, pageWidth - margin, currentY);
+
+    currentY += 8;
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Sales Person: ${quotationData.salesPersonName || 'System Administrator'}`, margin, currentY);
+
+    // Authorized Signatory on right with stamp
+    const sigX = pageWidth - margin - 55;
+    doc.text('For M/S SRI HM BITUMEN CO', sigX, currentY);
+    
+    currentY += 8;
+    
+    // Stamp image - load and embed if available
+    const stampY = currentY;
+    if (stampBase64) {
+      try {
+        doc.addImage(stampBase64, 'PNG', sigX - 5, stampY, 35, 35);
+      } catch (err) {
+        console.error('Failed to add stamp image:', err);
       }
     }
-    
-    // Summary section
-    try {
-      const summaryWidth = 60;
-      const summaryX = margin + contentWidth - summaryWidth;
-      const summaryRowHeight = 10;
-      
-      // Calculate totals from items with per-item GST rates
-      const nonFreightItems = quotationData.items?.filter(item => !item.isFreight) || [];
-      const freightItems = quotationData.items?.filter(item => item.isFreight) || [];
-      
-      const productSubtotal = nonFreightItems.reduce((sum, item) => sum + item.amount, 0);
-      const taxTotal = nonFreightItems.reduce((sum, item) => sum + (item.gstAmount || 0), 0);
-      const freightTotal = freightItems.reduce((sum, item) => sum + item.amount, 0);
-      
-      const summaryItems = [
-        { label: 'Sub-Total', value: productSubtotal || 0 },
-        { label: 'Tax Total (18%)', value: taxTotal || 0 },
-        { label: 'Freight (Non-GST)', value: freightTotal || 0 },
-        { label: 'Grand Total', value: quotationData.total || 0, isBold: true }
-      ];
-      
-      summaryItems.forEach((item) => {
-        try {
-          if (item.isBold) {
-            doc.setFillColor(220, 50, 47);
-            doc.setTextColor(255, 255, 255);
-            doc.setFont('helvetica', 'bold');
-          } else {
-            doc.setFillColor(240, 240, 240);
-            doc.setTextColor(0, 0, 0);
-            doc.setFont('helvetica', 'normal');
-          }
-          
-          safeRect(summaryX, currentY, summaryWidth, summaryRowHeight, 'F');
-          safeRect(summaryX, currentY, summaryWidth, summaryRowHeight);
-          doc.setFontSize(9);
-          safeAddText(item.label, summaryX + 2, currentY + 7);
-          safeAddText(`₹${item.value.toFixed(0)}`, summaryX + summaryWidth - 2, currentY + 7, { align: 'right' });
-          
-          currentY += summaryRowHeight;
-        } catch (error) {
-          console.error('Error in summary item:', error);
-          currentY += summaryRowHeight;
-        }
-      });
-      
-      currentY += 10;
-    } catch (error) {
-      console.error('Error in summary section:', error);
-      currentY += 50;
-    }
-    
-    // Footer sections
-    try {
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      safeAddText('Sales Person:', margin, currentY);
-      safeAddText(quotationData.salesPersonName || 'System Administrator', margin + 35, currentY);
-      currentY += 15;
-      
-      // Terms
-      doc.setTextColor(220, 50, 47);
-      safeAddText('Terms & Conditions', margin, currentY);
-      currentY += 8;
-      
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      const terms = [
-        '• Payment within one day of billing',
-        '• Late payment reduces credit limit by 10%',
-        '• Interest of 24% per annum on overdue amounts'
-      ];
-      
-      terms.forEach(term => {
-        safeAddText(term, margin, currentY);
-        currentY += 5;
-      });
-      
-      currentY += 10;
-      
-      // Bank Details
-      doc.setFillColor(220, 50, 47);
-      safeRect(margin, currentY, 80, 8, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      safeAddText('Bank Details', margin + 2, currentY + 6);
-      
-      currentY += 8;
-      doc.setFillColor(240, 240, 240);
-      safeRect(margin, currentY, 80, 17, 'F');
-      
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      
-      safeAddText('State Bank of India', margin + 2, currentY + 5);
-      safeAddText('A/C: 40464693538', margin + 2, currentY + 9);
-      safeAddText('Branch: Paltan Bazar', margin + 2, currentY + 13);
-      safeAddText('IFSC: SBIN0040464', margin + 2, currentY + 17);
-      
-      currentY += 25;
-      
-      // Footer
-      doc.setFontSize(7);
-      safeAddText('Email: info.srihmbitumen@gmail.com | Phone: +91 8453059698', margin, currentY);
-      safeAddText('Authorized Signatory: ________________', margin + contentWidth - 60, currentY + 10, { align: 'right' });
-      
-    } catch (error) {
-      console.error('Error in footer section:', error);
-    }
-    
+
+    currentY += 38;
+    doc.setLineWidth(0.3);
+    doc.line(sigX, currentY, sigX + 50, currentY);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text('Authorized Signatory', sigX + 8, currentY + 5);
+
     // Save PDF
-    const fileName = `Sales_Order_${(quotationData.quotationNumber || 'UNKNOWN').replace(/[\/\\]/g, '_')}.pdf`;
+    const fileName = `Quotation_${(quotationData.quotationNumber || 'UNKNOWN').replace(/[\/\\]/g, '_')}.pdf`;
     doc.save(fileName);
-    
+
+    return doc;
   } catch (error) {
     console.error('PDF Generation Error:', error);
-    // Show user-friendly error
-    alert('Failed to generate PDF. Please try again or contact support if the issue persists.');
+    throw error;
   }
-}
+};
