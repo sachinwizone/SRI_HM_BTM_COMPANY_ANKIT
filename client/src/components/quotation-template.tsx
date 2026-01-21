@@ -237,8 +237,8 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
 
     // ===================== ITEMS TABLE =====================
     const totalTableWidth = pageWidth - 2 * margin;
-    const itemTableHeaders = ['Item #', 'Description', 'Qty', 'Unit', 'Rate(₹)', 'Amount(₹)', 'GST(₹)', 'Total(₹)'];
-    const itemColWidths = [10, 30, 12, 12, 20, 22, 18, 22];
+    const itemTableHeaders = ['Item #', 'Description', 'Qty', 'Unit', 'Rate', 'Amount', 'GST', 'Total'];
+    const itemColWidths = [12, 38, 12, 14, 18, 20, 18, 20];
     
     // Calculate column positions
     const tableColPositions = [margin];
@@ -256,18 +256,15 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
     
     // Draw header with column dividers
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(7);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
 
     itemTableHeaders.forEach((header, i) => {
       const xPos = tableColPositions[i];
       const colWidth = itemColWidths[i];
       
-      // Draw column border
-      doc.line(xPos, currentY, xPos, currentY + 8);
-      
       // Add text
-      if (i >= 2 && i !== 3) {
+      if (i > 1) {
         // Right align numbers
         doc.text(header, xPos + colWidth - 1, currentY + 5, { align: 'right' });
       } else {
@@ -275,8 +272,6 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
       }
     });
     
-    // Right border
-    doc.line(margin + totalTableWidth, currentY, margin + totalTableWidth, currentY + 8);
     // Bottom border
     doc.line(margin, currentY + 8, margin + totalTableWidth, currentY + 8);
 
@@ -285,8 +280,8 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
     // Draw table rows with cells
     doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
-    doc.setLineWidth(0.3);
+    doc.setFontSize(8);
+    doc.setLineWidth(0.5);
 
     quotationData.items?.forEach((item, index) => {
       // Alternate row colors
@@ -295,43 +290,43 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
         doc.rect(margin, currentY, totalTableWidth, 8, 'F');
       }
 
-      // Draw cells with borders
-      itemColWidths.forEach((colWidth, colIndex) => {
-        const xPos = tableColPositions[colIndex];
-        
-        // Draw cell
-        doc.setDrawColor(200, 200, 200);
-        doc.rect(xPos, currentY, colWidth, 8);
-      });
+      // Draw row bottom border
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, currentY + 8, margin + totalTableWidth, currentY + 8);
+      
+      // Draw column dividers
+      for (let i = 1; i < tableColPositions.length; i++) {
+        doc.line(tableColPositions[i], currentY, tableColPositions[i], currentY + 8);
+      }
 
       // Add text for each column
       doc.setTextColor(0, 0, 0);
       
       // Column 0: Item #
-      doc.text((index + 1).toString(), tableColPositions[0] + 1, currentY + 5);
+      doc.text((index + 1).toString(), tableColPositions[0] + 2, currentY + 5);
       
       // Column 1: Description  
-      const desc = (item.description || 'N/A').substring(0, 25);
-      doc.text(desc, tableColPositions[1] + 1, currentY + 5);
+      const desc = (item.description || 'N/A').substring(0, 20);
+      doc.text(desc, tableColPositions[1] + 2, currentY + 5);
       
       // Column 2: Qty
-      doc.text(item.quantity.toString(), tableColPositions[2] + itemColWidths[2] - 1, currentY + 5, { align: 'right' });
+      doc.text(item.quantity.toString(), tableColPositions[2] + itemColWidths[2] - 2, currentY + 5, { align: 'right' });
       
       // Column 3: Unit
-      doc.text(item.unit || 'N/A', tableColPositions[3] + 1, currentY + 5);
+      doc.text(item.unit || 'N/A', tableColPositions[3] + 2, currentY + 5);
       
       // Column 4: Rate
-      doc.text(formatCurrency(item.rate), tableColPositions[4] + itemColWidths[4] - 1, currentY + 5, { align: 'right' });
+      doc.text(formatCurrency(item.rate), tableColPositions[4] + itemColWidths[4] - 2, currentY + 5, { align: 'right' });
       
       // Column 5: Amount
-      doc.text(formatCurrency(item.amount), tableColPositions[5] + itemColWidths[5] - 1, currentY + 5, { align: 'right' });
+      doc.text(formatCurrency(item.amount), tableColPositions[5] + itemColWidths[5] - 2, currentY + 5, { align: 'right' });
       
       // Column 6: GST
       const gstAmount = item.gstRate === 0 ? 0 : (item.gstAmount || 0);
-      doc.text(formatCurrency(gstAmount), tableColPositions[6] + itemColWidths[6] - 1, currentY + 5, { align: 'right' });
+      doc.text(formatCurrency(gstAmount), tableColPositions[6] + itemColWidths[6] - 2, currentY + 5, { align: 'right' });
       
       // Column 7: Total
-      doc.text(formatCurrency(item.totalAmount), tableColPositions[7] + itemColWidths[7] - 1, currentY + 5, { align: 'right' });
+      doc.text(formatCurrency(item.totalAmount), tableColPositions[7] + itemColWidths[7] - 2, currentY + 5, { align: 'right' });
 
       currentY += 8;
     });
