@@ -236,7 +236,7 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
     currentY += 37;
 
     // ===================== ITEMS TABLE =====================
-    const tableHeaders = ['Item #', 'Description', 'Qty', 'Unit', 'Ex Factory Rate', 'Amount(₹)', 'GST@18%(₹)', 'Total Amount(₹)'];
+    const tableHeaders = ['Item #', 'Description', 'Qty', 'Unit', 'Ex Factory Rate(₹)', 'Amount(₹)', 'GST@18%(₹)', 'Total Amount(₹)'];
     const colWidths = [12, 45, 12, 12, 18, 18, 18, 18];
     
     let colX = margin;
@@ -353,7 +353,9 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
       doc.rect(summaryX, summaryY, summaryWidth, 7);
       doc.setFontSize(9);
       doc.text(item.label, summaryX + 2, summaryY + 5);
-      doc.text(`₹ ${formatCurrency(item.value)}`, summaryX + summaryWidth - 2, summaryY + 5, { align: 'right' });
+      // Format: ₹ 12,34,567.89
+      const formattedAmount = `₹ ${formatCurrency(item.value)}`;
+      doc.text(formattedAmount, summaryX + summaryWidth - 3, summaryY + 5, { align: 'right' });
 
       summaryY += 7;
     });
