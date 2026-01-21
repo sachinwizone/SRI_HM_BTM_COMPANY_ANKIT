@@ -402,7 +402,7 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
       
       // Amount on right with rupee symbol using text directly
       const amountText = formatCurrency(item.value);
-      doc.text('₹ ' + amountText, summaryX + summaryWidth - 2, summaryY + 5, { align: 'right' });
+      doc.text('Rs. ' + amountText, summaryX + summaryWidth - 2, summaryY + 5, { align: 'right' });
 
       summaryY += 7;
     });
