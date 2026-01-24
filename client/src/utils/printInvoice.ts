@@ -203,7 +203,7 @@ export const generateTaxInvoiceHtml = (invoice: any, type: 'sales' | 'purchase')
         .company-logo { display: flex; gap: 8px; align-items: flex-start; }
         .logo-img { width: 120px; height: auto; }
         .company-info { font-size: 8px; line-height: 1.3; }
-        .company-name { font-size: 12px; font-weight: bold; color: #e54a2c; }
+        .company-name { font-size: 12px; font-weight: bold; color: #000; }
         .invoice-details { width: 45%; }
         .invoice-details table { width: 100%; border-collapse: collapse; font-size: 8px; }
         .invoice-details td { padding: 2px 4px; border: 1px solid #000; }
@@ -570,12 +570,18 @@ export const generateSalesOrderHtml = (invoice: any, stampBase64: string = ''): 
   };
 
   const formatIndianNumber = (num: number): string => {
-    if (!num || isNaN(num)) return '0';
-    const str = Math.round(num).toString();
-    const lastThree = str.slice(-3);
-    const otherNumbers = str.slice(0, -3);
+    if (!num || isNaN(num)) return '0.00';
+    // Format with 2 decimal places without rounding issues
+    const fixed = parseFloat(num).toFixed(2);
+    const [intPart, decPart] = fixed.split('.');
+    
+    // Format integer part with Indian comma separation
+    const lastThree = intPart.slice(-3);
+    const otherNumbers = intPart.slice(0, -3);
     const formatted = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + (otherNumbers ? ',' : '') + lastThree;
-    return formatted;
+    
+    // Return with decimal part
+    return formatted + '.' + decPart;
   };
 
   // Get items from invoice - debug logging
@@ -692,51 +698,53 @@ export const generateSalesOrderHtml = (invoice: any, stampBase64: string = ''): 
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; font-size: 11px; line-height: 1.4; padding: 15px; background: #fff; }
-        .container { max-width: 800px; margin: 0 auto; border: 2px solid #e54a2c; }
-        .header { display: flex; align-items: center; padding: 15px; border-bottom: 2px solid #e54a2c; }
+        .container { max-width: 800px; margin: 0 auto; border: 2px solid #000; }
+        .header { display: flex; align-items: center; padding: 15px; border-bottom: 2px solid #000; }
         .logo-section { display: flex; align-items: center; gap: 10px; }
-        .logo-hindi { font-size: 36px; color: #e54a2c; font-weight: bold; font-family: serif; }
-        .logo-text { font-size: 12px; color: #e54a2c; font-weight: bold; }
+        .logo-hindi { font-size: 36px; color: #000; font-weight: bold; font-family: serif; }
+        .logo-text { font-size: 12px; color: #000; font-weight: bold; }
         .company-details { flex: 1; text-align: right; }
-        .company-name { font-size: 22px; color: #e54a2c; font-weight: bold; margin-bottom: 5px; }
-        .company-address { font-size: 10px; color: #333; line-height: 1.3; }
-        .company-contact { font-size: 10px; color: #333; margin-top: 5px; }
-        .title { text-align: center; padding: 10px; font-size: 20px; color: #e54a2c; font-weight: bold; border-bottom: 2px solid #e54a2c; }
-        .info-row { display: flex; border-bottom: 2px solid #e54a2c; }
-        .info-cell { flex: 1; padding: 8px; border-right: 2px solid #e54a2c; }
+        .company-name { font-size: 22px; color: #000; font-weight: bold; margin-bottom: 5px; }
+        .company-address { font-size: 10px; color: #333; line-height: 1.3; font-weight: bold; }
+        .company-contact { font-size: 10px; color: #333; margin-top: 5px; font-weight: bold; }
+        .title { text-align: center; padding: 10px; font-size: 20px; color: #000; font-weight: bold; border-bottom: 2px solid #000; }
+        .info-row { display: flex; border-bottom: 2px solid #000; }
+        .info-cell { flex: 1; padding: 8px; border-right: 2px solid #000; }
         .info-cell:last-child { border-right: none; }
-        .info-label { font-size: 10px; color: #e54a2c; font-weight: bold; margin-bottom: 3px; }
-        .info-value { font-size: 11px; font-weight: bold; }
-        .party-section { display: flex; border-bottom: 2px solid #e54a2c; }
+        .info-label { font-size: 10px; color: #000; font-weight: bold; margin-bottom: 3px; }
+        .info-value { font-size: 11px; font-weight: bold; color: #000; }
+        .party-section { display: flex; border-bottom: 2px solid #000; }
         .bill-to, .ship-to { flex: 1; padding: 10px; }
-        .bill-to { border-right: 2px solid #e54a2c; }
-        .party-title { font-size: 11px; color: #e54a2c; font-weight: bold; margin-bottom: 8px; }
-        .party-detail { font-size: 10px; margin: 4px 0; }
-        .party-label { color: #e54a2c; font-weight: bold; }
+        .bill-to { border-right: 2px solid #000; }
+        .party-title { font-size: 11px; color: #000; font-weight: bold; margin-bottom: 8px; }
+        .party-detail { font-size: 10px; margin: 4px 0; font-weight: bold; color: #000; }
+        .party-detail strong { font-weight: bold; }
+        .party-label { color: #000; font-weight: bold; }
         .items-table { width: 100%; border-collapse: collapse; }
         .items-header { background: #FFF3E0; }
-        .items-header th { border: 1px dashed #e54a2c; padding: 8px; color: #e54a2c; font-weight: bold; font-size: 10px; }
-        .items-table td { border: 1px dashed #e54a2c; padding: 8px; font-weight: bold; }
-        .bottom-section { display: flex; border-top: 2px solid #e54a2c; }
-        .left-section { flex: 1; padding: 10px; border-right: 2px solid #e54a2c; }
+        .items-header th { border: 1px dashed #000; padding: 8px; color: #000; font-weight: bold; font-size: 10px; }
+        .items-table td { border: 1px dashed #000; padding: 8px; font-weight: bold; }
+        .bottom-section { display: flex; border-top: 2px solid #000; }
+        .left-section { flex: 1; padding: 10px; border-right: 2px solid #000; }
         .right-section { width: 250px; }
-        .totals-row { display: flex; border-bottom: 1px solid #e54a2c; }
-        .totals-label { flex: 1; padding: 8px; font-weight: bold; text-align: right; color: #e54a2c; }
-        .totals-value { width: 100px; padding: 8px; text-align: right; font-weight: bold; }
-        .freight-note { padding: 8px; font-size: 10px; font-weight: bold; color: #e54a2c; border-bottom: 2px solid #e54a2c; }
-        .terms-bank { display: flex; border-bottom: 2px solid #e54a2c; }
-        .terms { flex: 1; padding: 10px; border-right: 2px solid #e54a2c; font-size: 9px; }
+        .totals-row { display: flex; border-bottom: 2px solid #000; background-color: #F5F5F5; }
+        .totals-label { flex: 1; padding: 10px; font-weight: 900; text-align: right; color: #000; font-size: 13px; }
+        .totals-value { width: 100px; padding: 10px; text-align: right; font-weight: 900; font-size: 13px; color: #000; }
+        .freight-note { padding: 8px; font-size: 10px; font-weight: bold; color: #000; border-bottom: 2px solid #000; }
+        .terms-bank { display: flex; border-bottom: 2px solid #000; }
+        .terms { flex: 1; padding: 10px; border-right: 2px solid #000; font-size: 9px; font-weight: bold; }
         .terms-title { font-weight: bold; text-decoration: underline; margin-bottom: 5px; }
         .bank-details { width: 250px; padding: 10px; }
-        .bank-title { font-weight: bold; font-size: 12px; color: #e54a2c; border-bottom: 1px solid #000; padding-bottom: 3px; margin-bottom: 5px; }
-        .bank-row { font-size: 10px; margin: 3px 0; }
+        .bank-title { font-weight: bold; font-size: 12px; color: #000; border-bottom: 1px solid #000; padding-bottom: 3px; margin-bottom: 5px; }
+        .bank-row { font-size: 10px; margin: 3px 0; font-weight: bold; }
         .signature-section { display: flex; }
-        .signature-left { flex: 1; padding: 15px; border-right: 2px solid #e54a2c; min-height: 80px; }
+        .signature-left { flex: 1; padding: 15px; border-right: 2px solid #000; min-height: 80px; background-color: #FFF; display: flex; align-items: center; justify-content: center; }
         .signature-right { width: 250px; padding: 15px; text-align: center; position: relative; min-height: 80px; }
         .signature-company { font-weight: bold; font-size: 11px; margin-bottom: 10px; }
         .stamp-area { height: 60px; display: flex; align-items: center; justify-content: center; margin: 8px 0; }
         .auth-stamp { max-width: 70px; max-height: 70px; object-fit: contain; }
-        .signature-line { margin-top: 5px; font-size: 10px; }
+        .signature-line { margin-top: 5px; font-size: 10px; font-weight: bold; }
+        .customer-seal-label { font-size: 11px; font-weight: bold; color: #000; text-align: center; }
         .no-print { margin-top: 20px; text-align: center; }
         @media print { 
           body { padding: 0; } 
@@ -750,7 +758,7 @@ export const generateSalesOrderHtml = (invoice: any, stampBase64: string = ''): 
         <!-- Header with Logo and Company Details -->
         <div class="header">
           <div class="logo-section">
-            <img src="/logo.jpg" alt="SRI HM Bitumen Company" style="width: 140px; height: auto; border: 1px solid #e54a2c; padding: 5px;" />
+            <img src="/logo.jpg" alt="SRI HM Bitumen Company" style="width: 140px; height: auto; padding: 5px;" />
           </div>
           <div class="company-details">
             <div class="company-name">M/S SRI HM BITUMEN CO</div>
@@ -807,21 +815,21 @@ export const generateSalesOrderHtml = (invoice: any, stampBase64: string = ''): 
             <div class="party-title">Bill To :</div>
             <div class="party-detail"><span class="party-label">Name :</span> <strong>${invoice.customerName || 'N/A'}</strong></div>
             <div class="party-detail"><span class="party-label">GST No :</span> <strong>${invoice.customerGstin || invoice.customerGSTIN || 'N/A'}</strong></div>
-            <div class="party-detail"><span class="party-label">Address :</span> ${invoice.customerAddress || 'N/A'}</div>
-            <div class="party-detail"><span class="party-label">State :</span> ${invoice.customerState || invoice.placeOfSupply || 'N/A'}</div>
-            <div class="party-detail"><span class="party-label">Pin Code :</span> ${invoice.customerPincode || 'N/A'}</div>
-            <div class="party-detail"><span class="party-label">Mobile No :</span> ${invoice.customerMobile || invoice.customerPhone || invoice.partyMobileNumber || 'N/A'}</div>
-            <div class="party-detail"><span class="party-label">Email ID :</span> ${invoice.customerEmail || 'N/A'}</div>
+            <div class="party-detail"><span class="party-label">Address :</span> <strong>${invoice.customerAddress || 'N/A'}</strong></div>
+            <div class="party-detail"><span class="party-label">State :</span> <strong>${invoice.customerState || invoice.placeOfSupply || 'N/A'}</strong></div>
+            <div class="party-detail"><span class="party-label">Pin Code :</span> <strong>${invoice.customerPincode || 'N/A'}</strong></div>
+            <div class="party-detail"><span class="party-label">Mobile No :</span> <strong>${invoice.customerMobile || invoice.customerPhone || invoice.partyMobileNumber || 'N/A'}</strong></div>
+            <div class="party-detail"><span class="party-label">Email ID :</span> <strong>${invoice.customerEmail || 'N/A'}</strong></div>
           </div>
           <div class="ship-to">
             <div class="party-title">Ship To :</div>
             <div class="party-detail"><span class="party-label">Name :</span> <strong>${invoice.shipToName || invoice.customerName || 'Same as Bill To'}</strong></div>
             <div class="party-detail"><span class="party-label">GST No :</span> <strong>${invoice.shipToGstin || invoice.customerGstin || 'N/A'}</strong></div>
-            <div class="party-detail"><span class="party-label">Address :</span> ${invoice.shipToAddress || invoice.shippingAddress || invoice.customerAddress || 'Same as Bill To'}</div>
-            <div class="party-detail"><span class="party-label">State :</span> ${invoice.shipToState || invoice.placeOfSupply || 'ASSAM'}</div>
-            <div class="party-detail"><span class="party-label">Pin Code :</span> ${invoice.shipToPincode || invoice.customerPincode || 'N/A'}</div>
-            <div class="party-detail"><span class="party-label">Mobile No :</span> ${invoice.shipToMobile || invoice.customerMobile || 'N/A'}</div>
-            <div class="party-detail"><span class="party-label">Email ID :</span> ${invoice.shipToEmail || invoice.customerEmail || 'N/A'}</div>
+            <div class="party-detail"><span class="party-label">Address :</span> <strong>${invoice.shipToAddress || invoice.shippingAddress || invoice.customerAddress || 'Same as Bill To'}</strong></div>
+            <div class="party-detail"><span class="party-label">State :</span> <strong>${invoice.shipToState || invoice.placeOfSupply || 'ASSAM'}</strong></div>
+            <div class="party-detail"><span class="party-label">Pin Code :</span> <strong>${invoice.shipToPincode || invoice.customerPincode || 'N/A'}</strong></div>
+            <div class="party-detail"><span class="party-label">Mobile No :</span> <strong>${invoice.shipToMobile || invoice.customerMobile || 'N/A'}</strong></div>
+            <div class="party-detail"><span class="party-label">Email ID :</span> <strong>${invoice.shipToEmail || invoice.customerEmail || 'N/A'}</strong></div>
           </div>
         </div>
 
@@ -899,7 +907,9 @@ export const generateSalesOrderHtml = (invoice: any, stampBase64: string = ''): 
 
         <!-- Signature Section -->
         <div class="signature-section">
-          <div class="signature-left"></div>
+          <div class="signature-left">
+            <div class="customer-seal-label">CUSTOMER SEAL AND SIGN</div>
+          </div>
           <div class="signature-right">
             <div class="signature-company">For M/S SRI HM BITUMEN CO</div>
             <div class="stamp-area">

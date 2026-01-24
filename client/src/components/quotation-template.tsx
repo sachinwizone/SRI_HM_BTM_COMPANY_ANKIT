@@ -107,7 +107,10 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
 
     // Format currency in Indian format
     const formatCurrency = (amount: number): string => {
-      return amount.toLocaleString('en-IN', { 
+      // First ensure we have exactly 2 decimal places without rounding issues
+      const fixed = parseFloat(amount).toFixed(2);
+      // Then format with Indian locale
+      return parseFloat(fixed).toLocaleString('en-IN', { 
         minimumFractionDigits: 2, 
         maximumFractionDigits: 2 
       });
@@ -253,7 +256,7 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
     doc.rect(margin + partyWidth + 2, currentY, partyWidth, 45, 'F');
     
     // Add border to content boxes
-    doc.setDrawColor(200, 200, 200);
+    doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
     doc.setLineWidth(0.3);
     doc.rect(margin, currentY, partyWidth, 45);
     doc.rect(margin + partyWidth + 2, currentY, partyWidth, 45);
@@ -417,7 +420,7 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
       }
 
       // Draw row borders with consistent styling
-      doc.setDrawColor(200, 200, 200);
+      doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
       doc.setLineWidth(0.3);
       
       // Vertical column dividers
@@ -426,7 +429,7 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
       }
       
       // Row borders
-      doc.setDrawColor(180, 180, 180);
+      doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
       doc.setLineWidth(0.2);
       doc.line(margin, rowY + rowHeight, margin + totalTableWidth, rowY + rowHeight);
       
@@ -535,7 +538,7 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
     
     doc.setFillColor(240, 250, 240);
     doc.rect(margin, currentY, 80, 22, 'F');
-    doc.setDrawColor(200, 200, 200);
+    doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
     doc.setLineWidth(0.3);
     doc.rect(margin, currentY, 80, 22);
 

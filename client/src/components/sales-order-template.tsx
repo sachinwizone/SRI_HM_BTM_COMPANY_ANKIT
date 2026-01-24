@@ -115,7 +115,10 @@ export const generateBitumenSalesOrderPDF = async (salesOrderData: SalesOrderDat
 
   // Format currency in Indian format
   const formatCurrency = (amount: number): string => {
-    return amount.toLocaleString('en-IN', { 
+    // First ensure we have exactly 2 decimal places without rounding issues
+    const fixed = parseFloat(amount).toFixed(2);
+    // Then format with Indian locale
+    return parseFloat(fixed).toLocaleString('en-IN', { 
       minimumFractionDigits: 2, 
       maximumFractionDigits: 2 
     });
@@ -545,6 +548,18 @@ export const generateBitumenSalesOrderPDF = async (salesOrderData: SalesOrderDat
   doc.text('Authorized Signatory', sigX + 8, currentY + 3); // Further adjusted position
 
   currentY += 5; // Further reduced from 8
+
+  // ===================== CUSTOMER SEAL AND SIGN SECTION =====================
+  doc.setLineWidth(0.3);
+  doc.line(margin, currentY, pageWidth - margin, currentY);
+  
+  currentY += 4; // Add spacing
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(0, 0, 0);
+  doc.text('CUSTOMER SEAL AND SIGN', pageWidth / 2, currentY, { align: 'center' });
+  
+  currentY += 20; // Add space for customer to sign/seal
 
   // ===================== TERMS & CONDITIONS =====================
   doc.setLineWidth(0.3);
