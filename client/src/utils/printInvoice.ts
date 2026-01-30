@@ -641,7 +641,7 @@ export const generateSalesOrderHtml = (invoice: any, stampBase64: string = ''): 
     if (items.length === 0) {
       return `
         <tr>
-          <td colspan="7" style="border: 1px dashed #E67E22; padding: 20px; text-align: center; color: #999;">
+          <td colspan="7" style="border: 2px solid #FF0000; padding: 20px; text-align: center; color: #999;">
             No items found in this invoice
           </td>
         </tr>
@@ -676,13 +676,13 @@ export const generateSalesOrderHtml = (invoice: any, stampBase64: string = ''): 
       
       rows += `
         <tr>
-          <td style="border: 1px dashed #E67E22; padding: 8px; font-weight: bold;">${productName}</td>
-          <td style="border: 1px dashed #E67E22; padding: 8px; text-align: center;">${qty}</td>
-          <td style="border: 1px dashed #E67E22; padding: 8px; text-align: center;">${unit}</td>
-          <td style="border: 1px dashed #E67E22; padding: 8px; text-align: right;">${formatIndianNumber(rate)}</td>
-          <td style="border: 1px dashed #E67E22; padding: 8px; text-align: right;">${formatIndianNumber(amount)}</td>
-          <td style="border: 1px dashed #E67E22; padding: 8px; text-align: right;">${formatIndianNumber(itemGst)}</td>
-          <td style="border: 1px dashed #E67E22; padding: 8px; text-align: right;">${formatIndianNumber(itemTotal)}</td>
+          <td style="border: 2px solid #FF0000; padding: 8px; font-weight: bold;">${productName}</td>
+          <td style="border: 2px solid #FF0000; padding: 8px; text-align: center;">${qty}</td>
+          <td style="border: 2px solid #FF0000; padding: 8px; text-align: center;">${unit}</td>
+          <td style="border: 2px solid #FF0000; padding: 8px; text-align: right;">${formatIndianNumber(rate)}</td>
+          <td style="border: 2px solid #FF0000; padding: 8px; text-align: right;">${formatIndianNumber(amount)}</td>
+          <td style="border: 2px solid #FF0000; padding: 8px; text-align: right;">${formatIndianNumber(itemGst)}</td>
+          <td style="border: 2px solid #FF0000; padding: 8px; text-align: right;">${formatIndianNumber(itemTotal)}</td>
         </tr>
       `;
     });
@@ -698,8 +698,8 @@ export const generateSalesOrderHtml = (invoice: any, stampBase64: string = ''): 
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; font-size: 11px; line-height: 1.4; padding: 15px; background: #fff; }
-        .container { max-width: 800px; margin: 0 auto; border: 2px solid #000; }
-        .header { display: flex; align-items: center; padding: 15px; border-bottom: 2px solid #000; }
+        .container { max-width: 800px; margin: 0 auto; border: 3px solid #000; }
+        .header { display: flex; align-items: center; padding: 15px; border-bottom: 2px solid #FF0000; }
         .logo-section { display: flex; align-items: center; gap: 10px; }
         .logo-hindi { font-size: 36px; color: #000; font-weight: bold; font-family: serif; }
         .logo-text { font-size: 12px; color: #000; font-weight: bold; }
@@ -707,38 +707,38 @@ export const generateSalesOrderHtml = (invoice: any, stampBase64: string = ''): 
         .company-name { font-size: 22px; color: #000; font-weight: bold; margin-bottom: 5px; }
         .company-address { font-size: 10px; color: #333; line-height: 1.3; font-weight: bold; }
         .company-contact { font-size: 10px; color: #333; margin-top: 5px; font-weight: bold; }
-        .title { text-align: center; padding: 10px; font-size: 20px; color: #000; font-weight: bold; border-bottom: 2px solid #000; }
-        .info-row { display: flex; border-bottom: 2px solid #000; }
-        .info-cell { flex: 1; padding: 8px; border-right: 2px solid #000; }
+        .title { text-align: center; padding: 10px; font-size: 20px; color: #000; font-weight: bold; border-bottom: 2px solid #FF0000; }
+        .info-row { display: flex; border-bottom: 2px solid #FF0000; }
+        .info-cell { flex: 1; padding: 8px; border-right: 2px solid #FF0000; }
         .info-cell:last-child { border-right: none; }
         .info-label { font-size: 10px; color: #000; font-weight: bold; margin-bottom: 3px; }
         .info-value { font-size: 11px; font-weight: bold; color: #000; }
-        .party-section { display: flex; border-bottom: 2px solid #000; }
+        .party-section { display: flex; border-bottom: 2px solid #FF0000; }
         .bill-to, .ship-to { flex: 1; padding: 10px; }
-        .bill-to { border-right: 2px solid #000; }
+        .bill-to { border-right: 2px solid #FF0000; }
         .party-title { font-size: 11px; color: #000; font-weight: bold; margin-bottom: 8px; }
         .party-detail { font-size: 10px; margin: 4px 0; font-weight: bold; color: #000; }
         .party-detail strong { font-weight: bold; }
         .party-label { color: #000; font-weight: bold; }
         .items-table { width: 100%; border-collapse: collapse; }
         .items-header { background: #FFF3E0; }
-        .items-header th { border: 1px dashed #000; padding: 8px; color: #000; font-weight: bold; font-size: 10px; }
-        .items-table td { border: 1px dashed #000; padding: 8px; font-weight: bold; }
-        .bottom-section { display: flex; border-top: 2px solid #000; }
-        .left-section { flex: 1; padding: 10px; border-right: 2px solid #000; }
+        .items-header th { border: 2px solid #FF0000; padding: 8px; color: #000; font-weight: bold; font-size: 10px; }
+        .items-table td { border: 2px solid #FF0000; padding: 8px; font-weight: bold; }
+        .bottom-section { display: flex; border-top: 2px solid #FF0000; }
+        .left-section { flex: 1; padding: 10px; border-right: 2px solid #FF0000; }
         .right-section { width: 250px; }
-        .totals-row { display: flex; border-bottom: 2px solid #000; background-color: #F5F5F5; }
+        .totals-row { display: flex; border-bottom: 2px solid #FF0000; background-color: #F5F5F5; }
         .totals-label { flex: 1; padding: 10px; font-weight: 900; text-align: right; color: #000; font-size: 13px; }
         .totals-value { width: 100px; padding: 10px; text-align: right; font-weight: 900; font-size: 13px; color: #000; }
-        .freight-note { padding: 8px; font-size: 10px; font-weight: bold; color: #000; border-bottom: 2px solid #000; }
-        .terms-bank { display: flex; border-bottom: 2px solid #000; }
-        .terms { flex: 1; padding: 10px; border-right: 2px solid #000; font-size: 9px; font-weight: bold; }
+        .freight-note { padding: 8px; font-size: 10px; font-weight: bold; color: #000; border-bottom: 2px solid #FF0000; }
+        .terms-bank { display: flex; border-bottom: 2px solid #FF0000; }
+        .terms { flex: 1; padding: 10px; border-right: 2px solid #FF0000; font-size: 9px; font-weight: bold; }
         .terms-title { font-weight: bold; text-decoration: underline; margin-bottom: 5px; }
         .bank-details { width: 250px; padding: 10px; }
-        .bank-title { font-weight: bold; font-size: 12px; color: #000; border-bottom: 1px solid #000; padding-bottom: 3px; margin-bottom: 5px; }
+        .bank-title { font-weight: bold; font-size: 12px; color: #000; border-bottom: 2px solid #FF0000; padding-bottom: 3px; margin-bottom: 5px; }
         .bank-row { font-size: 10px; margin: 3px 0; font-weight: bold; }
         .signature-section { display: flex; }
-        .signature-left { flex: 1; padding: 15px; border-right: 2px solid #000; min-height: 80px; background-color: #FFF; display: flex; align-items: center; justify-content: center; }
+        .signature-left { flex: 1; padding: 15px; border-right: 2px solid #FF0000; min-height: 80px; background-color: #FFF; display: flex; align-items: center; justify-content: center; }
         .signature-right { width: 250px; padding: 15px; text-align: center; position: relative; min-height: 80px; }
         .signature-company { font-weight: bold; font-size: 11px; margin-bottom: 10px; }
         .stamp-area { height: 60px; display: flex; align-items: center; justify-content: center; margin: 8px 0; }
@@ -855,11 +855,11 @@ export const generateSalesOrderHtml = (invoice: any, stampBase64: string = ''): 
         <div class="bottom-section">
           <div class="left-section">
             <div style="margin-bottom: 10px;">
-              <span style="color: #E67E22; font-weight: bold;">Sales Person Name:</span>
+              <span style="color: #FF0000; font-weight: bold;">Sales Person Name:</span>
             </div>
             <div style="margin-bottom: 15px; font-weight: bold;">${invoice.salesPersonName || invoice.salesPerson || ''}</div>
             <div style="margin-bottom: 10px;">
-              <span style="color: #E67E22; font-weight: bold;">Description :</span>
+              <span style="color: #FF0000; font-weight: bold;">Description :</span>
             </div>
             <div style="font-weight: bold;">${invoice.description || invoice.remarks || ''}</div>
           </div>
@@ -873,8 +873,8 @@ export const generateSalesOrderHtml = (invoice: any, stampBase64: string = ''): 
               <div class="totals-value">${formatIndianNumber(freightAmount)}</div>
             </div>
             <div class="totals-row" style="background: #FFF3E0;">
-              <div class="totals-label" style="color: #E67E22;">Total</div>
-              <div class="totals-value" style="color: #E67E22;">${formatIndianNumber(subtotal + gstAmount + freightAmount)}</div>
+              <div class="totals-label" style="color: #FF0000;">Total</div>
+              <div class="totals-value" style="color: #FF0000;">${formatIndianNumber(subtotal + gstAmount + freightAmount)}</div>
             </div>
           </div>
         </div>

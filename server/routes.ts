@@ -27,8 +27,513 @@ import { sql, eq } from "drizzle-orm";
 import setupSalesOperationsRoutes from "./sales-operations-routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Debug middleware - log all API requests
+  app.use('/api', (req, res, next) => {
+    console.log(`🔍 API Request: ${req.method} ${req.path}`);
+    next();
+  });
+
   // Setup Sales Operations Routes
   setupSalesOperationsRoutes(app);
+
+  // Configure multer for bulk uploads
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }
+  });
+
+  // Test endpoint
+  app.get('/api/bulk-upload/test', (req, res) => {
+    console.log('✅ Bulk upload test endpoint hit');
+    res.json({ message: 'Bulk upload routes working' });
+  });
+
+  // Bulk upload leads endpoint
+  app.post('/api/bulk-upload/leads', upload.single('file'), async (req, res) => {
+    console.log('📤 POST /api/bulk-upload/leads called');
+    console.log('File received:', req.file?.originalname, 'Size:', req.file?.size);
+    
+    try {
+      if (!req.file) {
+        console.error('❌ No file uploaded');
+        return res.status(400).json({ error: 'No file uploaded', success: 0, failed: 0, total: 0, errors: [] });
+      }
+
+      // Simple CSV parsing
+      const text = req.file.buffer.toString('utf-8');
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length === 0) {
+        return res.status(400).json({ error: 'Empty CSV', success: 0, failed: 0, total: 0, errors: [] });
+      }
+
+      const headers = lines[0].split(',').map(h => h.toLowerCase().trim());
+      const rows = lines.slice(1).map(line => {
+        const values = line.split(',');
+        const row: Record<string, string> = {};
+        headers.forEach((h, i) => {
+          row[h] = (values[i] || '').trim();
+        });
+        return row;
+      });
+
+      console.log(`✅ Parsed ${rows.length} rows`);
+      console.log(`📋 CSV Headers: ${headers.join(', ')}`);
+      if (rows.length > 0) {
+        console.log(`📋 First row keys: ${Object.keys(rows[0]).join(', ')}`);
+      }
+
+      const result = {
+        success: 0,
+        failed: 0,
+        total: rows.length,
+        errors: [] as { row: number; message: string }[]
+      };
+
+      for (let i = 0; i < rows.length; i++) {
+        try {
+          const row = rows[i];
+          const rowNum = i + 2;
+
+          const companyName = row.companyname || row.company_name || '';
+          const email = row.email || '';
+          const mobileNumber = row.phone || row.mobilenumber || row.mobile_number || '';
+          const contactPersonName = row.contactperson || row.contact_person || row.contactpersonname || row.contact_person_name || '';
+          const leadSource = row.leadsource || row.lead_source || 'OTHERS';
+          const leadStatus = row.leadstatus || row.lead_status || 'NEW';
+          const interestedProducts = row.interestedproducts || row.interested_products || '';
+          const notes = row.notes || '';
+          const primarySalesPersonId = row.primarysalespersonid || row.primary_sales_person_id || null;
+
+          if (!companyName || !contactPersonName) {
+            result.failed++;
+            result.errors.push({
+              row: rowNum,
+              message: 'Missing required fields: companyName or contactPersonName'
+            });
+            continue;
+          }
+
+          // Generate lead number
+          const leadNumber = `LEAD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+          // Insert into database
+          await db.execute(sql`
+            INSERT INTO leads (
+              lead_number,
+              company_name,
+              contact_person_name,
+              mobile_number,
+              email,
+              lead_source,
+              lead_status,
+              interested_products,
+              notes,
+              primary_sales_person_id,
+              created_at
+            ) VALUES (
+              ${leadNumber},
+              ${companyName},
+              ${contactPersonName},
+              ${mobileNumber || null},
+              ${email || null},
+              ${leadSource},
+              ${leadStatus},
+              ${interestedProducts ? JSON.stringify([interestedProducts]) : null},
+              ${notes || null},
+              ${primarySalesPersonId || null},
+              NOW()
+            )
+          `);
+
+          result.success++;
+          console.log(`✅ Row ${rowNum} inserted`);
+        } catch (error: any) {
+          result.failed++;
+          console.error(`❌ Row ${i + 2} error:`, error.message);
+          result.errors.push({
+            row: i + 2,
+            message: error.message || 'Insert failed'
+          });
+        }
+      }
+
+      console.log(`✅ Upload complete: ${result.success} success, ${result.failed} failed`);
+      res.json({ summary: result });
+    } catch (error: any) {
+      console.error('❌ Upload error:', error);
+      res.status(500).json({ 
+        error: error.message,
+        success: 0,
+        failed: 0,
+        total: 0,
+        errors: []
+      });
+    }
+  });
+
+  // Bulk upload sales invoices endpoint
+  app.post('/api/bulk-upload/sales-invoices', upload.single('file'), async (req, res) => {
+    console.log('📤 POST /api/bulk-upload/sales-invoices called');
+    
+    try {
+      if (!req.file) {
+        return res.status(400).json({ summary: { success: 0, failed: 0, total: 0, errors: [] }, error: 'No file uploaded' });
+      }
+
+      const text = req.file.buffer.toString('utf-8');
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length === 0) {
+        return res.status(400).json({ summary: { success: 0, failed: 0, total: 0, errors: [] }, error: 'Empty CSV' });
+      }
+
+      const headers = lines[0].split(',').map(h => h.toLowerCase().trim());
+      const rows = lines.slice(1).map(line => {
+        const values = line.split(',');
+        const row: Record<string, string> = {};
+        headers.forEach((h, i) => {
+          row[h] = (values[i] || '').trim();
+        });
+        return row;
+      });
+
+      const result = {
+        success: 0,
+        failed: 0,
+        total: rows.length,
+        errors: [] as { row: number; message: string }[]
+      };
+
+      for (let i = 0; i < rows.length; i++) {
+        try {
+          const row = rows[i];
+          const rowNum = i + 2;
+
+          const invoiceNumber = row.invoicenumber || row.invoice_number || '';
+          const invoiceDate = row.invoicedate || row.invoice_date || new Date().toISOString().split('T')[0];
+          const customerId = row.customerid || row.customer_id || '';
+          const placeOfSupply = row.placeofsupply || row.place_of_supply || '';
+          const dueDate = row.duedate || row.due_date || '';
+          const subtotalAmount = parseFloat(row.subtotalamount || row.subtotal_amount || '0');
+          const cgstAmount = parseFloat(row.cgstamount || row.cgst_amount || '0');
+          const sgstAmount = parseFloat(row.sgstamount || row.sgst_amount || '0');
+          const igstAmount = parseFloat(row.igstamount || row.igst_amount || '0');
+          const totalInvoiceAmount = parseFloat(row.totalinvoiceamount || row.total_invoice_amount || '0');
+
+          if (!invoiceNumber || !customerId) {
+            result.failed++;
+            result.errors.push({
+              row: rowNum,
+              message: 'Missing required fields: invoiceNumber or customerId'
+            });
+            continue;
+          }
+
+          // Get financial year from invoice date
+          const dateObj = new Date(invoiceDate);
+          const year = dateObj.getFullYear();
+          const month = dateObj.getMonth();
+          const financialYear = month >= 3 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+
+          await db.execute(sql`
+            INSERT INTO sales_invoices (
+              invoice_number,
+              invoice_date,
+              financial_year,
+              customer_id,
+              place_of_supply,
+              due_date,
+              subtotal_amount,
+              cgst_amount,
+              sgst_amount,
+              igst_amount,
+              total_invoice_amount,
+              invoice_status,
+              payment_status,
+              created_at
+            ) VALUES (
+              ${invoiceNumber},
+              ${invoiceDate},
+              ${financialYear},
+              ${customerId},
+              ${placeOfSupply},
+              ${dueDate || null},
+              ${subtotalAmount},
+              ${cgstAmount},
+              ${sgstAmount},
+              ${igstAmount},
+              ${totalInvoiceAmount},
+              'DRAFT',
+              'UNPAID',
+              NOW()
+            )
+          `);
+
+          result.success++;
+          console.log(`✅ Row ${rowNum} inserted`);
+        } catch (error: any) {
+          result.failed++;
+          console.error(`❌ Row ${i + 2} error:`, error.message);
+          result.errors.push({
+            row: i + 2,
+            message: error.message || 'Insert failed'
+          });
+        }
+      }
+
+      console.log(`✅ Upload complete: ${result.success} success, ${result.failed} failed`);
+      res.json({ summary: result });
+    } catch (error: any) {
+      console.error('❌ Upload error:', error);
+      res.status(500).json({ 
+        summary: { success: 0, failed: 0, total: 0, errors: [] },
+        error: error.message
+      });
+    }
+  });
+
+  // Bulk upload purchase invoices endpoint
+  app.post('/api/bulk-upload/purchase-invoices', upload.single('file'), async (req, res) => {
+    console.log('📤 POST /api/bulk-upload/purchase-invoices called');
+    
+    try {
+      if (!req.file) {
+        return res.status(400).json({ summary: { success: 0, failed: 0, total: 0, errors: [] }, error: 'No file uploaded' });
+      }
+
+      const text = req.file.buffer.toString('utf-8');
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length === 0) {
+        return res.status(400).json({ summary: { success: 0, failed: 0, total: 0, errors: [] }, error: 'Empty CSV' });
+      }
+
+      const headers = lines[0].split(',').map(h => h.toLowerCase().trim());
+      const rows = lines.slice(1).map(line => {
+        const values = line.split(',');
+        const row: Record<string, string> = {};
+        headers.forEach((h, i) => {
+          row[h] = (values[i] || '').trim();
+        });
+        return row;
+      });
+
+      const result = {
+        success: 0,
+        failed: 0,
+        total: rows.length,
+        errors: [] as { row: number; message: string }[]
+      };
+
+      for (let i = 0; i < rows.length; i++) {
+        try {
+          const row = rows[i];
+          const rowNum = i + 2;
+
+          const invoiceNumber = row.invoicenumber || row.invoice_number || '';
+          const invoiceDate = row.invoicedate || row.invoice_date || new Date().toISOString().split('T')[0];
+          const supplierId = row.supplierid || row.supplier_id || '';
+          const placeOfSupply = row.placeofsupply || row.place_of_supply || '';
+          const dueDate = row.duedate || row.due_date || '';
+          const subtotalAmount = parseFloat(row.subtotalamount || row.subtotal_amount || '0');
+          const cgstAmount = parseFloat(row.cgstamount || row.cgst_amount || '0');
+          const sgstAmount = parseFloat(row.sgstamount || row.sgst_amount || '0');
+          const igstAmount = parseFloat(row.igstamount || row.igst_amount || '0');
+          const totalInvoiceAmount = parseFloat(row.totalinvoiceamount || row.total_invoice_amount || '0');
+
+          if (!invoiceNumber || !supplierId) {
+            result.failed++;
+            result.errors.push({
+              row: rowNum,
+              message: 'Missing required fields: invoiceNumber or supplierId'
+            });
+            continue;
+          }
+
+          // Get financial year from invoice date
+          const dateObj = new Date(invoiceDate);
+          const year = dateObj.getFullYear();
+          const month = dateObj.getMonth();
+          const financialYear = month >= 3 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+
+          await db.execute(sql`
+            INSERT INTO purchase_invoices (
+              invoice_number,
+              invoice_date,
+              financial_year,
+              supplier_id,
+              place_of_supply,
+              due_date,
+              subtotal_amount,
+              cgst_amount,
+              sgst_amount,
+              igst_amount,
+              total_invoice_amount,
+              invoice_status,
+              payment_status,
+              created_at
+            ) VALUES (
+              ${invoiceNumber},
+              ${invoiceDate},
+              ${financialYear},
+              ${supplierId},
+              ${placeOfSupply},
+              ${dueDate || null},
+              ${subtotalAmount},
+              ${cgstAmount},
+              ${sgstAmount},
+              ${igstAmount},
+              ${totalInvoiceAmount},
+              'DRAFT',
+              'UNPAID',
+              NOW()
+            )
+          `);
+
+          result.success++;
+          console.log(`✅ Row ${rowNum} inserted`);
+        } catch (error: any) {
+          result.failed++;
+          console.error(`❌ Row ${i + 2} error:`, error.message);
+          result.errors.push({
+            row: i + 2,
+            message: error.message || 'Insert failed'
+          });
+        }
+      }
+
+      console.log(`✅ Upload complete: ${result.success} success, ${result.failed} failed`);
+      res.json({ summary: result });
+    } catch (error: any) {
+      console.error('❌ Upload error:', error);
+      res.status(500).json({ 
+        summary: { success: 0, failed: 0, total: 0, errors: [] },
+        error: error.message
+      });
+    }
+  });
+
+  // Bulk upload clients endpoint
+  app.post('/api/bulk-upload/clients', upload.single('file'), async (req, res) => {
+    console.log('📤 POST /api/bulk-upload/clients called');
+    
+    try {
+      if (!req.file) {
+        return res.status(400).json({ summary: { success: 0, failed: 0, total: 0, errors: [] }, error: 'No file uploaded' });
+      }
+
+      const text = req.file.buffer.toString('utf-8');
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length === 0) {
+        return res.status(400).json({ summary: { success: 0, failed: 0, total: 0, errors: [] }, error: 'Empty CSV' });
+      }
+
+      const headers = lines[0].split(',').map(h => h.toLowerCase().trim());
+      const rows = lines.slice(1).map(line => {
+        const values = line.split(',');
+        const row: Record<string, string> = {};
+        headers.forEach((h, i) => {
+          row[h] = (values[i] || '').trim();
+        });
+        return row;
+      });
+
+      const result = {
+        success: 0,
+        failed: 0,
+        total: rows.length,
+        errors: [] as { row: number; message: string }[]
+      };
+
+      for (let i = 0; i < rows.length; i++) {
+        try {
+          const row = rows[i];
+          const rowNum = i + 2;
+
+          const name = row.name || row.clientname || '';
+          const category = row.category || row.clienttype || 'RETAIL';
+          const contactPersonName = row.contactpersonname || row.contact_person_name || row.contactperson || '';
+          const mobileNumber = row.mobilenumber || row.mobile_number || row.phone || '';
+          const email = row.email || '';
+          const billingAddressLine = row.billingaddressline || row.billing_address_line || row.address || '';
+          const billingCity = row.billingcity || row.billing_city || row.city || '';
+          const billingPincode = row.billingpincode || row.billing_pincode || row.pincode || '';
+          const billingState = row.billingstate || row.billing_state || row.state || '';
+          const billingCountry = row.billingcountry || row.billing_country || row.country || 'India';
+          const gstNumber = row.gstnumber || row.gst_number || row.gstno || '';
+          const panNumber = row.pannumber || row.pan_number || row.panno || '';
+          const paymentTerms = parseInt(row.paymentterms || row.payment_terms || '30');
+          const creditLimit = parseFloat(row.creditlimit || row.credit_limit || '0');
+
+          if (!name) {
+            result.failed++;
+            result.errors.push({
+              row: rowNum,
+              message: 'Missing required field: name'
+            });
+            continue;
+          }
+
+          await db.execute(sql`
+            INSERT INTO clients (
+              name,
+              category,
+              contact_person_name,
+              mobile_number,
+              email,
+              billing_address_line,
+              billing_city,
+              billing_pincode,
+              billing_state,
+              billing_country,
+              gst_number,
+              pan_number,
+              payment_terms,
+              credit_limit,
+              created_at
+            ) VALUES (
+              ${name},
+              ${category},
+              ${contactPersonName || null},
+              ${mobileNumber || null},
+              ${email || null},
+              ${billingAddressLine || null},
+              ${billingCity || null},
+              ${billingPincode || null},
+              ${billingState || null},
+              ${billingCountry || null},
+              ${gstNumber || null},
+              ${panNumber || null},
+              ${paymentTerms},
+              ${creditLimit},
+              NOW()
+            )
+          `);
+
+          result.success++;
+          console.log(`✅ Row ${rowNum} inserted`);
+        } catch (error: any) {
+          result.failed++;
+          console.error(`❌ Row ${i + 2} error:`, error.message);
+          result.errors.push({
+            row: i + 2,
+            message: error.message || 'Insert failed'
+          });
+        }
+      }
+
+      console.log(`✅ Upload complete: ${result.success} success, ${result.failed} failed`);
+      res.json({ summary: result });
+    } catch (error: any) {
+      console.error('❌ Upload error:', error);
+      res.status(500).json({ 
+        summary: { success: 0, failed: 0, total: 0, errors: [] },
+        error: error.message
+      });
+    }
+  });
   
   // Authentication Routes (Public)
   app.post("/api/auth/login", async (req, res) => {
@@ -3379,7 +3884,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         salesOrders = await storage.getAllSalesOrders();
       }
-      res.json(salesOrders);
+      
+      // Fetch items for each sales order
+      const salesOrdersWithItems = await Promise.all(
+        (salesOrders as any[]).map(async (order) => {
+          const items = await storage.getSalesOrderItemsByOrder(order.id);
+          return { ...order, items };
+        })
+      );
+      
+      res.json(salesOrdersWithItems);
     } catch (error) {
       console.error("Sales orders fetch error:", error);
       res.status(500).json({ message: "Failed to fetch sales orders" });

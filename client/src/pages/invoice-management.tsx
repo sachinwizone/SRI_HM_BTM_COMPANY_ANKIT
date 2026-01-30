@@ -33,6 +33,7 @@ import {
   Trash2,
   Printer,
   Download,
+  Upload,
   RefreshCw,
   IndianRupee,
   DollarSign,
@@ -1000,7 +1001,7 @@ const PurchaseInvoiceForm = ({ onBack, editingInvoice }: { onBack: () => void; e
                           />
                         </td>
                         <td className="border border-gray-300 p-2 font-medium">
-                          ₹{item.amount.toFixed(2)}
+                          ₹{(item.amount || 0).toFixed(2)}
                         </td>
                         <td className="border border-gray-300 p-2">
                           <input
@@ -1118,6 +1119,11 @@ const SalesInvoiceForm = ({ onBack, editingInvoice }: { onBack: () => void; edit
     queryKey: ['/api/users'],
   });
 
+  // Fetch sales orders for auto-fill
+  const { data: salesOrders = [], isLoading: salesOrdersLoading } = useQuery<any[]>({
+    queryKey: ['/api/sales-orders'],
+  });
+
   // Debug logging
   useEffect(() => {
     console.log('=== SALES FORM DEBUG ===');
@@ -1156,6 +1162,7 @@ const SalesInvoiceForm = ({ onBack, editingInvoice }: { onBack: () => void; edit
   const [gstType, setGstType] = useState<'CGST_SGST' | 'IGST'>('CGST_SGST'); // GST Type selection
   const [customerSearchTerm, setCustomerSearchTerm] = useState<string>('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
+  const [selectedSalesOrderNumber, setSelectedSalesOrderNumber] = useState<string>(''); // Track sales order selection separately
   const customerDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close customer dropdown when clicking outside
@@ -1399,6 +1406,105 @@ const SalesInvoiceForm = ({ onBack, editingInvoice }: { onBack: () => void; edit
     }
   }, [editingInvoice]);
 
+  // Auto-fill from Sales Order Number
+  useEffect(() => {
+    if (selectedSalesOrderNumber && !editingInvoice && salesOrders.length > 0) {
+      console.log('🔍 Auto-fill triggered for sales order:', selectedSalesOrderNumber);
+      console.log('📦 Available sales orders:', salesOrders.length, 'Sales orders:', salesOrders);
+      
+      const selectedOrder = salesOrders.find(
+        (so: any) => so.orderNumber === selectedSalesOrderNumber || 
+                      so.quotationNumber === selectedSalesOrderNumber
+      );
+
+      console.log('✅ Selected order found:', !!selectedOrder, selectedOrder);
+
+      if (selectedOrder) {
+        // Try to find client from clientName in sales order first, then from clients array
+        let orderClient = null;
+        
+        // First try to find from clients array
+        if (selectedOrder.clientId) {
+          orderClient = clients.find((c: any) => c.id === selectedOrder.clientId);
+        }
+        
+        console.log('👤 Order client:', orderClient);
+        
+        // Use client data from order or lookup
+        const customerName = selectedOrder.clientName || orderClient?.name || orderClient?.clientName || orderClient?.companyName || '';
+        const customerGSTIN = orderClient?.gstNumber || orderClient?.gst_number || orderClient?.gstin || '';
+        const customerMobile = orderClient?.mobileNumber || orderClient?.mobile_number || orderClient?.partyMobileNumber || '';
+        
+        console.log('📋 Customer Name:', customerName);
+        
+        // Auto-fill customer details - use whatever data is available
+        const billingAddressParts = [
+          orderClient?.billingAddressLine || orderClient?.billing_address_line || orderClient?.address,
+          orderClient?.billingCity || orderClient?.billing_city || orderClient?.city,
+          orderClient?.billingState || orderClient?.billing_state || orderClient?.state,
+          orderClient?.billingPincode || orderClient?.billing_pincode || orderClient?.pincode
+        ].filter(Boolean);
+        
+        const fullBillingAddress = billingAddressParts.join(', ') || 'N/A';
+        
+        // Auto-fill items from sales order
+        let newInvoiceItems = [];
+        if (selectedOrder.items && selectedOrder.items.length > 0) {
+          console.log('📋 Sales order items found:', selectedOrder.items);
+          newInvoiceItems = selectedOrder.items.map((item: any, idx: number) => ({
+            id: idx + 1,
+            productId: item.productId || item.id || '', // Add productId for validation
+            description: item.productName || item.description || '',
+            hsn: item.hsnCode || '',
+            unit: mapUnitToEnum(item.unit || item.unitOfMeasurement || 'PIECE'),
+            quantity: parseFloat(item.quantity || 0),
+            rate: parseFloat(item.unitPrice || item.ratePerUnit || item.rate || 0),
+            amount: parseFloat(item.totalPrice || item.taxableAmount || item.amount || 0),
+            taxRate: parseFloat(item.taxRate || 18),
+            totalAmount: parseFloat(item.totalPrice || item.totalAmount || 0),
+            taxAmount: parseFloat(item.taxAmount || 0),
+            taxableAmount: parseFloat(item.taxableAmount || item.totalPrice || 0)
+          }));
+          console.log('✅ Mapped invoice items:', newInvoiceItems);
+          // Also set product selections
+          const productSelections: { [key: number]: string } = {};
+          newInvoiceItems.forEach((item: any, idx: number) => {
+            if (item.productId) {
+              productSelections[idx] = item.productId;
+            }
+          });
+          setSelectedProductIds(productSelections);
+          console.log('✅ Set product selections:', productSelections);
+        } else {
+          console.log('⚠️ No items found in sales order');
+        }
+        
+        // Prepare updated form data - combine customer details and items in single update
+        const updatedFormData = {
+          ...formData,
+          salesOrderNumber: selectedSalesOrderNumber,
+          customerId: selectedOrder.clientId || '',
+          customerName: customerName,
+          customerGSTIN: customerGSTIN,
+          customerAddress: fullBillingAddress,
+          customerCity: orderClient?.billingCity || orderClient?.billing_city || orderClient?.city || '',
+          customerState: orderClient?.billingState || orderClient?.billing_state || orderClient?.state || '',
+          customerPincode: orderClient?.billingPincode || orderClient?.billing_pincode || orderClient?.pincode || '',
+          customerMobile: customerMobile,
+          destination: selectedOrder.destination || '',
+          loadingFrom: selectedOrder.loadingFrom || 'KANDLA',
+          paymentTerms: selectedOrder.paymentTerms || 'ADVANCE',
+          items: newInvoiceItems.length > 0 ? newInvoiceItems : formData.items
+        };
+        
+        console.log('📝 Updated form data:', updatedFormData);
+        setFormData(updatedFormData);
+        setSelectedClientId(selectedOrder.clientId || '');
+        setCustomerSearchTerm('');
+      }
+    }
+  }, [selectedSalesOrderNumber, salesOrders, clients, editingInvoice]);
+
   // Handle client selection and auto-fill
   const handleClientChange = (clientId: string) => {
     setSelectedClientId(clientId);
@@ -1590,6 +1696,7 @@ const SalesInvoiceForm = ({ onBack, editingInvoice }: { onBack: () => void; edit
     try {
       console.log('=== STARTING FORM SUBMISSION ===');
       console.log('Form Data:', formData);
+      console.log('Selected Sales Order Number:', formData.salesOrderNumber);
       console.log('Selected Product IDs:', selectedProductIds);
       
       // Validate required fields
@@ -1612,6 +1719,7 @@ const SalesInvoiceForm = ({ onBack, editingInvoice }: { onBack: () => void; edit
       const invoice = {
         invoiceNumber: formData.invoiceNo,
         invoiceDate: formData.invoiceDate, // Keep as string, backend will handle
+        salesOrderNumber: formData.salesOrderNumber || null,
         invoiceType: 'TAX_INVOICE',
         customerId: formData.customerId,
         placeOfSupply: formData.customerState || formData.customerAddress || 'N/A',
@@ -1697,6 +1805,7 @@ const SalesInvoiceForm = ({ onBack, editingInvoice }: { onBack: () => void; edit
 
       console.log('Prepared invoice data:', JSON.stringify(invoice, null, 2));
       console.log('Prepared items data:', JSON.stringify(items, null, 2));
+      console.log('FINAL SALES ORDER NUMBER BEING SENT:', invoice.salesOrderNumber);
 
       const isEditing = editingInvoice && editingInvoice.id;
       const url = isEditing 
@@ -1849,13 +1958,27 @@ const SalesInvoiceForm = ({ onBack, editingInvoice }: { onBack: () => void; edit
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Sales Order Number</label>
-                  <input
-                    type="text"
-                    value={formData.salesOrderNumber}
-                    onChange={(e) => setFormData(prev => ({ ...prev, salesOrderNumber: e.target.value }))}
-                    placeholder="Enter Sales Order Number"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                  <Select value={formData.salesOrderNumber} onValueChange={(value) => {
+                    setFormData(prev => ({ ...prev, salesOrderNumber: value }));
+                    setSelectedSalesOrderNumber(value);
+                  }}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Sales Order Number" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {salesOrdersLoading ? (
+                        <div className="p-2 text-sm text-gray-500">Loading sales orders...</div>
+                      ) : (salesOrders as any[]).length > 0 ? (
+                        (salesOrders as any[]).map((order: any) => (
+                          <SelectItem key={order.id} value={order.orderNumber || order.quotationNumber}>
+                            {order.orderNumber || order.quotationNumber} - {order.clientName || 'Unknown Client'}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="p-2 text-sm text-gray-500">No sales orders available</div>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">LR Number</label>
@@ -1997,52 +2120,14 @@ const SalesInvoiceForm = ({ onBack, editingInvoice }: { onBack: () => void; edit
             </CardHeader>
             <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div className="relative" ref={customerDropdownRef}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Customer *</label>
-                  <input
-                    type="text"
-                    placeholder="Search Customer..."
-                    value={customerSearchTerm}
-                    onChange={(e) => {
-                      setCustomerSearchTerm(e.target.value);
-                      setShowCustomerDropdown(true);
-                    }}
-                    onFocus={() => setShowCustomerDropdown(true)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  {showCustomerDropdown && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                      {clientsLoading ? (
-                        <div className="p-2 text-gray-500">Loading customers...</div>
-                      ) : filteredClients.length === 0 ? (
-                        <div className="p-2 text-red-500">No customers found</div>
-                      ) : (
-                        filteredClients.map((client) => (
-                          <div
-                            key={client.id}
-                            className="p-2 hover:bg-blue-100 cursor-pointer font-medium"
-                            onClick={() => {
-                              handleClientChange(String(client.id));
-                              setCustomerSearchTerm(client.name || client.clientName || client.companyName || 'Unnamed Client');
-                              setShowCustomerDropdown(false);
-                            }}
-                          >
-                            {client.name || client.clientName || client.companyName || 'Unnamed Client'}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
                   <input
                     type="text"
+                    placeholder="Auto-filled from Sales Order"
                     value={formData.customerName}
-                    onChange={(e) => setFormData(prev => ({ ...prev, customerName: e.target.value }))}
-                    placeholder="Auto-filled from selection"
                     readOnly
-                    className="w-full p-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                    className="w-full p-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700"
                   />
                 </div>
               </div>
@@ -2214,24 +2299,24 @@ const SalesInvoiceForm = ({ onBack, editingInvoice }: { onBack: () => void; edit
                           />
                         </td>
                         <td className="border border-gray-300 p-2 font-medium text-right whitespace-nowrap" style={{ minWidth: '110px' }}>
-                          ₹{item.amount.toFixed(2)}
+                          ₹{(item.amount || 0).toFixed(2)}
                         </td>
                         <td className="border border-gray-300 p-2" style={{ minWidth: '70px' }}>
                           <input
                             type="number"
-                            value={item.taxRate}
+                            value={item.taxRate || 0}
                             readOnly
                             className="w-full p-1 border border-gray-200 rounded bg-gray-50 text-right"
                           />
                         </td>
                         <td className="border border-gray-300 p-2 font-medium text-right whitespace-nowrap" style={{ minWidth: '110px' }}>
-                          ₹{item.totalAmount.toFixed(2)}
+                          ₹{(item.totalAmount || 0).toFixed(2)}
                         </td>
                         <td className="border border-gray-300 p-2 font-medium text-right whitespace-nowrap" style={{ minWidth: '100px' }}>
-                          ₹{item.taxAmount.toFixed(2)}
+                          ₹{(item.taxAmount || 0).toFixed(2)}
                         </td>
                         <td className="border border-gray-300 p-2 font-medium text-right whitespace-nowrap" style={{ minWidth: '110px' }}>
-                          ₹{item.taxableAmount.toFixed(2)}
+                          ₹{(item.taxableAmount || 0).toFixed(2)}
                         </td>
                         <td className="border border-gray-300 p-2 text-center">
                           {formData.items.length > 1 && (
@@ -3333,12 +3418,54 @@ const InvoiceManagement: React.FC = () => {
                 <span>View Ledger</span>
               </Button>
             </a>
+            <Button 
+              variant="outline" 
+              className="flex items-center space-x-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+              onClick={() => {
+                const csv = filteredInvoices.map(inv => `${inv.invoiceNumber},${inv.salesOrderNumber || ''},${inv.invoiceDate},${inv.customerName || ''},${inv.totalInvoiceAmount}`).join('\n');
+                const header = 'Invoice Number,Sales Order Number,Date,Customer,Amount\n';
+                const element = document.createElement('a');
+                element.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(header + csv));
+                element.setAttribute('download', `sales_invoices_${new Date().toISOString().split('T')[0]}.csv`);
+                element.style.display = 'none';
+                document.body.appendChild(element);
+                element.click();
+                document.body.removeChild(element);
+              }}
+            >
+              <Download className="w-4 h-4" />
+              <span>Export CSV</span>
+            </Button>
             <Button onClick={() => handleTypeSelection('sales')} className="bg-blue-600 hover:bg-blue-700">
               <Plus className="w-4 h-4 mr-2" />
               New Sales Invoice
             </Button>
           </div>
         </div>
+
+        {/* Bulk Upload Actions for Sales Invoices */}
+        <Card className="bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Upload size={16} className="text-blue-600" />
+                <span className="text-sm font-semibold text-gray-800">Bulk Operations</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-8 bg-green-100 border-green-400 text-green-700 hover:bg-green-200 font-medium">
+                  <Download size={14} className="mr-1" />
+                  Export CSV
+                </Button>
+                <a href="/bulk-upload">
+                  <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700 text-white font-medium">
+                    <Upload size={14} className="mr-1" />
+                    Import Sales Invoices
+                  </Button>
+                </a>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -3483,6 +3610,7 @@ const InvoiceManagement: React.FC = () => {
                 <thead className="bg-gray-50 border-b sticky top-0 z-10">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-max">Invoice No</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-max">Sales Order No</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-max">Date</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-max">Customer</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-max">Amount</th>
@@ -3493,7 +3621,7 @@ const InvoiceManagement: React.FC = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredInvoices.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                         No sales invoices found
                       </td>
                     </tr>
@@ -3502,6 +3630,9 @@ const InvoiceManagement: React.FC = () => {
                       <tr key={invoice.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 min-w-max">
                           {invoice.invoiceNumber}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-semibold min-w-max">
+                          {invoice.salesOrderNumber || '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 min-w-max">
                           {invoice.invoiceDate ? new Date(invoice.invoiceDate).toLocaleDateString('en-IN') : 'N/A'}
@@ -3659,12 +3790,54 @@ const InvoiceManagement: React.FC = () => {
                 <span>View Ledger</span>
               </Button>
             </a>
+            <Button 
+              variant="outline" 
+              className="flex items-center space-x-2 border-green-300 text-green-700 hover:bg-green-50"
+              onClick={() => {
+                const csv = filteredPurchaseInvoices.map(inv => `${inv.invoiceNumber},${inv.invoiceDate},${inv.supplierName || ''},${inv.totalInvoiceAmount}`).join('\n');
+                const header = 'Invoice Number,Date,Supplier,Amount\n';
+                const element = document.createElement('a');
+                element.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(header + csv));
+                element.setAttribute('download', `purchase_invoices_${new Date().toISOString().split('T')[0]}.csv`);
+                element.style.display = 'none';
+                document.body.appendChild(element);
+                element.click();
+                document.body.removeChild(element);
+              }}
+            >
+              <Download className="w-4 h-4" />
+              <span>Export CSV</span>
+            </Button>
             <Button onClick={() => handleTypeSelection('purchase')} className="bg-green-600 hover:bg-green-700">
               <Plus className="w-4 h-4 mr-2" />
               New Purchase Invoice
             </Button>
           </div>
         </div>
+
+        {/* Bulk Upload Actions for Purchase Invoices */}
+        <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Upload size={16} className="text-green-600" />
+                <span className="text-sm font-semibold text-gray-800">Bulk Operations</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-8 bg-orange-100 border-orange-400 text-orange-700 hover:bg-orange-200 font-medium">
+                  <Download size={14} className="mr-1" />
+                  Export CSV
+                </Button>
+                <a href="/bulk-upload">
+                  <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700 text-white font-medium">
+                    <Upload size={14} className="mr-1" />
+                    Import Purchase Invoices
+                  </Button>
+                </a>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

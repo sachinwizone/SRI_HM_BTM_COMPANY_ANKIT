@@ -325,9 +325,18 @@ export async function deleteTransporter(id: string): Promise<void> {
 
 // Sales Invoice Management
 export async function createSalesInvoice(invoiceData: InsertSalesInvoice, itemsData: InsertSalesInvoiceItem[]): Promise<{ invoice: SalesInvoice; items: SalesInvoiceItem[] }> {
+  console.log('💾 createSalesInvoice - Inserting with data:', {
+    invoiceNumber: invoiceData.invoiceNumber,
+    salesOrderNumber: invoiceData.salesOrderNumber,
+    salesOrderNumberType: typeof invoiceData.salesOrderNumber,
+    customerId: invoiceData.customerId
+  });
+  
   return await db.transaction(async (tx) => {
     // Create the invoice
     const [invoice] = await tx.insert(salesInvoices).values(invoiceData).returning();
+    
+    console.log('✅ Invoice created with ID:', invoice.id, 'salesOrderNumber returned:', invoice.salesOrderNumber, 'type:', typeof invoice.salesOrderNumber);
     
     // Create invoice items
     const itemsWithInvoiceId = itemsData.map((item, index) => ({
@@ -336,7 +345,11 @@ export async function createSalesInvoice(invoiceData: InsertSalesInvoice, itemsD
       lineNumber: index + 1
     }));
     
+    console.log('💾 Inserting items:', itemsWithInvoiceId.map(i => ({ lineNumber: i.lineNumber, quantity: i.quantity, productId: i.productId })));
+    
     const items = await tx.insert(salesInvoiceItems).values(itemsWithInvoiceId).returning();
+    
+    console.log('✅ Items created:', items.length, 'items with quantities:', items.map(i => ({ lineNumber: i.lineNumber, quantity: i.quantity })));
     
     // Update stock for each item
     for (const item of items) {
@@ -369,6 +382,7 @@ export async function getAllSalesInvoices(): Promise<any[]> {
       si.id,
       si.invoice_number as "invoiceNumber",
       si.invoice_date as "invoiceDate",
+      si.sales_order_number as "salesOrderNumber",
       si.invoice_type as "invoiceType",
       si.financial_year as "financialYear",
       si.customer_id as "customerId",

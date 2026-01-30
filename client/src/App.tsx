@@ -23,9 +23,11 @@ import SalesOperations from "@/pages/sales-operations";
 import TourAdvance from "@/pages/tour-advance";
 import TAReports from "@/pages/ta-reports";
 import InvoiceManagement from "@/pages/invoice-management";
+import PendingOrders from "@/pages/pending-orders";
 import CompanyLedger from "@/pages/company-ledger";
 import PurchaseLedger from "@/pages/purchase-ledger";
 import Reports from "@/pages/reports";
+import BulkUpload from "@/pages/bulk-upload";
 
 import UserManagement from "@/pages/user-management";
 import MasterData from "@/pages/master-data";
@@ -78,9 +80,11 @@ function Router() {
             <Route path="/sales-rates" component={SalesRates} />
             <Route path="/pricing" component={Pricing} />
             <Route path="/invoice-management" component={InvoiceManagement} />
+            <Route path="/pending-orders" component={PendingOrders} />
             <Route path="/company-ledger" component={CompanyLedger} />
             <Route path="/purchase-ledger" component={PurchaseLedger} />
             <Route path="/reports" component={Reports} />
+            <Route path="/bulk-upload" component={BulkUpload} />
 
             <Route path="/master-data" component={MasterData} />
             <Route path="/user-management" component={UserManagement} />

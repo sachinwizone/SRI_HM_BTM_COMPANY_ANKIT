@@ -257,6 +257,15 @@ export default function setupSalesOperationsRoutes(app: Express) {
       const { invoice, items } = req.body;
       const currentUser = (req as any).user;
       
+      console.log('📝 CREATE SALES INVOICE - Full request body:', JSON.stringify(req.body, null, 2));
+      console.log('📝 CREATE SALES INVOICE - Received invoice data:', {
+        invoiceNumber: invoice.invoiceNumber,
+        salesOrderNumber: invoice.salesOrderNumber,
+        salesOrderNumberType: typeof invoice.salesOrderNumber,
+        customerId: invoice.customerId,
+        itemsCount: items?.length
+      });
+      
       // Validate required fields
       if (!invoice) {
         return res.status(400).json({ error: "Invoice data is required" });
@@ -380,6 +389,204 @@ export default function setupSalesOperationsRoutes(app: Express) {
     } catch (error: any) {
       console.error("Error deleting sales invoice:", error);
       res.status(500).json({ error: "Failed to delete sales invoice" });
+    }
+  });
+
+  // ============ PENDING ORDERS CALCULATION ============
+  
+  // Get pending orders - items with remaining quantities not yet fully invoiced
+  app.get("/api/sales-operations/pending-orders", requireAuth, async (req, res) => {
+    try {
+      console.log("🔍 Fetching pending orders...");
+      
+      // Query all sales orders
+      const salesOrdersResult = await db.execute(sql`
+        SELECT 
+          so.id,
+          so.order_number as "orderNumber",
+          c.name as "customerName",
+          so.total_amount as "totalAmount",
+          so.created_at as "createdAt"
+        FROM sales_orders so
+        LEFT JOIN clients c ON so.client_id = c.id
+        ORDER BY so.created_at DESC
+      `);
+      
+      const salesOrders = salesOrdersResult.rows as any[];
+      console.log(`📦 Found ${salesOrders.length} sales orders`);
+      
+      // Log the sales order we're looking for
+      const targetSO = salesOrders.find((so: any) => so.orderNumber === "SRIHM-SO/338/25-26");
+      if (targetSO) {
+        console.log(`🎯 Found target SO: ${targetSO.orderNumber}, Customer: ${targetSO.customerName}, Amount: ${targetSO.totalAmount}`);
+      }
+      
+      const result: any[] = [];
+      
+      // For each sales order
+      for (const order of salesOrders) {
+        // Get all items in this sales order
+        const itemsResult = await db.execute(sql`
+          SELECT 
+            soi.id,
+            soi.product_id as "productId",
+            soi.description as "productName",
+            soi.unit,
+            soi.quantity,
+            soi.unit_price as "rate"
+          FROM sales_order_items soi
+          WHERE soi.sales_order_id = ${order.id}
+        `);
+        
+        const items = itemsResult.rows as any[];
+        
+        // Calculate total invoiced for this sales order
+        let totalInvoicedAmount = 0;
+        let allInvoiceNumbers: string[] = [];
+        let totalSOQty = 0;
+        let totalInvoicedQty = 0;
+        
+        // Get ALL invoices for this sales order in ONE query (simplified)
+        const allInvoicesResult = await db.execute(sql`
+          SELECT DISTINCT
+            si.id,
+            si.invoice_number as "invoiceNumber",
+            si.total_invoice_amount as "invoiceAmount",
+            si.created_at as "invoiceDate"
+          FROM sales_invoices si
+          WHERE si.sales_order_number = ${order.orderNumber}
+          ORDER BY si.created_at DESC
+        `);
+        
+        const allInvoices = allInvoicesResult.rows as any[];
+        console.log(`🔗 Found ${allInvoices.length} invoices for SO ${order.orderNumber}`, allInvoices.map(inv => inv.invoiceNumber));
+        
+        // Collect invoice numbers and sum amounts
+        allInvoices.forEach((inv: any) => {
+          allInvoiceNumbers.push(inv.invoiceNumber);
+          totalInvoicedAmount += parseFloat(inv.invoiceAmount || 0);
+        });
+        
+        // Calculate total quantities from items
+        for (const item of items) {
+          totalSOQty += parseFloat(item.quantity || 0);
+        }
+        
+        // Get total invoiced quantity from ALL invoice items (don't match by product_id as they may differ after sync)
+        const totalInvoicedQtyResult = await db.execute(sql`
+          SELECT 
+            SUM(CAST(sii.quantity AS DECIMAL)) as "totalQty"
+          FROM sales_invoice_items sii
+          INNER JOIN sales_invoices si ON sii.invoice_id = si.id
+          WHERE si.sales_order_number = ${order.orderNumber}
+        `);
+        
+        console.log(`🔎 Invoiced qty query result for SO ${order.orderNumber}:`, totalInvoicedQtyResult.rows);
+        
+        const qtyResult = totalInvoicedQtyResult.rows[0] as any;
+        if (qtyResult && qtyResult.totalQty) {
+          totalInvoicedQty = parseFloat(qtyResult.totalQty || 0);
+        }
+        
+        console.log(`✅ Final invoiced qty for SO ${order.orderNumber}: ${totalInvoicedQty}`);
+        
+        // Calculate pending qty = total SO qty - total invoiced qty
+        const totalPendingQty = Math.max(0, totalSOQty - totalInvoicedQty);
+        
+        // Log detailed info for the target SO
+        if (order.orderNumber === "SRIHM-SO/338/25-26") {
+          console.log(`\n📊 DETAILED CALCULATION FOR ${order.orderNumber}:`);
+          console.log(`   Total SO Qty: ${totalSOQty}`);
+          console.log(`   Total Invoiced Qty: ${totalInvoicedQty}`);
+          console.log(`   Total Invoiced Amount: ${totalInvoicedAmount}`);
+          console.log(`   Total Pending Qty: ${totalPendingQty}`);
+          console.log(`   Invoice Numbers: ${allInvoiceNumbers.join(", ")}\n`);
+        }
+        
+        // Show this sales order with all its invoices
+        result.push({
+          id: order.id,
+          salesOrderNumber: order.orderNumber,
+          customerName: order.customerName || "N/A",
+          invoiceNumbers: allInvoiceNumbers.length > 0 ? allInvoiceNumbers.join(", ") : "N/A",
+          totalSOQty: totalSOQty,
+          totalInvoicedQty: totalInvoicedQty,
+          totalPendingQty: totalPendingQty,
+          totalSalesAmount: parseFloat(order.totalAmount || 0),
+          totalInvoicedAmount: Math.round(totalInvoicedAmount * 100) / 100,
+          createdAt: order.createdAt
+        });
+        
+        console.log(`📋 SO ${order.orderNumber}: SOQty=${totalSOQty}, InvoicedQty=${totalInvoicedQty}, Pending=${totalPendingQty}`);
+      }
+      
+      console.log(`✅ Returning ${result.length} sales orders`);
+      res.json(result);
+    } catch (error: any) {
+      console.error("❌ Error fetching pending orders:", error);
+      res.status(500).json({ error: "Failed to fetch pending orders" });
+    }
+  });
+
+  // Update invoice number (for quick correction of old data)
+  app.patch("/api/sales-operations/update-invoice-number", requireAuth, async (req, res) => {
+    try {
+      const { salesOrderNumber, oldInvoiceNumber, newInvoiceNumber } = req.body;
+
+      // Validate inputs
+      if (!salesOrderNumber || !oldInvoiceNumber || !newInvoiceNumber) {
+        return res.status(400).json({ 
+          message: "Sales order number, old invoice number, and new invoice number are required" 
+        });
+      }
+
+      // Find the invoice to update
+      const invoiceResult = await db.execute(sql`
+        SELECT id FROM sales_invoices 
+        WHERE sales_order_number = ${salesOrderNumber} 
+        AND invoice_number = ${oldInvoiceNumber}
+      `);
+
+      const invoice = invoiceResult.rows[0] as any;
+      if (!invoice) {
+        return res.status(404).json({ 
+          message: `Invoice ${oldInvoiceNumber} not found for sales order ${salesOrderNumber}` 
+        });
+      }
+
+      // Check if new invoice number already exists for this sales order
+      const existingResult = await db.execute(sql`
+        SELECT id FROM sales_invoices 
+        WHERE sales_order_number = ${salesOrderNumber} 
+        AND invoice_number = ${newInvoiceNumber}
+        AND id != ${invoice.id}
+      `);
+
+      if (existingResult.rows.length > 0) {
+        return res.status(409).json({ 
+          message: `Invoice number ${newInvoiceNumber} already exists for this sales order` 
+        });
+      }
+
+      // Update the invoice number
+      await db.execute(sql`
+        UPDATE sales_invoices 
+        SET invoice_number = ${newInvoiceNumber}
+        WHERE id = ${invoice.id}
+      `);
+
+      console.log(`✅ Successfully updated invoice number from ${oldInvoiceNumber} to ${newInvoiceNumber} for SO ${salesOrderNumber}`);
+
+      res.json({ 
+        message: "Invoice number updated successfully",
+        invoiceId: invoice.id,
+        oldInvoiceNumber,
+        newInvoiceNumber,
+        salesOrderNumber
+      });
+    } catch (error: any) {
+      console.error("❌ Error updating invoice number:", error);
+      res.status(500).json({ error: "Failed to update invoice number", details: error.message });
     }
   });
 

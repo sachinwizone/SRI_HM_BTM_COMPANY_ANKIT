@@ -16,7 +16,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarIcon, Plus, Trash2, FileText, Edit, Eye } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, FileText, Edit, Eye, Upload, Download } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 
@@ -632,17 +632,39 @@ export default function TourAdvance() {
           <h1 className="text-3xl font-bold">Tour Advance (TA) Management</h1>
           <p className="text-muted-foreground">Manage employee travel advance requests and approvals</p>
         </div>
-        <Button
-          onClick={() => {
-            setSelectedTourAdvance(null);
-            form.reset();
-            setIsFormOpen(true);
-          }}
-          data-testid="button-new-tour-advance"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          New Tour Advance
-        </Button>
+        <div className="flex items-center space-x-2">
+          <Button 
+            variant="outline" 
+            className="flex items-center space-x-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+            onClick={() => {
+              const csv = tourAdvances.map((ta: any) => 
+                `${ta.id},${ta.employeeName || ''},${ta.designation || ''},${ta.stateName || ''},${ta.purposeOfTrip || ''},${ta.tourStartDate},${ta.tourEndDate},${ta.advanceAmountRequested || ''}`
+              ).join('\n');
+              const header = 'Request ID,Employee Name,Designation,State,Purpose,Tour Start Date,Tour End Date,Advance Amount\n';
+              const element = document.createElement('a');
+              element.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(header + csv));
+              element.setAttribute('download', `tour_advances_${new Date().toISOString().split('T')[0]}.csv`);
+              element.style.display = 'none';
+              document.body.appendChild(element);
+              element.click();
+              document.body.removeChild(element);
+            }}
+          >
+            <Download className="w-4 h-4" />
+            <span>Export CSV</span>
+          </Button>
+          <Button
+            onClick={() => {
+              setSelectedTourAdvance(null);
+              form.reset();
+              setIsFormOpen(true);
+            }}
+            data-testid="button-new-tour-advance"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Tour Advance
+          </Button>
+        </div>
       </div>
 
       {/* Tour Advances List */}

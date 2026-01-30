@@ -69,6 +69,7 @@ const navigation: NavigationEntry[] = [
     section: "INVOICE MANAGEMENT",
     items: [
       { name: "Invoice Management", href: "/invoice-management", icon: Receipt, module: "INVOICE_MANAGEMENT" },
+      { name: "Pending Orders", href: "/pending-orders", icon: Package, module: "INVOICE_MANAGEMENT" },
     ],
   },
   {

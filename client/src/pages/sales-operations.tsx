@@ -9,6 +9,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useForm } from "react-hook-form";
@@ -45,7 +47,8 @@ import {
   AlertTriangle,
   Building2,
   Trash2,
-  MessageCircle
+  MessageCircle,
+  Check
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { 
@@ -2624,7 +2627,6 @@ function QuotationSection() {
   const [quotationDate, setQuotationDate] = useState(new Date().toISOString().split('T')[0]);
   const [validUntil, setValidUntil] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
-  const [customPaymentTerms, setCustomPaymentTerms] = useState("");
   const [description, setDescription] = useState("");
   const [salesPersonId, setSalesPersonId] = useState("");
   const [freightCharged, setFreightCharged] = useState<number>(0); // Keep for backward compatibility, always 0
@@ -2869,7 +2871,7 @@ function QuotationSection() {
       salesPersonId: salesPersonId,
       freightCharged: 0, // Freight now handled via items
       grandTotal: totals.total,
-      paymentTerms: paymentTerms === "Customer Option" ? customPaymentTerms : `${parseInt(paymentTerms) || 30}`,
+      paymentTerms: paymentTerms || '30 Days',
       deliveryTerms: "Standard delivery terms",
       destination: quotationData.destination,
       loadingFrom: quotationData.loadingFrom,
@@ -3813,40 +3815,76 @@ M/S SRI HM BITUMEN CO`;
                 <label className="text-sm font-medium">
                   {clientType === "client" ? "Select Client" : "Select Lead"}
                 </label>
-                <Select value={selectedClient} onValueChange={setSelectedClient} disabled={editingQuotationId !== null}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clientType === "client" ? (
-                      // Show existing clients from client management
-                      (clients as any[]).length > 0 ? (
-                        (clients as any[]).map((client: any) => (
-                          <SelectItem key={client.id} value={client.id}>
-                            {client.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="no-clients" disabled>
-                          No clients available
-                        </SelectItem>
-                      )
-                    ) : (
-                      // Show leads from Lead & CRM management
-                      Array.isArray(leads) && leads.length > 0 ? (
-                        (leads as any[]).map((lead: any) => (
-                          <SelectItem key={lead.id} value={lead.id}>
-                            {lead.companyName} - {lead.contactPersonName}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="no-leads" disabled>
-                          No leads available
-                        </SelectItem>
-                      )
-                    )}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between"
+                      disabled={editingQuotationId !== null}
+                    >
+                      {selectedClient
+                        ? clientType === "client"
+                          ? (clients as any[]).find((c: any) => c.id === selectedClient)?.name || "Select..."
+                          : Array.isArray(leads)
+                          ? (leads as any[]).find((l: any) => l.id === selectedClient)
+                            ? `${(leads as any[]).find((l: any) => l.id === selectedClient)?.companyName} - ${(leads as any[]).find((l: any) => l.id === selectedClient)?.contactPersonName}`
+                            : "Select..."
+                          : "Select..."
+                        : "Select..."}
+                      <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command shouldFilter>
+                      <CommandInput 
+                        placeholder={`Search ${clientType === "client" ? "clients" : "leads"}...`}
+                      />
+                      <CommandEmpty>
+                        {clientType === "client" ? "No client found." : "No lead found."}
+                      </CommandEmpty>
+                      <CommandList>
+                        <CommandGroup>
+                          {clientType === "client" ? (
+                            (clients as any[]).map((client: any) => (
+                              <CommandItem
+                                key={client.id}
+                                value={client.name}
+                                onSelect={() => {
+                                  setSelectedClient(client.id);
+                                }}
+                              >
+                                <Check
+                                  className={`mr-2 h-4 w-4 ${
+                                    selectedClient === client.id ? "opacity-100" : "opacity-0"
+                                  }`}
+                                />
+                                {client.name}
+                              </CommandItem>
+                            ))
+                          ) : Array.isArray(leads) ? (
+                            (leads as any[]).map((lead: any) => (
+                              <CommandItem
+                                key={lead.id}
+                                value={`${lead.companyName} ${lead.contactPersonName}`}
+                                onSelect={() => {
+                                  setSelectedClient(lead.id);
+                                }}
+                              >
+                                <Check
+                                  className={`mr-2 h-4 w-4 ${
+                                    selectedClient === lead.id ? "opacity-100" : "opacity-0"
+                                  }`}
+                                />
+                                {lead.companyName} - {lead.contactPersonName}
+                              </CommandItem>
+                            ))
+                          ) : null}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <label className="text-sm font-medium">Quotation Date</label>
@@ -3869,29 +3907,13 @@ M/S SRI HM BITUMEN CO`;
               </div>
               <div>
                 <label className="text-sm font-medium">Payment Terms</label>
-                <Select value={paymentTerms} onValueChange={setPaymentTerms}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment terms" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="15">15 Days</SelectItem>
-                    <SelectItem value="30">30 Days</SelectItem>
-                    <SelectItem value="45">45 Days</SelectItem>
-                    <SelectItem value="60">60 Days</SelectItem>
-                    <SelectItem value="Customer Option">Customer Option</SelectItem>
-                  </SelectContent>
-                </Select>
-                {paymentTerms === "Customer Option" && (
-                  <div className="mt-2">
-                    <Input 
-                      type="text" 
-                      value={customPaymentTerms}
-                      onChange={(e) => setCustomPaymentTerms(e.target.value)}
-                      placeholder="Enter custom payment terms"
-                      className="w-full"
-                    />
-                  </div>
-                )}
+                <Input 
+                  type="text" 
+                  value={paymentTerms}
+                  onChange={(e) => setPaymentTerms(e.target.value)}
+                  placeholder="Enter payment terms (e.g., 30 Days, 15 Days Credit, Advance, etc.)"
+                  className="w-full"
+                />
               </div>
             </div>
 

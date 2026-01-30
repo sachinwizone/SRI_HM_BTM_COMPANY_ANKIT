@@ -1893,17 +1893,25 @@ export class DatabaseStorage implements IStorage {
     return salesOrder || undefined;
   }
 
-  async getAllSalesOrders(): Promise<SalesOrder[]> {
+  async getAllSalesOrders(): Promise<any[]> {
     return await db
-      .select()
+      .select({
+        ...salesOrders,
+        clientName: clients.name,
+      })
       .from(salesOrders)
+      .leftJoin(clients, eq(salesOrders.clientId, clients.id))
       .orderBy(desc(salesOrders.createdAt));
   }
 
-  async getSalesOrdersByQuotation(quotationId: string): Promise<SalesOrder[]> {
+  async getSalesOrdersByQuotation(quotationId: string): Promise<any[]> {
     return await db
-      .select()
+      .select({
+        ...salesOrders,
+        clientName: clients.name,
+      })
       .from(salesOrders)
+      .leftJoin(clients, eq(salesOrders.clientId, clients.id))
       .where(eq(salesOrders.quotationId, quotationId))
       .orderBy(desc(salesOrders.createdAt));
   }

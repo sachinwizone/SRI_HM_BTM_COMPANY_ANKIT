@@ -467,6 +467,30 @@ export default function ClientManagement() {
         </CardContent>
       </Card>
 
+      {/* Bulk Upload Actions */}
+      <Card className="bg-gradient-to-r from-blue-50 to-green-50 border-blue-200">
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Upload size={16} className="text-blue-600" />
+              <span className="text-sm font-semibold text-gray-800">Bulk Operations</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="h-8 bg-green-100 border-green-400 text-green-700 hover:bg-green-200 font-medium">
+                <Download size={14} className="mr-1" />
+                Export CSV
+              </Button>
+              <a href="/bulk-upload">
+                <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700 text-white font-medium">
+                  <Upload size={14} className="mr-1" />
+                  Import Clients
+                </Button>
+              </a>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Clients Table */}
       <Card className="flex-1 min-w-0">
         <CardHeader className="py-2 px-3 border-b">

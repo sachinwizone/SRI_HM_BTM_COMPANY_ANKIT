@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Download, FileCheck } from "lucide-react";
+import { Download, Upload, FileCheck } from "lucide-react";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -200,6 +200,28 @@ export default function TAReports() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">TA Expense Reports</h1>
           <p className="text-gray-600">Monthly tour advance and expense reports</p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button 
+            variant="outline" 
+            className="flex items-center space-x-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+            onClick={() => {
+              const csv = filteredTourAdvances.map((ta: any) => 
+                `${ta.id},${ta.employeeName || ''},${ta.designation || ''},${ta.state || ''},${ta.purposeOfTrip || ''},${ta.tourStartDate},${ta.tourEndDate},${ta.advanceAmount || ''}`
+              ).join('\n');
+              const header = 'Request ID,Employee Name,Designation,State,Purpose,Tour Start Date,Tour End Date,Advance Amount\n';
+              const element = document.createElement('a');
+              element.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(header + csv));
+              element.setAttribute('download', `ta_requests_${new Date().toISOString().split('T')[0]}.csv`);
+              element.style.display = 'none';
+              document.body.appendChild(element);
+              element.click();
+              document.body.removeChild(element);
+            }}
+          >
+            <Download className="w-4 h-4" />
+            <span>Export CSV</span>
+          </Button>
         </div>
       </div>
 
