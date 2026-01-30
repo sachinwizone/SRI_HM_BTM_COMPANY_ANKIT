@@ -144,17 +144,33 @@ export default function setupBulkUploadRoutes(app: Express) {
           // Normalize field names (handle both camelCase and snake_case)
           const invoiceNumber = row.invoicenumber || row.invoice_number || '';
           const invoiceDate = row.invoicedate || row.invoice_date || '';
+          const invoiceType = row.invoicetype || row.invoice_type || 'TAX_INVOICE';
+          const financialYear = row.financialyear || row.financial_year || new Date().getFullYear() + '-' + (new Date().getFullYear() + 1);
           const salesOrderNumber = row.salesordernumber || row.sales_order_number || '';
           const customerId = row.customerid || row.customer_id || '';
           const placeOfSupply = row.placeofsupply || row.place_of_supply || '';
-          const dueDate = row.duedate || row.due_date || '';
-          const destination = row.destination || '';
+          const placeOfSupplyStateCode = row.placeofsupplystatecode || row.place_of_supply_state_code || '18';
+          const buyerOrderNumber = row.buyerordernumber || row.buyer_order_number || '';
+          const buyerOrderDate = row.buyerorderdate || row.buyer_order_date || '';
+          const deliveryNoteNumber = row.deliverynotenumber || row.delivery_note_number || '';
+          const ewayBillNumber = row.ewaybillnumber || row.eway_bill_number || '';
+          const ewayBillDate = row.ewaybilldate || row.eway_bill_date || '';
+          const vehicleNumber = row.vehiclenumber || row.vehicle_number || '';
+          const lrNumber = row.lrnumber || row.lr_number || '';
+          const lrRrNumber = row.lrrrnumber || row.lr_rr_number || '';
+          const partyMobileNumber = row.partymobilenumber || row.party_mobile_number || '';
           const dispatchFrom = row.dispatchfrom || row.dispatch_from || '';
-          const paymentTerms = row.paymentterms || row.payment_terms || '';
+          const dispatchedThrough = row.dispatchedthrough || row.dispatched_through || '';
+          const destination = row.destination || '';
+          const dueDate = row.duedate || row.due_date || '';
+          const paymentTerms = row.paymentterms || row.payment_terms || 'NET 30';
+          const paymentMode = row.paymentmode || row.payment_mode || 'NEFT';
           const subtotalAmount = row.subtotalamount || row.subtotal_amount || '0';
           const cgstAmount = row.cgstamount || row.cgst_amount || '0';
           const sgstAmount = row.sgstamount || row.sgst_amount || '0';
           const igstAmount = row.igstamount || row.igst_amount || '0';
+          const otherCharges = row.othercharges || row.other_charges || '0';
+          const roundOff = row.roundoff || row.round_off || '0';
           const totalInvoiceAmount = row.totalinvoiceamount || row.total_invoice_amount || '0';
 
           // Validation
@@ -184,17 +200,33 @@ export default function setupBulkUploadRoutes(app: Express) {
             INSERT INTO sales_invoices (
               invoice_number,
               invoice_date,
+              invoice_type,
+              financial_year,
               sales_order_number,
               customer_id,
               place_of_supply,
-              due_date,
-              destination,
+              place_of_supply_state_code,
+              buyer_order_number,
+              buyer_order_date,
+              delivery_note_number,
+              eway_bill_number,
+              eway_bill_date,
+              vehicle_number,
+              lr_number,
+              lr_rr_number,
+              party_mobile_number,
               dispatch_from,
+              dispatched_through,
+              destination,
+              due_date,
               payment_terms,
+              payment_mode,
               subtotal_amount,
               cgst_amount,
               sgst_amount,
               igst_amount,
+              other_charges,
+              round_off,
               total_invoice_amount,
               remaining_balance,
               invoice_status,
@@ -202,20 +234,36 @@ export default function setupBulkUploadRoutes(app: Express) {
             ) VALUES (
               ${invoiceNumber},
               ${invoiceDate},
+              ${invoiceType},
+              ${financialYear},
               ${salesOrderNumber},
               ${customerId},
               ${placeOfSupply || null},
-              ${dueDate || null},
-              ${destination || null},
+              ${placeOfSupplyStateCode},
+              ${buyerOrderNumber || null},
+              ${buyerOrderDate || null},
+              ${deliveryNoteNumber || null},
+              ${ewayBillNumber || null},
+              ${ewayBillDate || null},
+              ${vehicleNumber || null},
+              ${lrNumber || null},
+              ${lrRrNumber || null},
+              ${partyMobileNumber || null},
               ${dispatchFrom || null},
-              ${paymentTerms || null},
+              ${dispatchedThrough || null},
+              ${destination || null},
+              ${dueDate || null},
+              ${paymentTerms},
+              ${paymentMode},
               ${parseFloat(subtotalAmount) || 0},
               ${parseFloat(cgstAmount) || 0},
               ${parseFloat(sgstAmount) || 0},
               ${parseFloat(igstAmount) || 0},
+              ${parseFloat(otherCharges) || 0},
+              ${parseFloat(roundOff) || 0},
               ${parseFloat(totalInvoiceAmount)},
               ${parseFloat(totalInvoiceAmount)},
-              'SUBMITTED',
+              'DRAFT',
               'PENDING'
             )
           `);
