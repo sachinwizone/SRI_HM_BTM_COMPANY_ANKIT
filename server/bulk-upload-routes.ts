@@ -141,6 +141,16 @@ export default function setupBulkUploadRoutes(app: Express) {
         const rowNum = i + 2; // Account for header
 
         try {
+          // Safety check: reject if payment_status or invoice_status are in CSV
+          if (row.paymentstatus || row.payment_status || row.invoicestatus || row.invoice_status) {
+            result.failed++;
+            result.errors.push({
+              row: rowNum,
+              message: 'ERROR: Do not include payment_status or invoice_status columns in CSV. These are auto-generated. Use the template from the "Get Template" button.'
+            });
+            continue;
+          }
+
           // Normalize field names (handle both camelCase and snake_case)
           const invoiceNumber = row.invoicenumber || row.invoice_number || '';
           const invoiceDate = row.invoicedate || row.invoice_date || '';
@@ -310,6 +320,16 @@ export default function setupBulkUploadRoutes(app: Express) {
         const rowNum = i + 2;
 
         try {
+          // Safety check: reject if payment_status or invoice_status are in CSV
+          if (row.paymentstatus || row.payment_status || row.invoicestatus || row.invoice_status) {
+            result.failed++;
+            result.errors.push({
+              row: rowNum,
+              message: 'ERROR: Do not include payment_status or invoice_status columns in CSV. These are auto-generated. Use the template from the "Get Template" button.'
+            });
+            continue;
+          }
+
           // Normalize field names
           const invoiceNumber = row.invoicenumber || row.invoice_number || '';
           const invoiceDate = row.invoicedate || row.invoice_date || '';
@@ -395,226 +415,6 @@ export default function setupBulkUploadRoutes(app: Express) {
       res.json({ summary: result });
     } catch (error: any) {
       console.error('❌ Bulk upload purchase invoices error:', error);
-      res.status(500).json({ error: 'Bulk upload failed', details: error.message });
-    }
-  });
-
-  // Bulk upload leads
-  app.post('/api/bulk-upload/leads', upload.single('file'), async (req, res) => {
-    console.log('🚀 Bulk upload leads endpoint called');
-    try {
-      if (!req.file) {
-        console.warn('❌ No file received');
-        return res.status(400).json({ error: 'No file uploaded' });
-      }
-
-      console.log(`✅ File received: ${req.file.originalname}, size: ${req.file.size} bytes`);
-
-      const rows = await parseCSV(req.file.buffer);
-      console.log(`📊 Parsed ${rows.length} rows from CSV`);
-
-      if (rows.length === 0) {
-        console.warn('❌ CSV file is empty');
-        return res.status(400).json({ error: 'CSV file is empty or invalid' });
-      }
-
-      const result: BulkUploadResult = {
-        success: 0,
-        failed: 0,
-        total: rows.length,
-        errors: []
-      };
-
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const rowNum = i + 2;
-
-        try {
-          const errors: string[] = [];
-
-          // Normalize field names
-          const companyName = row.companyname || row.company_name || '';
-          const contactPerson = row.contactperson || row.contact_person || '';
-          const email = row.email || '';
-          const phone = row.phone || '';
-          const city = row.city || '';
-          const state = row.state || '';
-          const leadSource = row.leadsource || row.lead_source || '';
-          const status = row.status || '';
-          const estimatedValue = row.estimatedvalue || row.estimated_value || '';
-          const notes = row.notes || '';
-
-          if (!companyName) errors.push('companyName is required');
-          if (!email) errors.push('email is required');
-          if (email && !validateEmail(email)) errors.push('email must be valid');
-          if (!phone) errors.push('phone is required');
-          if (phone && !validatePhone(phone)) errors.push('phone must be at least 10 digits');
-
-          if (errors.length > 0) {
-            result.failed++;
-            result.errors.push({
-              row: rowNum,
-              message: errors.join('; ')
-            });
-            continue;
-          }
-
-          // Insert lead
-          await db.execute(sql`
-            INSERT INTO leads (
-              company_name,
-              contact_person,
-              email,
-              phone,
-              city,
-              state,
-              lead_source,
-              status,
-              estimated_value,
-              notes,
-              created_at
-            ) VALUES (
-              ${companyName},
-              ${contactPerson || null},
-              ${email},
-              ${phone},
-              ${city || null},
-              ${state || null},
-              ${leadSource || 'OTHER'},
-              ${status || 'NEW'},
-              ${estimatedValue ? parseFloat(estimatedValue) : null},
-              ${notes || null},
-              NOW()
-            )
-          `);
-
-          result.success++;
-        } catch (error: any) {
-          console.error(`❌ Row ${rowNum} error:`, error.message);
-          result.failed++;
-          result.errors.push({
-            row: rowNum,
-            message: error.message || 'Failed to insert record'
-          });
-        }
-      }
-
-      console.log(`✅ Leads bulk upload: ${result.success} success, ${result.failed} failed`);
-      res.json({ summary: result });
-    } catch (error: any) {
-      console.error('❌ Bulk upload leads error:', error);
-      res.status(500).json({ error: 'Bulk upload failed', details: error.message });
-    }
-  });
-
-  // Bulk upload clients
-  app.post('/api/bulk-upload/clients', upload.single('file'), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: 'No file uploaded' });
-      }
-
-      const rows = await parseCSV(req.file.buffer);
-      if (rows.length === 0) {
-        return res.status(400).json({ error: 'CSV file is empty or invalid' });
-      }
-
-      const result: BulkUploadResult = {
-        success: 0,
-        failed: 0,
-        total: rows.length,
-        errors: []
-      };
-
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const rowNum = i + 2;
-
-        try {
-          const errors: string[] = [];
-
-          // Normalize field names
-          const clientName = row.clientname || row.client_name || row.name || '';
-          const clientType = row.clienttype || row.client_type || row.type || '';
-          const email = row.email || '';
-          const phone = row.phone || '';
-          const gstNo = row.gstno || row.gst_no || row.gstnumber || '';
-          const panNo = row.panno || row.pan_no || row.pannumber || '';
-          const address = row.address || '';
-          const city = row.city || '';
-          const state = row.state || '';
-          const pinCode = row.pincode || row.pin_code || '';
-          const country = row.country || 'India';
-          const paymentTerms = row.paymentterms || row.payment_terms || '';
-          const creditLimit = row.creditlimit || row.credit_limit || '';
-
-          if (!clientName) errors.push('clientName is required');
-          if (!email) errors.push('email is required');
-          if (email && !validateEmail(email)) errors.push('email must be valid');
-          if (!phone) errors.push('phone is required');
-          if (phone && !validatePhone(phone)) errors.push('phone must be at least 10 digits');
-          if (creditLimit && !validateAmount(creditLimit)) {
-            errors.push('creditLimit must be a positive number');
-          }
-
-          if (errors.length > 0) {
-            result.failed++;
-            result.errors.push({
-              row: rowNum,
-              message: errors.join('; ')
-            });
-            continue;
-          }
-
-          // Insert client
-          await db.execute(sql`
-            INSERT INTO clients (
-              name,
-              type,
-              email,
-              phone,
-              gst_number,
-              pan_number,
-              address,
-              city,
-              state,
-              pin_code,
-              country,
-              payment_terms,
-              credit_limit,
-              created_at
-            ) VALUES (
-              ${clientName},
-              ${clientType || 'RETAIL'},
-              ${email},
-              ${phone},
-              ${gstNo || null},
-              ${panNo || null},
-              ${address || null},
-              ${city || null},
-              ${state || null},
-              ${pinCode || null},
-              ${country},
-              ${paymentTerms || null},
-              ${creditLimit ? parseFloat(creditLimit) : null},
-              NOW()
-            )
-          `);
-
-          result.success++;
-        } catch (error: any) {
-          result.failed++;
-          result.errors.push({
-            row: rowNum,
-            message: error.message || 'Failed to insert record'
-          });
-        }
-      }
-
-      console.log(`✅ Clients bulk upload: ${result.success} success, ${result.failed} failed`);
-      res.json({ summary: result });
-    } catch (error: any) {
-      console.error('❌ Bulk upload clients error:', error);
       res.status(500).json({ error: 'Bulk upload failed', details: error.message });
     }
   });
