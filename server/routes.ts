@@ -265,7 +265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ${igstAmount},
               ${totalInvoiceAmount},
               'DRAFT',
-              'UNPAID',
+              'PENDING',
               NOW()
             )
           `);
@@ -386,7 +386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ${igstAmount},
               ${totalInvoiceAmount},
               'DRAFT',
-              'UNPAID',
+              'PENDING',
               NOW()
             )
           `);

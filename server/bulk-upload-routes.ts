@@ -36,6 +36,7 @@ async function parseCSV(buffer: Buffer): Promise<Record<string, any>[]> {
   // Parse header
   const headerLine = lines[0];
   const headers = parseCSVLine(headerLine).map(h => h.toLowerCase().trim());
+  console.log('📋 CSV Headers:', headers); // Log headers to see what columns are in the CSV
   
   const rows: Record<string, any>[] = [];
 
