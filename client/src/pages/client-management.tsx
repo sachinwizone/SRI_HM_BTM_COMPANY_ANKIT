@@ -25,6 +25,8 @@ export default function ClientManagement() {
   const [editingClient, setEditingClient] = useState<any>(null);
   const [viewingClient, setViewingClient] = useState<any>(null);
   const [documentUploads, setDocumentUploads] = useState<Record<string, boolean>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const { data: clients, isLoading } = useQuery({
     queryKey: ['/api/clients'],
@@ -222,13 +224,18 @@ export default function ClientManagement() {
           <h1 className="text-2xl font-bold text-gray-900">Client Management</h1>
           <p className="text-gray-600 text-sm">Manage your clients and their information</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-              <Plus size={16} className="mr-2" />
-              Add Client
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <a href="/bulk-upload" className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-blue-600 text-blue-600 hover:bg-blue-50 h-8 px-3 py-1">
+            <Upload size={16} className="mr-2" />
+            Bulk Upload
+          </a>
+          <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                <Plus size={16} className="mr-2" />
+                Add Client
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingClient ? 'Edit Client' : 'Add New Client'}</DialogTitle>
@@ -421,6 +428,7 @@ export default function ClientManagement() {
                         </Form>
                       </DialogContent>
                     </Dialog>
+                  </div>
       </div>
 
       {/* Category Stats - Full Width 5 Columns */}
@@ -493,13 +501,32 @@ export default function ClientManagement() {
 
       {/* Clients Table */}
       <Card className="flex-1 min-w-0">
-        <CardHeader className="py-2 px-3 border-b">
+        <CardHeader className="py-2 px-3 border-b flex items-center justify-between">
           <h3 className="text-base font-semibold">Clients ({Array.isArray(filteredClients) ? filteredClients.length : 0})</h3>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-600">Show:</span>
+            <select 
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="text-xs border border-gray-300 rounded px-2 py-1"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={200}>200</option>
+            </select>
+            <span className="text-xs text-gray-600">entries</span>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-gray-50 border-b sticky top-0 z-10">
+
                 <tr className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   <th className="px-2 py-2 whitespace-nowrap">Client Name</th>
                   <th className="px-2 py-2 whitespace-nowrap">Category</th>
@@ -515,7 +542,7 @@ export default function ClientManagement() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {isLoading ? (
-                  [...Array(5)].map((_, i) => (
+                  [...Array(10)].map((_, i) => (
                     <tr key={i}>
                       <td className="px-2 py-2"><div className="h-4 bg-gray-200 rounded w-28 animate-pulse"></div></td>
                       <td className="px-2 py-2"><div className="h-5 bg-gray-200 rounded w-14 animate-pulse"></div></td>
@@ -537,91 +564,133 @@ export default function ClientManagement() {
                     </td>
                   </tr>
                 ) : (
-                  (filteredClients as any[]).map((client: any, index: number) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-2 py-2">
-                        <div>
-                          <div 
-                            onClick={() => handleViewClient(client)}
-                            className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-sm"
-                          >
-                            {client.name}
-                          </div>
-                          <div className="text-xs text-gray-500">{client.companyType || 'Pvt Ltd'}</div>
-                        </div>
-                      </td>
-                      <td className="px-2 py-2">
-                        <Badge className={`${getCategoryColor(client.category)} text-xs px-2 py-0.5`}>
-                          {client.category === 'ALFA' ? 'Alpha' : client.category}
-                        </Badge>
-                      </td>
-                      <td className="px-2 py-2">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{client.contactPersonName || client.name}</div>
-                          <div className="text-xs text-gray-500">{client.mobileNumber || '-'}</div>
-                          <div className="text-xs text-gray-500 max-w-[180px] truncate">{client.email || '-'}</div>
-                        </div>
-                      </td>
-                      <td className="px-2 py-2">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{client.salesPersonName || 'TANAY MONDAL'}</div>
-                          <div className="text-xs text-gray-500">ADMIN</div>
-                        </div>
-                      </td>
-                      <td className="px-2 py-2">
-                        <div className="text-xs text-gray-900">
-                          {client.gstNumber ? <span>GST: {client.gstNumber}</span> : <span className="text-gray-400">-</span>}
-                        </div>
-                      </td>
-                      <td className="px-2 py-2">
-                        <DocumentStatus client={client} />
-                      </td>
-                      <td className="px-2 py-2">
-                        <div className="text-sm text-gray-900">
-                          {client.paymentTerms || 30} days
-                          <div className="text-xs text-gray-500">{client.poRequired ? 'PO: Required' : 'PO: Not Required'}</div>
-                        </div>
-                      </td>
-                      <td className="px-2 py-2">
-                        <div className="text-sm font-medium text-gray-900 whitespace-nowrap">
-                          {client.creditLimit ? `₹${parseInt(client.creditLimit).toLocaleString()}` : '-'}
-                        </div>
-                      </td>
-                      <td className="px-2 py-2 text-xs text-gray-500 whitespace-nowrap">
-                        {client.createdAt ? new Date(client.createdAt).toLocaleDateString('en-GB') : '-'}
-                      </td>
-                      <td className="px-2 py-2">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-36">
-                            <DropdownMenuItem onClick={() => handleViewClient(client)}>
-                              <Eye className="mr-2 h-3 w-3" />
-                              View
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEditClient(client)}>
-                              <Edit className="mr-2 h-3 w-3" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleDeleteClient(client)}
-                              className="text-red-600 focus:text-red-600"
+                  (() => {
+                    const startIndex = (currentPage - 1) * itemsPerPage;
+                    const endIndex = startIndex + itemsPerPage;
+                    const paginatedClients = (filteredClients as any[]).slice(startIndex, endIndex);
+                    return paginatedClients.map((client: any, index: number) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-2 py-2">
+                          <div>
+                            <div 
+                              onClick={() => handleViewClient(client)}
+                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-sm"
                             >
-                              <Trash2 className="mr-2 h-3 w-3" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  ))
+                              {client.name}
+                            </div>
+                            <div className="text-xs text-gray-500">{client.companyType || 'Pvt Ltd'}</div>
+                          </div>
+                        </td>
+                        <td className="px-2 py-2">
+                          <Badge className={`${getCategoryColor(client.category)} text-xs px-2 py-0.5`}>
+                            {client.category === 'ALFA' ? 'Alpha' : client.category}
+                          </Badge>
+                        </td>
+                        <td className="px-2 py-2">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{client.contactPersonName || client.name}</div>
+                            <div className="text-xs text-gray-500">{client.mobileNumber || '-'}</div>
+                            <div className="text-xs text-gray-500 max-w-[180px] truncate">{client.email || '-'}</div>
+                          </div>
+                        </td>
+                        <td className="px-2 py-2">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{client.salesPersonName || 'TANAY MONDAL'}</div>
+                            <div className="text-xs text-gray-500">ADMIN</div>
+                          </div>
+                        </td>
+                        <td className="px-2 py-2">
+                          <div className="text-xs text-gray-900">
+                            {client.gstNumber ? <span>GST: {client.gstNumber}</span> : <span className="text-gray-400">-</span>}
+                          </div>
+                        </td>
+                        <td className="px-2 py-2">
+                          <DocumentStatus client={client} />
+                        </td>
+                        <td className="px-2 py-2">
+                          <div className="text-sm text-gray-900">
+                            {client.paymentTerms || 30} days
+                            <div className="text-xs text-gray-500">{client.poRequired ? 'PO: Required' : 'PO: Not Required'}</div>
+                          </div>
+                        </td>
+                        <td className="px-2 py-2">
+                          <div className="text-sm font-medium text-gray-900 whitespace-nowrap">
+                            {client.creditLimit ? `₹${parseInt(client.creditLimit).toLocaleString()}` : '-'}
+                          </div>
+                        </td>
+                        <td className="px-2 py-2 text-xs text-gray-500 whitespace-nowrap">
+                          {client.createdAt ? new Date(client.createdAt).toLocaleDateString('en-GB') : '-'}
+                        </td>
+                        <td className="px-2 py-2">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="p-1 hover:bg-gray-100 rounded">
+                                <MoreVertical size={16} className="text-gray-600" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleViewClient(client)}>
+                                <Eye size={14} className="mr-2" />
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditClient(client)}>
+                                <Edit size={14} className="mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDeleteClient(client.id)} className="text-red-600">
+                                <Trash2 size={14} className="mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    ));
+                  })()
                 )}
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination Controls */}
+          {Array.isArray(filteredClients) && filteredClients.length > 0 ? (
+            <div className="flex items-center justify-between px-3 py-4 border-t bg-gray-50 text-xs font-medium">
+              <div className="text-gray-700">
+                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredClients.length)} of {filteredClients.length} clients
+              </div>
+              <div className="flex gap-1 items-center">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                  ← Prev
+                </button>
+                <div className="flex items-center gap-0.5 mx-2">
+                  {Array.from({ length: Math.ceil(filteredClients.length / itemsPerPage) }, (_, i) => i + 1).slice(0, 10).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-2.5 py-1 rounded text-xs font-medium ${
+                        currentPage === page
+                          ? 'bg-blue-600 text-white'
+                          : 'border border-gray-300 hover:bg-gray-200'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredClients.length / itemsPerPage)))}
+                  disabled={currentPage === Math.ceil(filteredClients.length / itemsPerPage)}
+                  className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

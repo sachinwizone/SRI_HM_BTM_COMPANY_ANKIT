@@ -124,6 +124,56 @@ export default function BulkUpload() {
     }
   });
 
+  // Mutation for clients bulk upload
+  const uploadClientsMutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      try {
+        const res = await fetch('/api/bulk-upload/clients', {
+          method: 'POST',
+          credentials: 'include',
+          body: formData
+        });
+        
+        const contentType = res.headers.get('content-type');
+        const responseText = await res.text();
+        
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error('Non-JSON response:', responseText);
+          throw new Error(`Server returned ${res.status}: ${res.statusText}. Response: ${responseText.substring(0, 200)}`);
+        }
+        
+        const data = JSON.parse(responseText);
+        if (!res.ok) throw new Error(data.error || 'Failed to upload clients');
+        return data;
+      } catch (error: any) {
+        console.error('Upload error:', error);
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      setUploadStatus(data.summary);
+      if (data.summary.failed === 0) {
+        toast({
+          title: 'Success',
+          description: `${data.summary.success} clients uploaded successfully`
+        });
+      } else {
+        toast({
+          title: 'Partial Success',
+          description: `${data.summary.success} succeeded, ${data.summary.failed} failed`
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  });
+
 
 
   // Download template
@@ -133,28 +183,20 @@ export default function BulkUpload() {
         headers: [
           'invoiceNumber',
           'invoiceDate',
-          'invoiceType',
-          'financialYear',
+          'dueDate',
+          'ewayBillNumber',
+          'ewayBillDate',
+          'vehicleNumber',
+          'salesOrderNumber',
+          'lrNumber',
+          'partyMobileNumber',
+          'destination',
+          'dispatchFrom',
+          'dispatchedThrough',
+          'paymentTerms',
           'customerId',
           'placeOfSupply',
           'placeOfSupplyStateCode',
-          'buyerOrderNumber',
-          'buyerOrderDate',
-          'deliveryNoteNumber',
-          'salesOrderNumber',
-          'ewayBillNumber',
-          'ewayBillDate',
-          'ewayBillValidUpto',
-          'vehicleNumber',
-          'lrNumber',
-          'lrRrNumber',
-          'partyMobileNumber',
-          'dispatchFrom',
-          'dispatchedThrough',
-          'destination',
-          'paymentTerms',
-          'paymentMode',
-          'dueDate',
           'subtotalAmount',
           'cgstAmount',
           'sgstAmount',
@@ -166,28 +208,20 @@ export default function BulkUpload() {
         sample: {
           invoiceNumber: 'SRIHM/560/25-26',
           invoiceDate: '2026-01-30',
-          invoiceType: 'TAX_INVOICE',
-          financialYear: '2025-2026',
-          customerId: 'customer-id-here',
-          placeOfSupply: 'Assam',
-          placeOfSupplyStateCode: '18',
-          buyerOrderNumber: 'ORD/001',
-          buyerOrderDate: '2026-01-25',
-          deliveryNoteNumber: 'DN/001',
-          salesOrderNumber: 'SO/001',
+          dueDate: '2026-02-28',
           ewayBillNumber: 'EWB-001',
           ewayBillDate: '2026-01-30',
-          ewayBillValidUpto: '2026-02-15',
           vehicleNumber: 'MH-01-AB-1234',
+          salesOrderNumber: 'SO/001',
           lrNumber: 'LR-001',
-          lrRrNumber: 'LR-RR-001',
           partyMobileNumber: '9876543210',
+          destination: 'Pune',
           dispatchFrom: 'KANDLA',
           dispatchedThrough: 'TRUCK',
-          destination: 'Pune',
-          paymentTerms: 'ADVANCE',
-          paymentMode: 'NEFT',
-          dueDate: '2026-02-28',
+          paymentTerms: '30 Days Credit',
+          customerId: 'USE_VALID_CUSTOMER_ID_FROM_SYSTEM',
+          placeOfSupply: 'Assam',
+          placeOfSupplyStateCode: '18',
           subtotalAmount: '10000.00',
           cgstAmount: '900.00',
           sgstAmount: '900.00',
@@ -201,46 +235,63 @@ export default function BulkUpload() {
         headers: [
           'invoiceNumber',
           'invoiceDate',
-          'invoiceType',
-          'financialYear',
           'supplierId',
-          'supplierInvoiceNumber',
-          'supplierInvoiceDate',
-          'grnNumber',
           'placeOfSupply',
-          'placeOfSupplyStateCode',
-          'paymentTerms',
-          'paymentMode',
           'dueDate',
+          'invoiceType',
+          'paymentTerms',
           'subtotalAmount',
           'cgstAmount',
           'sgstAmount',
           'igstAmount',
-          'otherCharges',
-          'roundOff',
           'totalInvoiceAmount'
         ],
         sample: {
           invoiceNumber: 'SUPP/001/25-26',
           invoiceDate: '2026-01-30',
-          invoiceType: 'TAX_INVOICE',
-          financialYear: '2025-2026',
-          supplierId: 'supplier-id-here',
-          supplierInvoiceNumber: 'SUP-INV-001',
-          supplierInvoiceDate: '2026-01-30',
-          grnNumber: 'GRN/001',
+          supplierId: 'USE_VALID_SUPPLIER_ID_FROM_SYSTEM',
           placeOfSupply: 'Assam',
           placeOfSupplyStateCode: '18',
-          paymentTerms: '30 Days Credit',
-          paymentMode: 'NEFT',
           dueDate: '2026-02-28',
+          invoiceType: 'TAX_INVOICE',
+          paymentTerms: '30 Days Credit',
           subtotalAmount: '50000.00',
           cgstAmount: '4500.00',
           sgstAmount: '4500.00',
           igstAmount: '0.00',
-          otherCharges: '0.00',
-          roundOff: '0.00',
           totalInvoiceAmount: '59000.00'
+        }
+      },
+      'clients': {
+        headers: [
+          'name',
+          'category',
+          'contactPersonName',
+          'mobileNumber',
+          'email',
+          'billingAddressLine',
+          'billingCity',
+          'billingState',
+          'billingPincode',
+          'gstNumber',
+          'panNumber',
+          'paymentTerms',
+          'creditLimit'
+        ],
+        sample: {
+          name: 'ABC Manufacturing Company',
+          category: 'Alpha',
+          contactPersonName: 'John Smith',
+          mobileNumber: '9876543210',
+          email: 'john@abc.com',
+          billingAddressLine: '123 Business Street',
+          billingCity: 'Bangalore',
+          billingState: 'Karnataka',
+          billingPincode: '560001',
+          gstNumber: '29ABCCD1234H1Z0',
+          panNumber: 'ABCDE1234F',
+          paymentTerms: '30',
+          creditLimit: '500000.00'
         }
       }
     };
@@ -322,6 +373,9 @@ export default function BulkUpload() {
         case 'purchase-invoice':
           await uploadPurchaseInvoicesMutation.mutateAsync(formData);
           break;
+        case 'clients':
+          await uploadClientsMutation.mutateAsync(formData);
+          break;
       }
     } finally {
       setIsUploading(false);
@@ -337,9 +391,10 @@ export default function BulkUpload() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="sales-invoice">Sales Invoices</TabsTrigger>
           <TabsTrigger value="purchase-invoice">Purchase Invoices</TabsTrigger>
+          <TabsTrigger value="clients">Clients</TabsTrigger>
         </TabsList>
 
         {/* Sales Invoice Upload */}
@@ -573,6 +628,134 @@ export default function BulkUpload() {
                     <>
                       <Upload className="w-4 h-4" />
                       Upload Purchase Invoices
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Clients Upload */}
+        <TabsContent value="clients">
+          <Card>
+            <CardHeader>
+              <CardTitle>Bulk Upload Clients</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Template Download */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-blue-900">Get Template</h3>
+                      <p className="text-sm text-blue-800">Download CSV template with required columns</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => downloadTemplate('clients')}
+                    >
+                      <Download className="w-4 h-4" />
+                      Download Template
+                    </Button>
+                  </div>
+                </div>
+
+                {/* File Upload */}
+                <div
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition"
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files[0];
+                    const fakeEvent = { target: { files: e.dataTransfer.files } } as any;
+                    handleFileSelect(fakeEvent, 'clients');
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={(e) => handleFileSelect(e, 'clients')}
+                  />
+                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 mb-2">Drag and drop your CSV file here</p>
+                  <Button
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Select File
+                  </Button>
+                </div>
+
+                {filePreview && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="font-semibold mb-3">Preview ({filePreview.length} rows)</h3>
+                    <div className="overflow-x-auto text-sm">
+                      <table className="w-full">
+                        <thead className="bg-gray-200">
+                          <tr>
+                            {Object.keys(filePreview[0] || {}).map((key) => (
+                              <th key={key} className="px-2 py-1 text-left">{key}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filePreview.slice(0, 3).map((row, idx) => (
+                            <tr key={idx} className="border-b">
+                              {Object.values(row).map((val: any, vidx) => (
+                                <td key={vidx} className="px-2 py-1">{String(val)}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {uploadStatus && (
+                  <div className={`border rounded-lg p-4 ${uploadStatus.failed === 0 ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>
+                    <div className="flex gap-4 mb-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                        <span className="font-semibold">{uploadStatus.success} Success</span>
+                      </div>
+                      {uploadStatus.failed > 0 && (
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-5 h-5 text-red-600" />
+                          <span className="font-semibold">{uploadStatus.failed} Failed</span>
+                        </div>
+                      )}
+                    </div>
+                    {uploadStatus.errors.length > 0 && (
+                      <div className="mt-3 bg-white rounded p-2 max-h-40 overflow-y-auto text-sm">
+                        {uploadStatus.errors.slice(0, 10).map((error, idx) => (
+                          <div key={idx} className="text-red-700 mb-1">
+                            Row {error.row}: {error.message}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <Button
+                  onClick={() => handleUpload('clients')}
+                  disabled={!filePreview || isUploading}
+                  className="w-full gap-2"
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      Upload Clients
                     </>
                   )}
                 </Button>

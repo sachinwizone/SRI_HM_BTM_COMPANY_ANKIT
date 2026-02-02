@@ -125,10 +125,10 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
 
     // ===================== HEADER SECTION =====================
     // Add company logo on the left
-    const logoSize = 25;
+    const logoSize = 45;
     if (logoBase64) {
       try {
-        doc.addImage(logoBase64, 'JPEG', margin + 5, currentY, logoSize, logoSize);
+        doc.addImage(logoBase64, 'JPEG', margin + 5, currentY - 5, logoSize, logoSize);
       } catch (error) {
         console.error('Failed to add logo to PDF:', error);
         // Fallback to text if logo fails
@@ -159,18 +159,18 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
     doc.setTextColor(orangeColor[0], orangeColor[1], orangeColor[2]);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('M/S SRI HM BITUMEN CO', margin + 45, currentY + 8);
+    doc.text('M/S SRI HM BITUMEN CO', margin + 65, currentY + 8);
 
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     
     const addressLine = 'Dag No: 1071, Patta No: 264, Guwahati, Assam 781035';
-    doc.text(addressLine, margin + 45, currentY + 14);
-    doc.text('GSTIN/UIN: 18CGMPP6536N2ZG', margin + 45, currentY + 19);
-    doc.text('Mobile: +91 8453059698 | Email: info.srihmbitumen@gmail.com', margin + 45, currentY + 24);
+    doc.text(addressLine, margin + 65, currentY + 14);
+    doc.text('GSTIN/UIN: 18CGMPP6536N2ZG', margin + 65, currentY + 19);
+    doc.text('Mobile: +91 8453059698 | Email: info.srihmbitumen@gmail.com', margin + 65, currentY + 24);
 
-    currentY += 32;
+    currentY += 50;
 
     // ===================== QUOTATION TITLE =====================
     doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
@@ -597,15 +597,20 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
       summaryY += 7;
     });
 
-    currentY = Math.max(currentY + 25, summaryY + 3);
+    currentY = Math.max(currentY + 15, summaryY + 3);
 
     // ===================== SIGNATURE SECTION =====================
-    currentY += 5;
+    // Ensure signature fits within page
+    if (currentY > pageHeight - margin - 40) {
+      currentY = pageHeight - margin - 40;
+    }
+    
+    currentY += 3;
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.3);
     doc.line(margin, currentY, pageWidth - margin, currentY);
 
-    currentY += 8;
+    currentY += 6;
     
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(9);
@@ -613,27 +618,30 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
     doc.text(`Sales Person: ${quotationData.salesPersonName || 'System Administrator'}`, margin, currentY);
 
     // Authorized Signatory on right with stamp
-    const sigX = pageWidth - margin - 55;
+    const sigX = pageWidth - margin - 60;
     doc.text('For M/S SRI HM BITUMEN CO', sigX, currentY);
     
-    currentY += 8;
+    currentY += 6;
     
-    // Stamp image - load and embed if available
+    // Stamp image - load and embed if available (smaller size)
     const stampY = currentY;
     if (stampBase64) {
       try {
-        doc.addImage(stampBase64, 'PNG', sigX - 5, stampY, 35, 35);
+        doc.addImage(stampBase64, 'PNG', sigX, stampY, 30, 30);
       } catch (err) {
         console.error('Failed to add stamp image:', err);
       }
     }
 
-    currentY += 38;
-    doc.setLineWidth(0.3);
-    doc.line(sigX, currentY, sigX + 50, currentY);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.text('Authorized Signatory', sigX + 8, currentY + 5);
+    currentY += 32;
+    // Only add signature line if there's room
+    if (currentY < pageHeight - margin - 2) {
+      doc.setLineWidth(0.3);
+      doc.line(sigX, currentY, sigX + 40, currentY);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.text('Authorized Signatory', sigX + 3, currentY + 3);
+    }
 
     // Save PDF
     const fileName = `Quotation_${(quotationData.quotationNumber || 'UNKNOWN').replace(/[\/\\]/g, '_')}.pdf`;

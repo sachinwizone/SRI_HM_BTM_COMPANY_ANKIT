@@ -26,6 +26,121 @@ import { clients, tourAdvances } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
 import setupSalesOperationsRoutes from "./sales-operations-routes";
 
+// Helper function to parse CSV (handles quoted values properly)
+async function parseCSV(buffer: Buffer): Promise<Record<string, any>[]> {
+  const text = buffer.toString('utf-8');
+  const lines = text.split('\n').filter(line => line.trim());
+  
+  if (lines.length === 0) return [];
+
+  // Parse header
+  const headerLine = lines[0];
+  const headers = parseCSVLine(headerLine).map(h => h.toLowerCase().trim());
+  
+  const rows: Record<string, any>[] = [];
+
+  // Parse data rows
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCSVLine(lines[i]);
+    if (values.length > 0 && values.some(v => v && v.trim())) { // Skip empty rows
+      const row: Record<string, any> = {};
+      headers.forEach((header, index) => {
+        row[header] = (values[index] || '').trim();
+      });
+      rows.push(row);
+    }
+  }
+
+  return rows;
+}
+
+// Helper function to parse a single CSV line with proper quote handling
+function parseCSVLine(line: string): string[] {
+  const result = [];
+  let current = '';
+  let insideQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+
+    if (char === '"') {
+      if (insideQuotes && nextChar === '"') {
+        // Escaped quote
+        current += '"';
+        i++; // Skip next quote
+      } else {
+        // Toggle quote state
+        insideQuotes = !insideQuotes;
+      }
+    } else if (char === ',' && !insideQuotes) {
+      // End of field
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+
+  // Add last field
+  result.push(current);
+
+  return result;
+}
+
+// Validation helpers
+function validateEmail(email: string): boolean {
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return re.test(email);
+}
+
+function validatePhone(phone: string): boolean {
+  const re = /^\d{10,}$/;
+  return re.test(phone.replace(/\D/g, ''));
+}
+
+function validateAmount(amount: string): boolean {
+  const num = parseFloat(amount);
+  return !isNaN(num) && num >= 0;
+}
+
+function validateDate(date: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) && !isNaN(new Date(date).getTime());
+}
+
+function convertDate(date: string): string {
+  if (!date) return '';
+  
+  // Already in YYYY-MM-DD format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return date;
+  }
+  
+  // DD-MM-YYYY format
+  if (/^\d{2}-\d{2}-\d{4}$/.test(date)) {
+    const [day, month, year] = date.split('-');
+    return `${year}-${month}-${day}`;
+  }
+  
+  // DD/MM/YYYY format
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(date)) {
+    const [day, month, year] = date.split('/');
+    return `${year}-${month}-${day}`;
+  }
+  
+  // Try to parse as Date and format to YYYY-MM-DD
+  try {
+    const d = new Date(date);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().split('T')[0];
+    }
+  } catch (e) {
+    // ignore
+  }
+  
+  return date; // return as-is if can't parse
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Debug middleware - log all API requests
   app.use('/api', (req, res, next) => {
@@ -173,30 +288,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk upload sales invoices endpoint
-  app.post('/api/bulk-upload/sales-invoices', upload.single('file'), async (req, res) => {
-    console.log('📤 POST /api/bulk-upload/sales-invoices called');
-    
+  app.post('/api/bulk-upload/sales-invoices', requireAuth, upload.single('file'), async (req, res) => {
     try {
-      if (!req.file) {
-        return res.status(400).json({ summary: { success: 0, failed: 0, total: 0, errors: [] }, error: 'No file uploaded' });
-      }
-
-      const text = req.file.buffer.toString('utf-8');
-      const lines = text.split('\n').filter(line => line.trim());
+      const currentUser = (req as any).user;
       
-      if (lines.length === 0) {
-        return res.status(400).json({ summary: { success: 0, failed: 0, total: 0, errors: [] }, error: 'Empty CSV' });
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
       }
 
-      const headers = lines[0].split(',').map(h => h.toLowerCase().trim());
-      const rows = lines.slice(1).map(line => {
-        const values = line.split(',');
-        const row: Record<string, string> = {};
-        headers.forEach((h, i) => {
-          row[h] = (values[i] || '').trim();
-        });
-        return row;
-      });
+      const rows = await parseCSV(req.file.buffer);
+      if (rows.length === 0) {
+        return res.status(400).json({ error: 'CSV file is empty or invalid' });
+      }
 
       const result = {
         success: 0,
@@ -206,118 +309,150 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNum = i + 2;
+
         try {
-          const row = rows[i];
-          const rowNum = i + 2;
+          // Extract columns from CSV
+          const invoiceNumber = row.invoicenumber || '';
+          const invoiceDate = convertDate(row.invoicedate || '');
+          const dueDate = convertDate(row.duedate || '');
+          const ewayBillNumber = row.ewaybillnumber || '';
+          const ewayBillDate = convertDate(row.ewaybilldate || '');
+          const vehicleNumber = row.vehiclenumber || '';
+          const salesOrderNumber = row.salesordernumber || '';
+          const lrNumber = row.lrnumber || '';
+          const partyMobileNumber = row.partymobilenumber || '';
+          const destination = row.destination || '';
+          const dispatchFrom = row.dispatchfrom || '';
+          const dispatchedThrough = row.dispatchedthrough || '';
+          const paymentTerms = row.paymentterms || '30 Days Credit';
+          const customerId = row.customerid || '';
+          const placeOfSupply = row.placeofsupply || '';
+          const placeOfSupplyStateCode = row.placeofsupplystatecode || '';
+          const subtotalAmount = row.subtotalamount || '0';
+          const cgstAmount = row.cgstamount || '0';
+          const sgstAmount = row.sgstamount || '0';
+          const igstAmount = row.igstamount || '0';
+          const otherCharges = row.othercharges || '0';
+          const roundOff = row.roundoff || '0';
+          const totalInvoiceAmount = row.totalinvoiceamount || '0';
 
-          const invoiceNumber = row.invoicenumber || row.invoice_number || '';
-          const invoiceDate = row.invoicedate || row.invoice_date || new Date().toISOString().split('T')[0];
-          const customerId = row.customerid || row.customer_id || '';
-          const placeOfSupply = row.placeofsupply || row.place_of_supply || '';
-          const dueDate = row.duedate || row.due_date || '';
-          const subtotalAmount = parseFloat(row.subtotalamount || row.subtotal_amount || '0');
-          const cgstAmount = parseFloat(row.cgstamount || row.cgst_amount || '0');
-          const sgstAmount = parseFloat(row.sgstamount || row.sgst_amount || '0');
-          const igstAmount = parseFloat(row.igstamount || row.igst_amount || '0');
-          const totalInvoiceAmount = parseFloat(row.totalinvoiceamount || row.total_invoice_amount || '0');
+          // Validation
+          const errors: string[] = [];
+          if (!invoiceNumber) errors.push('invoiceNumber is required');
+          if (!invoiceDate) errors.push('invoiceDate is required');
+          if (invoiceDate && !validateDate(invoiceDate)) errors.push('invoiceDate must be YYYY-MM-DD');
+          if (dueDate && !validateDate(dueDate)) errors.push('dueDate must be YYYY-MM-DD');
+          if (!placeOfSupply) errors.push('placeOfSupply is required');
+          if (!placeOfSupplyStateCode) errors.push('placeOfSupplyStateCode is required');
+          if (!destination) errors.push('destination is required');
+          if (!dispatchFrom) errors.push('dispatchFrom is required');
+          if (!totalInvoiceAmount) errors.push('totalInvoiceAmount is required');
 
-          if (!invoiceNumber || !customerId) {
+          if (errors.length > 0) {
             result.failed++;
             result.errors.push({
               row: rowNum,
-              message: 'Missing required fields: invoiceNumber or customerId'
+              message: errors.join('; ')
             });
             continue;
           }
 
-          // Get financial year from invoice date
-          const dateObj = new Date(invoiceDate);
-          const year = dateObj.getFullYear();
-          const month = dateObj.getMonth();
-          const financialYear = month >= 3 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
-
+          // Insert invoice
           await db.execute(sql`
             INSERT INTO sales_invoices (
               invoice_number,
               invoice_date,
-              financial_year,
+              due_date,
+              eway_bill_number,
+              eway_bill_date,
+              vehicle_number,
+              sales_order_number,
+              lr_number,
+              party_mobile_number,
+              destination,
+              dispatch_from,
+              dispatched_through,
+              payment_terms,
               customer_id,
               place_of_supply,
-              due_date,
+              place_of_supply_state_code,
               subtotal_amount,
               cgst_amount,
               sgst_amount,
               igst_amount,
+              other_charges,
+              round_off,
               total_invoice_amount,
+              remaining_balance,
               invoice_status,
               payment_status,
-              created_at
+              created_by,
+              financial_year
             ) VALUES (
               ${invoiceNumber},
               ${invoiceDate},
-              ${financialYear},
-              ${customerId},
-              ${placeOfSupply},
               ${dueDate || null},
-              ${subtotalAmount},
-              ${cgstAmount},
-              ${sgstAmount},
-              ${igstAmount},
-              ${totalInvoiceAmount},
+              ${ewayBillNumber || null},
+              ${ewayBillDate || null},
+              ${vehicleNumber || null},
+              ${salesOrderNumber || null},
+              ${lrNumber || null},
+              ${partyMobileNumber || null},
+              ${destination},
+              ${dispatchFrom},
+              ${dispatchedThrough || null},
+              ${paymentTerms},
+              ${customerId || null},
+              ${placeOfSupply},
+              ${placeOfSupplyStateCode},
+              ${parseFloat(subtotalAmount) || 0},
+              ${parseFloat(cgstAmount) || 0},
+              ${parseFloat(sgstAmount) || 0},
+              ${parseFloat(igstAmount) || 0},
+              ${parseFloat(otherCharges) || 0},
+              ${parseFloat(roundOff) || 0},
+              ${parseFloat(totalInvoiceAmount) || 0},
+              ${parseFloat(totalInvoiceAmount) || 0},
               'DRAFT',
               'PENDING',
-              NOW()
+              ${currentUser.id},
+              ${'2025-2026'}
             )
           `);
 
           result.success++;
-          console.log(`✅ Row ${rowNum} inserted`);
         } catch (error: any) {
           result.failed++;
-          console.error(`❌ Row ${i + 2} error:`, error.message);
           result.errors.push({
-            row: i + 2,
-            message: error.message || 'Insert failed'
+            row: rowNum,
+            message: error.message || 'Failed to insert record'
           });
         }
       }
 
-      console.log(`✅ Upload complete: ${result.success} success, ${result.failed} failed`);
+      console.log(`✅ Sales invoices bulk upload: ${result.success} success, ${result.failed} failed`);
       res.json({ summary: result });
     } catch (error: any) {
-      console.error('❌ Upload error:', error);
-      res.status(500).json({ 
-        summary: { success: 0, failed: 0, total: 0, errors: [] },
-        error: error.message
-      });
+      console.error('❌ Bulk upload sales invoices error:', error);
+      res.status(500).json({ error: 'Bulk upload failed', details: error.message });
     }
   });
 
   // Bulk upload purchase invoices endpoint
-  app.post('/api/bulk-upload/purchase-invoices', upload.single('file'), async (req, res) => {
-    console.log('📤 POST /api/bulk-upload/purchase-invoices called');
-    
+  app.post('/api/bulk-upload/purchase-invoices', requireAuth, upload.single('file'), async (req, res) => {
     try {
-      if (!req.file) {
-        return res.status(400).json({ summary: { success: 0, failed: 0, total: 0, errors: [] }, error: 'No file uploaded' });
-      }
-
-      const text = req.file.buffer.toString('utf-8');
-      const lines = text.split('\n').filter(line => line.trim());
+      const currentUser = (req as any).user;
       
-      if (lines.length === 0) {
-        return res.status(400).json({ summary: { success: 0, failed: 0, total: 0, errors: [] }, error: 'Empty CSV' });
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
       }
 
-      const headers = lines[0].split(',').map(h => h.toLowerCase().trim());
-      const rows = lines.slice(1).map(line => {
-        const values = line.split(',');
-        const row: Record<string, string> = {};
-        headers.forEach((h, i) => {
-          row[h] = (values[i] || '').trim();
-        });
-        return row;
-      });
+      const rows = await parseCSV(req.file.buffer);
+      if (rows.length === 0) {
+        return res.status(400).json({ error: 'CSV file is empty or invalid' });
+      }
 
       const result = {
         success: 0,
@@ -327,90 +462,237 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNum = i + 2;
+
         try {
-          const row = rows[i];
-          const rowNum = i + 2;
-
-          const invoiceNumber = row.invoicenumber || row.invoice_number || '';
-          const invoiceDate = row.invoicedate || row.invoice_date || new Date().toISOString().split('T')[0];
-          const supplierId = row.supplierid || row.supplier_id || '';
-          const placeOfSupply = row.placeofsupply || row.place_of_supply || '';
-          const dueDate = row.duedate || row.due_date || '';
-          const subtotalAmount = parseFloat(row.subtotalamount || row.subtotal_amount || '0');
-          const cgstAmount = parseFloat(row.cgstamount || row.cgst_amount || '0');
-          const sgstAmount = parseFloat(row.sgstamount || row.sgst_amount || '0');
-          const igstAmount = parseFloat(row.igstamount || row.igst_amount || '0');
-          const totalInvoiceAmount = parseFloat(row.totalinvoiceamount || row.total_invoice_amount || '0');
-
-          if (!invoiceNumber || !supplierId) {
+          // Safety check: reject if payment_status or invoice_status are in CSV
+          if (row.paymentstatus || row.payment_status || row.invoicestatus || row.invoice_status) {
             result.failed++;
             result.errors.push({
               row: rowNum,
-              message: 'Missing required fields: invoiceNumber or supplierId'
+              message: 'ERROR: Do not include payment_status or invoice_status columns in CSV. These are auto-generated. Use the template from the "Get Template" button.'
             });
             continue;
           }
 
-          // Get financial year from invoice date
-          const dateObj = new Date(invoiceDate);
-          const year = dateObj.getFullYear();
-          const month = dateObj.getMonth();
-          const financialYear = month >= 3 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+          // Normalize field names
+          const invoiceNumber = row.invoicenumber || row.invoice_number || '';
+          const invoiceDate = convertDate(row.invoicedate || row.invoice_date || '');
+          const supplierId = row.supplierid || row.supplier_id || '';
+          const placeOfSupply = row.placeofsupply || row.place_of_supply || '';
+          const dueDate = convertDate(row.duedate || row.due_date || '');
+          const invoiceType = row.invoicetype || row.invoice_type || 'TAX_INVOICE';
+          const paymentTerms = row.paymentterms || row.payment_terms || '';
+          const subtotalAmount = row.subtotalamount || row.subtotal_amount || '0';
+          const cgstAmount = row.cgstamount || row.cgst_amount || '0';
+          const sgstAmount = row.sgstamount || row.sgst_amount || '0';
+          const igstAmount = row.igstamount || row.igst_amount || '0';
+          const totalInvoiceAmount = row.totalinvoiceamount || row.total_invoice_amount || '0';
 
+          const errors: string[] = [];
+
+          if (!invoiceNumber) errors.push('invoiceNumber is required');
+          if (!invoiceDate) errors.push('invoiceDate is required');
+          if (invoiceDate && !validateDate(invoiceDate)) errors.push('invoiceDate must be YYYY-MM-DD');
+          if (!supplierId) errors.push('supplierId is required');
+          if (!totalInvoiceAmount) errors.push('totalInvoiceAmount is required');
+          if (totalInvoiceAmount && !validateAmount(totalInvoiceAmount)) {
+            errors.push('totalInvoiceAmount must be a positive number');
+          }
+
+          if (errors.length > 0) {
+            result.failed++;
+            result.errors.push({
+              row: rowNum,
+              message: errors.join('; ')
+            });
+            continue;
+          }
+
+          // Insert purchase invoice
           await db.execute(sql`
             INSERT INTO purchase_invoices (
               invoice_number,
               invoice_date,
-              financial_year,
               supplier_id,
               place_of_supply,
               due_date,
+              invoice_type,
+              payment_terms,
               subtotal_amount,
               cgst_amount,
               sgst_amount,
               igst_amount,
               total_invoice_amount,
+              remaining_balance,
               invoice_status,
               payment_status,
-              created_at
+              created_by
             ) VALUES (
               ${invoiceNumber},
               ${invoiceDate},
-              ${financialYear},
               ${supplierId},
-              ${placeOfSupply},
+              ${placeOfSupply || null},
               ${dueDate || null},
-              ${subtotalAmount},
-              ${cgstAmount},
-              ${sgstAmount},
-              ${igstAmount},
-              ${totalInvoiceAmount},
-              'DRAFT',
+              ${invoiceType || 'TAX_INVOICE'},
+              ${paymentTerms || null},
+              ${parseFloat(subtotalAmount) || 0},
+              ${parseFloat(cgstAmount) || 0},
+              ${parseFloat(sgstAmount) || 0},
+              ${parseFloat(igstAmount) || 0},
+              ${parseFloat(totalInvoiceAmount)},
+              ${parseFloat(totalInvoiceAmount)},
+              'SUBMITTED',
               'PENDING',
+              ${currentUser.id}
+            )
+          `);
+
+          result.success++;
+        } catch (error: any) {
+          result.failed++;
+          result.errors.push({
+            row: rowNum,
+            message: error.message || 'Failed to insert record'
+          });
+        }
+      }
+
+      console.log(`✅ Purchase invoices bulk upload: ${result.success} success, ${result.failed} failed`);
+      res.json({ summary: result });
+    } catch (error: any) {
+      console.error('❌ Bulk upload purchase invoices error:', error);
+      res.status(500).json({ error: 'Bulk upload failed', details: error.message });
+    }
+  });
+
+  // Bulk upload clients endpoint
+  app.post('/api/bulk-upload/clients', requireAuth, upload.single('file'), async (req, res) => {
+    try {
+      const currentUser = (req as any).user;
+      
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      const rows = await parseCSV(req.file.buffer);
+      if (rows.length === 0) {
+        return res.status(400).json({ error: 'CSV file is empty or invalid' });
+      }
+
+      const result = {
+        success: 0,
+        failed: 0,
+        total: rows.length,
+        errors: [] as { row: number; message: string }[]
+      };
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNum = i + 2;
+
+        try {
+          // Extract columns from CSV
+          const name = row.name || '';
+          let category = (row.category || 'ALFA').toUpperCase().trim();
+          
+          // Normalize category values
+          const categoryMap: Record<string, string> = {
+            'ALPHA': 'ALFA',
+            'ALFA': 'ALFA',
+            'BETA': 'BETA',
+            'GAMMA': 'GAMMA',
+            'DELTA': 'DELTA',
+            'PRIORITY': 'ALFA',
+            'REGULAR': 'BETA',
+            'STANDARD': 'GAMMA',
+            'NEW': 'DELTA'
+          };
+          
+          category = categoryMap[category] || 'ALFA';
+          
+          const contactPersonName = row.contactpersonname || '';
+          const mobileNumber = row.mobilenumber || '';
+          const email = row.email || '';
+          const billingAddressLine = row.billingaddressline || '';
+          const billingCity = row.billingcity || '';
+          const billingState = row.billingstate || '';
+          const billingPincode = row.billingpincode || '';
+          const gstNumber = row.gstnumber || '';
+          const panNumber = row.pannumber || '';
+          const paymentTerms = row.paymentterms || '30';
+          const creditLimit = row.creditlimit || '0';
+
+          // Validation
+          const errors: string[] = [];
+          if (!name) errors.push('name is required');
+          if (!category) errors.push('category is required');
+          if (email && !validateEmail(email)) errors.push('email must be valid format');
+          if (mobileNumber && !validatePhone(mobileNumber)) errors.push('mobileNumber must be 10+ digits');
+          if (creditLimit && !validateAmount(creditLimit)) errors.push('creditLimit must be a positive number');
+
+          if (errors.length > 0) {
+            result.failed++;
+            result.errors.push({
+              row: rowNum,
+              message: errors.join('; ')
+            });
+            continue;
+          }
+
+          // Insert client
+          await db.execute(sql`
+            INSERT INTO clients (
+              name,
+              category,
+              contact_person_name,
+              mobile_number,
+              email,
+              billing_address_line,
+              billing_city,
+              billing_state,
+              billing_pincode,
+              gst_number,
+              pan_number,
+              payment_terms,
+              credit_limit,
+              created_at,
+              updated_at
+            ) VALUES (
+              ${name},
+              ${category},
+              ${contactPersonName || null},
+              ${mobileNumber || null},
+              ${email || null},
+              ${billingAddressLine || null},
+              ${billingCity || null},
+              ${billingState || null},
+              ${billingPincode || null},
+              ${gstNumber || null},
+              ${panNumber || null},
+              ${parseInt(paymentTerms) || 30},
+              ${parseFloat(creditLimit) || 0},
+              NOW(),
               NOW()
             )
           `);
 
           result.success++;
-          console.log(`✅ Row ${rowNum} inserted`);
         } catch (error: any) {
           result.failed++;
-          console.error(`❌ Row ${i + 2} error:`, error.message);
           result.errors.push({
-            row: i + 2,
-            message: error.message || 'Insert failed'
+            row: rowNum,
+            message: error.message || 'Failed to insert record'
           });
         }
       }
 
-      console.log(`✅ Upload complete: ${result.success} success, ${result.failed} failed`);
+      console.log(`✅ Clients bulk upload: ${result.success} success, ${result.failed} failed`);
       res.json({ summary: result });
     } catch (error: any) {
-      console.error('❌ Upload error:', error);
-      res.status(500).json({ 
-        summary: { success: 0, failed: 0, total: 0, errors: [] },
-        error: error.message
-      });
+      console.error('❌ Bulk upload clients error:', error);
+      res.status(500).json({ error: 'Bulk upload failed', details: error.message });
     }
   });
 
@@ -453,7 +735,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const rowNum = i + 2;
 
           const name = row.name || row.clientname || '';
-          const category = row.category || row.clienttype || 'RETAIL';
+          let category = (row.category || row.clienttype || 'ALFA').toUpperCase().trim();
+          
+          // Normalize category values
+          const categoryMap: Record<string, string> = {
+            'ALPHA': 'ALFA',
+            'ALFA': 'ALFA',
+            'BETA': 'BETA',
+            'GAMMA': 'GAMMA',
+            'DELTA': 'DELTA',
+            'PRIORITY': 'ALFA',
+            'REGULAR': 'BETA',
+            'STANDARD': 'GAMMA',
+            'NEW': 'DELTA'
+          };
+          
+          category = categoryMap[category] || 'ALFA';
+          
           const contactPersonName = row.contactpersonname || row.contact_person_name || row.contactperson || '';
           const mobileNumber = row.mobilenumber || row.mobile_number || row.phone || '';
           const email = row.email || '';

@@ -4754,7 +4754,13 @@ M/S SRI HM BITUMEN CO`;
                     <TableCell>{getSalesOrderClientName(salesOrder)}</TableCell>
                     <TableCell>{new Date(salesOrder.orderDate || salesOrder.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>
-                      {salesOrder.expectedDeliveryDate ? new Date(salesOrder.expectedDeliveryDate).toLocaleDateString() : '-'}
+                      {salesOrder.expectedDeliveryDate ? (() => {
+                        const orderDate = new Date(salesOrder.orderDate || salesOrder.createdAt);
+                        const deliveryDate = new Date(salesOrder.expectedDeliveryDate);
+                        const diffTime = Math.abs(deliveryDate.getTime() - orderDate.getTime());
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        return `${diffDays} days`;
+                      })() : '-'}
                     </TableCell>
                     <TableCell>{salesOrder.destination || '-'}</TableCell>
                     <TableCell>{salesOrder.loadingFrom || '-'}</TableCell>
@@ -4906,7 +4912,13 @@ M/S SRI HM BITUMEN CO`;
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Expected Delivery</label>
                   <p className="font-medium">
-                    {selectedSalesOrder.expectedDeliveryDate ? new Date(selectedSalesOrder.expectedDeliveryDate).toLocaleDateString() : 'Not set'}
+                    {selectedSalesOrder.expectedDeliveryDate ? (() => {
+                      const orderDate = new Date(selectedSalesOrder.orderDate || selectedSalesOrder.createdAt);
+                      const deliveryDate = new Date(selectedSalesOrder.expectedDeliveryDate);
+                      const diffTime = Math.abs(deliveryDate.getTime() - orderDate.getTime());
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      return `${diffDays} days`;
+                    })() : 'Not set'}
                   </p>
                 </div>
                 <div>

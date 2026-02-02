@@ -162,6 +162,8 @@ export default function Clients() {
   const [isLoadingDocument, setIsLoadingDocument] = useState(false);
   const [selectedClientForView, setSelectedClientForView] = useState<Client | null>(null);
   const [isClientViewOpen, setIsClientViewOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -903,20 +905,27 @@ export default function Clients() {
           <h1 className="text-3xl font-bold text-gray-900">Client Management</h1>
           <p className="text-gray-600 mt-1">Manage your clients and their information</p>
         </div>
-        <Dialog open={isFormOpen} onOpenChange={(open) => {
-          if (!open) {
-            // Clear temporary uploads when dialog is closed
-            setUploadedFiles({});
-            setCurrentClientId(null);
-          }
-          setIsFormOpen(open);
-        }}>
-          <DialogTrigger asChild>
-            <Button onClick={handleAddNew} className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Client
+        <div className="flex gap-2">
+          <a href="/bulk-upload">
+            <Button variant="outline" className="border-blue-300 text-blue-600 hover:bg-blue-50">
+              <Upload className="h-4 w-4 mr-2" />
+              Bulk Upload
             </Button>
-          </DialogTrigger>
+          </a>
+          <Dialog open={isFormOpen} onOpenChange={(open) => {
+            if (!open) {
+              // Clear temporary uploads when dialog is closed
+              setUploadedFiles({});
+              setCurrentClientId(null);
+            }
+            setIsFormOpen(open);
+          }}>
+            <DialogTrigger asChild>
+              <Button onClick={handleAddNew} className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Client
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" aria-describedby="client-form-description">
             <DialogHeader>
               <DialogTitle className="text-xl font-semibold">
@@ -1740,6 +1749,7 @@ export default function Clients() {
             </Form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Client Category Statistics Cards */}
@@ -1946,10 +1956,37 @@ export default function Clients() {
 
       {/* Client Grid/Table */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-medium">
-            Clients ({clients.length})
-          </CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="flex items-center gap-4">
+            <CardTitle className="text-lg font-medium">
+              Clients ({clients.length})
+            </CardTitle>
+            <a href="/bulk-upload">
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Import Clients
+              </Button>
+            </a>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">Show:</span>
+            <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+              setItemsPerPage(parseInt(value));
+              setCurrentPage(1);
+            }}>
+              <SelectTrigger className="w-24">
+                <SelectValue placeholder="10" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+                <SelectItem value="200">200</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="text-sm text-gray-600">entries</span>
+          </div>
         </CardHeader>
         <CardContent>
           {!clients || clients.length === 0 ? (
@@ -1982,7 +2019,11 @@ export default function Clients() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(clients as Client[]).map((client: Client) => (
+                  {(() => {
+                    const startIndex = (currentPage - 1) * itemsPerPage;
+                    const endIndex = startIndex + itemsPerPage;
+                    const paginatedClients = (clients as Client[]).slice(startIndex, endIndex);
+                    return paginatedClients.map((client: Client) => (
                     <TableRow key={client.id} className="hover:bg-gray-50">
                       <TableCell>
                         <button
@@ -2140,9 +2181,59 @@ export default function Clients() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ));
+                  })()}
                 </TableBody>
               </Table>
+            </div>
+          )}
+          
+          {/* Pagination Controls */}
+          {clients && clients.length > 0 && (
+            <div className="mt-6 space-y-4">
+              {/* Info Display */}
+              <div className="flex items-center justify-between px-2">
+                <div className="text-sm text-gray-600">
+                  Showing {Math.min((currentPage - 1) * itemsPerPage + 1, clients.length)} to {Math.min(currentPage * itemsPerPage, clients.length)} of {clients.length} clients
+                </div>
+              </div>
+              
+              {/* Pagination Buttons */}
+              {Math.ceil(clients.length / itemsPerPage) > 1 && (
+                <div className="flex items-center justify-center gap-2">
+                  <Button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    variant="outline"
+                    size="sm"
+                  >
+                    ← Prev
+                  </Button>
+                  
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.ceil(clients.length / itemsPerPage) }, (_, i) => i + 1).map((page) => (
+                      <Button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        variant={currentPage === page ? "default" : "outline"}
+                        size="sm"
+                        className={currentPage === page ? "bg-blue-600 hover:bg-blue-700" : ""}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
+                  
+                  <Button
+                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(clients.length / itemsPerPage), prev + 1))}
+                    disabled={currentPage === Math.ceil(clients.length / itemsPerPage)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Next →
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
