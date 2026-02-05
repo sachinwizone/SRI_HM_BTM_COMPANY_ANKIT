@@ -228,7 +228,7 @@ export const generateBitumenSalesOrderPDF = async (salesOrderData: SalesOrderDat
   doc.setFont('helvetica', 'bold');
   doc.text('Delivery:', margin + col1Width + col2Width + 2, currentY + 3.5);
   doc.setFont('helvetica', 'normal');
-  const deliveryText = (salesOrderData.deliveryTerms || '').substring(0, 20);
+  const deliveryText = (salesOrderData.deliveryTerms || 'As per quotation').substring(0, 25);
   doc.text(deliveryText, margin + col1Width + col2Width + 22, currentY + 3.5);
   
   doc.setFont('helvetica', 'bold');

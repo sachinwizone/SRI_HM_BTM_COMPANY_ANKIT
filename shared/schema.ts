@@ -1387,6 +1387,7 @@ export const salesOrders = pgTable("sales_orders", {
   creditCheckStatus: creditCheckStatusEnum("credit_check_status").notNull().default('PENDING'),
   creditLimit: decimal("credit_limit", { precision: 15, scale: 2 }),
   paymentTerms: text("payment_terms"),
+  deliveryTerms: text("delivery_terms"),
   deliveryAddress: text("delivery_address"),
   destination: text("destination"),
   loadingFrom: text("loading_from"),
