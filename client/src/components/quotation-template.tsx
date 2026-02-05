@@ -229,7 +229,7 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
 
     doc.text(quotationData.quotationNumber || 'N/A', margin + 2, currentY + 6);
     doc.text(quotationDate, margin + col1Width + 2, currentY + 6);
-    doc.text(quotationData.deliveryTerms || 'Within 15-20 Days', margin + col1Width + col2Width + 2, currentY + 6);
+    doc.text(quotationData.deliveryTerms || '', margin + col1Width + col2Width + 2, currentY + 6);
     doc.text(validityDate, margin + col1Width + col2Width + col3Width + 2, currentY + 6);
 
     currentY += 10;

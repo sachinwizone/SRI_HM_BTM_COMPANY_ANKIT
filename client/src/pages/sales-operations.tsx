@@ -4572,7 +4572,7 @@ M/S SRI HM BITUMEN CO`;
         invoiceDate: salesOrder.orderDate || salesOrder.createdAt,
         orderDate: salesOrder.orderDate || salesOrder.createdAt,
         dueDate: salesOrder.expectedDeliveryDate,
-        deliveryTerms: salesOrder.deliveryTerms || 'Within 15-20 Days',
+        deliveryTerms: salesOrder.deliveryTerms || '',
         paymentTerms: quotation?.paymentTerms || salesOrder.paymentTerms || 'ADVANCE',
         destination: salesOrder.destination || '',
         dispatchFrom: salesOrder.loadingFrom || 'KANDLA',

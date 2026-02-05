@@ -789,7 +789,7 @@ export const generateSalesOrderHtml = (invoice: any, stampBase64: string = ''): 
           </div>
           <div class="info-cell">
             <div class="info-label">Delivery Terms</div>
-            <div class="info-value">${invoice.deliveryTerms || 'Within 15-20 Days'}</div>
+            <div class="info-value">${invoice.deliveryTerms || ''}</div>
           </div>
         </div>
 
