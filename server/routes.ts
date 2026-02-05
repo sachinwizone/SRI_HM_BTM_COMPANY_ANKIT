@@ -4095,6 +4095,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalAmount: quotation.totalAmount,
         creditCheckStatus: 'PENDING' as const,
         paymentTerms: quotation.paymentTerms,
+        deliveryTerms: quotation.deliveryTerms,
         destination: quotation.destination,
         loadingFrom: quotation.loadingFrom,
         specialInstructions: quotation.specialInstructions,

@@ -2627,6 +2627,7 @@ function QuotationSection() {
   const [quotationDate, setQuotationDate] = useState(new Date().toISOString().split('T')[0]);
   const [validUntil, setValidUntil] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
+  const [deliveryTerms, setDeliveryTerms] = useState("");
   const [description, setDescription] = useState("");
   const [salesPersonId, setSalesPersonId] = useState("");
   const [freightCharged, setFreightCharged] = useState<number>(0); // Keep for backward compatibility, always 0
@@ -2729,6 +2730,7 @@ function QuotationSection() {
       setSelectedClient("");
       setValidUntil("");
       setPaymentTerms("");
+      setDeliveryTerms("");
       setDescription("");
       setQuotationData({ destination: "", loadingFrom: "" });
       setEditingQuotationId(null);
@@ -2822,6 +2824,7 @@ function QuotationSection() {
     setQuotationDate(new Date().toISOString().split('T')[0]);
     setValidUntil("");
     setPaymentTerms("");
+    setDeliveryTerms("");
     setDescription("");
     setSalesPersonId("");
     setQuotationItems([{ productId: "", quantity: 0, unit: "", rate: 0, amount: 0 }]);
@@ -2872,7 +2875,7 @@ function QuotationSection() {
       freightCharged: 0, // Freight now handled via items
       grandTotal: totals.total,
       paymentTerms: paymentTerms || '30 Days',
-      deliveryTerms: "Standard delivery terms",
+      deliveryTerms: deliveryTerms || "Standard delivery terms",
       destination: quotationData.destination,
       loadingFrom: quotationData.loadingFrom,
       specialInstructions: description,
@@ -3073,6 +3076,7 @@ M/S SRI HM BITUMEN CO`;
     setSelectedClient(quotation.clientId);
     setClientType(quotation.clientType);
     setPaymentTerms(quotation.paymentTerms.toString());
+    setDeliveryTerms(quotation.deliveryTerms || "");
     setDescription(quotation.specialInstructions || "");
     setSalesPersonId(quotation.salesPersonId || "");
     setQuotationDate(quotation.quotationDate.split('T')[0]);
@@ -3912,6 +3916,16 @@ M/S SRI HM BITUMEN CO`;
                   value={paymentTerms}
                   onChange={(e) => setPaymentTerms(e.target.value)}
                   placeholder="Enter payment terms (e.g., 30 Days, 15 Days Credit, Advance, etc.)"
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Delivery Terms</label>
+                <Input 
+                  type="text" 
+                  value={deliveryTerms}
+                  onChange={(e) => setDeliveryTerms(e.target.value)}
+                  placeholder="Enter delivery terms (e.g., Within 15-20 Days, FOB, CIF, etc.)"
                   className="w-full"
                 />
               </div>
