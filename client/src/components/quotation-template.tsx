@@ -353,7 +353,12 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
 
     // ===================== ITEMS TABLE =====================
     const totalTableWidth = pageWidth - 2 * margin;
-    const itemTableHeaders = ['Item #', 'Description', 'Qty', 'Unit', 'Rate', 'Amount', 'GST', 'Total'];
+    
+    // Check if any item uses deliveryRate (non-zero delivery rate)
+    const hasDeliveryRate = quotationData.items?.some((item: any) => item.deliveryRate && parseFloat(String(item.deliveryRate)) > 0);
+    const rateColumnHeader = hasDeliveryRate ? 'Delivery Rate' : 'Rate';
+    
+    const itemTableHeaders = ['Item #', 'Description', 'Qty', 'Unit', rateColumnHeader, 'Amount', 'GST', 'Total'];
     // Improved column widths for better balance
     const itemColWidths = [13, 42, 12, 13, 20, 22, 18, 22];
     
@@ -500,8 +505,9 @@ export const generateBitumenQuotationPDF = async (quotationData: QuotationData) 
       // Column 3: Unit (centered)
       doc.text(item.unit || 'N/A', tableColPositions[3] + itemColWidths[3] / 2, rowY + 6.5, { align: 'center' });
       
-      // Column 4: Rate (right aligned)
-      doc.text(formatCurrency(item.rate), tableColPositions[4] + itemColWidths[4] - 3, rowY + 6.5, { align: 'right' });
+      // Column 4: Rate (right aligned - show delivery rate if available, otherwise regular rate)
+      const displayRate = (item.deliveryRate && parseFloat(String(item.deliveryRate)) > 0) ? item.deliveryRate : item.rate;
+      doc.text(formatCurrency(displayRate), tableColPositions[4] + itemColWidths[4] - 3, rowY + 6.5, { align: 'right' });
       
       // Column 5: Amount (right aligned)
       doc.text(formatCurrency(item.amount), tableColPositions[5] + itemColWidths[5] - 3, rowY + 6.5, { align: 'right' });

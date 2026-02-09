@@ -57,6 +57,20 @@
       "when": 1768479698755,
       "tag": "0007_square_tarantula",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1770453819380,
+      "tag": "0008_needy_the_enforcers",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1770465274081,
+      "tag": "0009_spooky_hercules",
+      "breakpoints": true
     }
   ]
 }

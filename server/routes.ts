@@ -3753,7 +3753,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         quotations.map(async (quotation) => {
           try {
             const items = await storage.getQuotationItemsByQuotation(quotation.id);
-            console.log(`Fetched ${items.length} items for quotation ${quotation.id}:`, items.map(i => ({ productId: i.productId, description: i.description, quantity: i.quantity, unit: i.unit, rate: i.rate, amount: i.amount })));
+            console.log(`Fetched ${items.length} items for quotation ${quotation.id}:`, items.map(i => ({ productId: i.productId, description: i.description, quantity: i.quantity, unit: i.unit, rate: i.rate, deliveryRate: (i as any).deliveryRate, amount: i.amount })));
             
             // Determine if this is a lead or client
             let clientName = 'Unknown';
@@ -3905,6 +3905,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Creating ${items.length} quotation items`);
         for (let i = 0; i < items.length; i++) {
           const item = items[i];
+          console.log(`\n📋 Processing item ${i + 1}:`, {
+            productId: item.productId,
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            rate: item.unitPrice || item.rate,
+            deliveryRate: item.deliveryRate,
+            amount: item.totalPrice || item.amount,
+            receivedDeliveryRate: item.deliveryRate,
+            typeOfDeliveryRate: typeof item.deliveryRate
+          });
+          
           const quotationItemData = {
             quotationId: quotation.id,
             productId: item.productId,
@@ -3912,14 +3924,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             quantity: String(Number(item.quantity) || 0),
             unit: item.unit || 'PCS',
             rate: String(Number(item.unitPrice || item.rate || 0)),
+            deliveryRate: String(Number(item.deliveryRate || 0)),
             amount: String(Number(item.totalPrice || item.amount || 0)),
           };
           
-          console.log(`Creating quotation item ${i + 1}:`, quotationItemData);
+          console.log(`💾 Data to be saved:`, quotationItemData);
           const createdItem = await storage.createQuotationItem(quotationItemData);
-          console.log(`Successfully created quotation item ${i + 1}:`, createdItem.id);
+          console.log(`✅ Successfully created quotation item ${i + 1}:`, {
+            id: createdItem.id,
+            rate: createdItem.rate,
+            deliveryRate: (createdItem as any).deliveryRate,
+            amount: createdItem.amount
+          });
         }
-        console.log(`All ${items.length} quotation items created successfully`);
+        console.log(`✅ All ${items.length} quotation items created successfully`);
       }
       
       res.status(201).json(quotation);
@@ -3955,6 +3973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             quantity: String(Number(item.quantity) || 0),
             unit: item.unit || 'PCS',
             rate: String(Number(item.unitPrice || item.rate || 0)),
+            deliveryRate: String(Number(item.deliveryRate || 0)),
             amount: String(Number(item.totalPrice || item.amount || 0)),
           };
           

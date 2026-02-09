@@ -1367,7 +1367,9 @@ export const quotationItems = pgTable("quotation_items", {
   description: text("description"),
   quantity: decimal("quantity", { precision: 15, scale: 3 }).notNull(),
   unit: text("unit").notNull(),
-  rate: decimal("rate", { precision: 15, scale: 2 }).notNull(),
+  rate: decimal("rate", { precision: 15, scale: 2 }),
+  factoryRate: decimal("factory_rate", { precision: 15, scale: 2 }),
+  deliveryRate: decimal("delivery_rate", { precision: 15, scale: 2 }),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
@@ -1627,8 +1629,20 @@ export const insertQuotationItemSchema = z.object({
   description: z.string().optional(),
   quantity: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val || 0),
   unit: z.string(),
-  unitPrice: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val || 0),
-  totalPrice: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val || 0),
+  unitPrice: z.union([z.string(), z.number()]).optional().transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val),
+  totalPrice: z.union([z.string(), z.number()]).optional().transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val),
+  rate: z.union([z.string(), z.number()]).optional().transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val), // Legacy field
+  amount: z.union([z.string(), z.number()]).optional().transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val), // Legacy field
+  factoryRate: z.union([z.string(), z.number()]).optional().transform(val => {
+    if (val === null || val === undefined || val === "") return undefined;
+    const num = typeof val === 'string' ? parseFloat(val) : val;
+    return isNaN(num) ? undefined : num;
+  }),
+  deliveryRate: z.union([z.string(), z.number()]).optional().transform(val => {
+    if (val === null || val === undefined || val === "") return undefined;
+    const num = typeof val === 'string' ? parseFloat(val) : val;
+    return isNaN(num) ? undefined : num;
+  }),
   taxRate: z.union([z.string(), z.number()]).optional().transform(val => {
     if (val == null) return 0;
     return typeof val === 'string' ? parseFloat(val) || 0 : val;

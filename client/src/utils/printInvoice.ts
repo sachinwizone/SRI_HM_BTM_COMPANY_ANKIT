@@ -590,6 +590,13 @@ export const generateSalesOrderHtml = (invoice: any, stampBase64: string = ''): 
   
   const items = invoice.items || [];
   
+  // Check if any item has a deliveryRate > 0
+  const hasDeliveryRate = items.some((item: any) => {
+    const deliveryRate = parseFloat(item.deliveryRate || 0);
+    return deliveryRate > 0;
+  });
+  console.log('🖨️ Has Delivery Rate:', hasDeliveryRate);
+  
   // Calculate totals from invoice or items
   let subtotal = parseFloat(invoice.subtotalAmount || 0);
   let gstAmount = parseFloat(invoice.cgstAmount || 0) + parseFloat(invoice.sgstAmount || 0) + parseFloat(invoice.igstAmount || 0);
@@ -599,7 +606,8 @@ export const generateSalesOrderHtml = (invoice: any, stampBase64: string = ''): 
     // Calculate subtotal only from non-freight items
     subtotal = items.reduce((sum: number, item: any) => {
       const qty = parseFloat(item.quantity || 0);
-      const rate = parseFloat(item.ratePerUnit || item.rate || 0);
+      const deliveryRate = parseFloat(item.deliveryRate || 0);
+      const rate = deliveryRate > 0 ? deliveryRate : parseFloat(item.ratePerUnit || item.rate || 0);
       const productName = item.productName || item.description || '';
       const isFreightItem = productName.toLowerCase().includes('freight');
       if (isFreightItem) return sum; // Skip freight items in subtotal
@@ -609,7 +617,8 @@ export const generateSalesOrderHtml = (invoice: any, stampBase64: string = ''): 
     // Calculate GST only from non-freight items
     gstAmount = items.reduce((sum: number, item: any) => {
       const qty = parseFloat(item.quantity || 0);
-      const rate = parseFloat(item.ratePerUnit || item.rate || 0);
+      const deliveryRate = parseFloat(item.deliveryRate || 0);
+      const rate = deliveryRate > 0 ? deliveryRate : parseFloat(item.ratePerUnit || item.rate || 0);
       const productName = item.productName || item.description || '';
       const isFreightItem = productName.toLowerCase().includes('freight');
       if (isFreightItem) return sum; // No GST on freight
@@ -651,7 +660,9 @@ export const generateSalesOrderHtml = (invoice: any, stampBase64: string = ''): 
     let rows = '';
     items.forEach((item: any) => {
       const qty = parseFloat(item.quantity || 0);
-      const rate = parseFloat(item.ratePerUnit || item.rate || 0);
+      const deliveryRate = parseFloat(item.deliveryRate || 0);
+      const baseRate = parseFloat(item.ratePerUnit || item.rate || 0);
+      const rate = deliveryRate > 0 ? deliveryRate : baseRate;
       const amount = parseFloat(item.taxableAmount || item.grossAmount || 0) || (qty * rate);
       const productName = item.productName || item.description || 'BITUMEN VG-30 PHONEIX EMBOSSED';
       const isFreightItem = productName.toLowerCase().includes('freight');
@@ -840,7 +851,7 @@ export const generateSalesOrderHtml = (invoice: any, stampBase64: string = ''): 
               <th style="width: 25%; font-weight: bold;"><strong>Item #</strong></th>
               <th style="width: 8%; font-weight: bold;"><strong>Qty</strong></th>
               <th style="width: 8%; font-weight: bold;"><strong>Unit</strong></th>
-              <th style="width: 12%; font-weight: bold;"><strong>Ex Factory Rate</strong></th>
+              <th style="width: 12%; font-weight: bold;"><strong>${hasDeliveryRate ? 'Delivery Rate' : 'Ex Factory Rate'}</strong></th>
               <th style="width: 15%; font-weight: bold;"><strong>Amount(₹)</strong></th>
               <th style="width: 15%; font-weight: bold;"><strong>GST@${gstRate}%(₹)</strong></th>
               <th style="width: 17%; font-weight: bold;"><strong>Total Amount(₹)</strong></th>

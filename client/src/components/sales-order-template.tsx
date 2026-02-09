@@ -22,6 +22,7 @@ interface SalesOrderData {
     quantity: number;
     unit: string;
     rate: number;
+    deliveryRate?: number;
     amount: number;
     gstRate?: number;
     gstAmount?: number;
@@ -362,8 +363,17 @@ export const generateBitumenSalesOrderPDF = async (salesOrderData: SalesOrderDat
 
   // ===================== ITEMS TABLE =====================
   const tableWidth = pageWidth - 2 * margin;
-  const colWidths = [25, 15, 15, 25, 25, 25, 25]; // Item #, Qty, Unit, Ex Factory Rate, Amount(₹), GST@18%(₹), Total Amount(₹)
-  const headers = ['Item #', 'Qty', 'Unit', 'Ex Factory Rate', 'Amount(₹)', 'GST@18%(₹)', 'Total Amount(₹)'];
+  
+  // Check if any item has delivery rate - if yes, use delivery rate column; if no, use factory rate
+  const hasDeliveryRate = salesOrderData.items?.some((item: any) => item.deliveryRate && parseFloat(String(item.deliveryRate)) > 0);
+  
+  const colWidths = hasDeliveryRate 
+    ? [25, 15, 15, 25, 25, 25, 25]  // With Delivery Rate column
+    : [25, 15, 15, 25, 25, 25, 25]; // With Factory Rate column
+    
+  const headers = hasDeliveryRate
+    ? ['Item #', 'Qty', 'Unit', 'Delivery Rate', 'Amount(₹)', 'GST@18%(₹)', 'Total Amount(₹)']
+    : ['Item #', 'Qty', 'Unit', 'Ex Factory Rate', 'Amount(₹)', 'GST@18%(₹)', 'Total Amount(₹)'];
   
   // Table Header
   doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
@@ -371,26 +381,28 @@ export const generateBitumenSalesOrderPDF = async (salesOrderData: SalesOrderDat
   
   let colX = margin;
   headers.forEach((header, i) => {
-    doc.rect(colX, currentY, colWidths[i], 5, 'S'); // Further reduced from 6
-    doc.setFontSize(7); // Further reduced from 8
+    doc.rect(colX, currentY, colWidths[i], 5, 'S');
+    doc.setFontSize(7);
     doc.setFont('helvetica', 'bold');
-    doc.text(header, colX + colWidths[i] / 2, currentY + 3.5, { align: 'center' }); // Adjusted position
+    doc.text(header, colX + colWidths[i] / 2, currentY + 3.5, { align: 'center' });
     colX += colWidths[i];
   });
 
-  currentY += 5; // Further reduced from 6
+  currentY += 5;
   const tableStartY = currentY;
 
   // Table Content
-  doc.setFont('helvetica', 'bold'); // Make all content bold
-  doc.setFontSize(7); // Further reduced from 8
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
 
   let subtotal = 0;
   let totalTax = 0;
 
   salesOrderData.items.forEach((item, index) => {
     const qty = parseFloat(item.quantity.toString()) || 0;
-    const rate = parseFloat(item.rate.toString()) || 0;
+    const deliveryRate = parseFloat(item.deliveryRate?.toString() || 0) || 0;
+    const baseRate = parseFloat(item.rate.toString()) || 0;
+    const rate = hasDeliveryRate && deliveryRate > 0 ? deliveryRate : baseRate; // Use appropriate rate
     const amount = qty * rate;
     const taxRate = item.gstRate || 18;
     const taxAmount = amount * (taxRate / 100);
@@ -401,7 +413,7 @@ export const generateBitumenSalesOrderPDF = async (salesOrderData: SalesOrderDat
     // Draw cells
     colX = margin;
     colWidths.forEach((width) => {
-      doc.rect(colX, currentY, width, 6, 'S'); // Further reduced from 8
+      doc.rect(colX, currentY, width, 6, 'S');
       colX += width;
     });
 
@@ -418,11 +430,11 @@ export const generateBitumenSalesOrderPDF = async (salesOrderData: SalesOrderDat
     ];
 
     rowData.forEach((data, i) => {
-      doc.text(data, colX + colWidths[i] / 2, currentY + 4, { align: 'center' }); // Adjusted position
+      doc.text(data, colX + colWidths[i] / 2, currentY + 4, { align: 'center' });
       colX += colWidths[i];
     });
 
-    currentY += 6; // Further reduced from 8
+    currentY += 6;
   });
 
   // Empty rows if needed (minimum 3 rows)

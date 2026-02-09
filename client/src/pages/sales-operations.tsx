@@ -2620,7 +2620,7 @@ function QuotationSection() {
   const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
   const [editingQuotationId, setEditingQuotationId] = useState<string | null>(null);
   const [quotationItems, setQuotationItems] = useState([
-    { productId: "", quantity: 0, unit: "", rate: 0, amount: 0 }
+    { productId: "", quantity: 0, unit: "", rate: 0, deliveryRate: 0, amount: 0 }
   ]);
   const [selectedClient, setSelectedClient] = useState("");
   const [clientType, setClientType] = useState<"lead" | "client">("client");
@@ -2648,6 +2648,11 @@ function QuotationSection() {
 
   const { data: quotations = [], refetch: refetchQuotations, error: quotationsError } = useQuery({
     queryKey: ["/api/quotations"],
+    queryFn: async () => {
+      const response = await fetch("/api/quotations", { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch quotations");
+      return response.json();
+    },
     retry: false,
     onError: (error) => {
       console.error("🔴 QUOTATIONS FETCH ERROR:", error);
@@ -2754,24 +2759,28 @@ function QuotationSection() {
       if (selectedProduct) {
         updatedItems[index].unit = selectedProduct.unit || "";
         updatedItems[index].rate = parseFloat(selectedProduct.rate) || 0;
+        updatedItems[index].deliveryRate = 0; // Reset delivery rate when product changes
         // Auto-calculate amount
         const quantity = updatedItems[index].quantity || 0;
         updatedItems[index].amount = quantity * (parseFloat(selectedProduct.rate) || 0);
       }
     }
     
-    // Auto-calculate amount when quantity or rate changes
-    if (field === 'quantity' || field === 'rate') {
+    // Auto-calculate amount when quantity, rate, or deliveryRate changes
+    if (field === 'quantity' || field === 'rate' || field === 'deliveryRate') {
       const quantity = field === 'quantity' ? parseFloat(value) || 0 : updatedItems[index].quantity;
-      const rate = field === 'rate' ? parseFloat(value) || 0 : updatedItems[index].rate;
-      updatedItems[index].amount = quantity * rate;
+      const deliveryRate = field === 'deliveryRate' ? parseFloat(value) || 0 : updatedItems[index].deliveryRate || 0;
+      const rate = field === 'rate' ? parseFloat(value) || 0 : updatedItems[index].rate || 0;
+      // Use delivery rate if provided, otherwise use regular rate
+      const effectiveRate = deliveryRate > 0 ? deliveryRate : rate;
+      updatedItems[index].amount = quantity * effectiveRate;
     }
     
     setQuotationItems(updatedItems);
   };
 
   const addQuotationItem = () => {
-    setQuotationItems([...quotationItems, { productId: "", quantity: 0, unit: "", rate: 0, amount: 0 }]);
+    setQuotationItems([...quotationItems, { productId: "", quantity: 0, unit: "", rate: 0, deliveryRate: 0, amount: 0 }]);
   };
 
   const removeQuotationItem = (index: number) => {
@@ -2827,7 +2836,7 @@ function QuotationSection() {
     setDeliveryTerms("");
     setDescription("");
     setSalesPersonId("");
-    setQuotationItems([{ productId: "", quantity: 0, unit: "", rate: 0, amount: 0 }]);
+    setQuotationItems([{ productId: "", quantity: 0, unit: "", rate: 0, deliveryRate: 0, amount: 0 }]);
     setEditingQuotationId(null); // Reset editing mode
     setIsQuotationDialogOpen(true);
   };
@@ -2887,6 +2896,7 @@ function QuotationSection() {
         quantity: item.quantity,
         unit: item.unit,
         unitPrice: item.rate,
+        deliveryRate: item.deliveryRate || 0,
         totalPrice: item.amount,
         taxRate: 18,
         taxAmount: item.amount * 0.18,
@@ -3089,6 +3099,7 @@ M/S SRI HM BITUMEN CO`;
       quantity: parseFloat(item.quantity || 0),
       unit: item.unit || "Nos",
       rate: parseFloat(item.unitPrice || item.rate || 0),
+      deliveryRate: parseFloat(item.deliveryRate || 0),
       amount: parseFloat(item.totalPrice || item.amount || 0)
     })) || [];
     
@@ -3509,6 +3520,7 @@ M/S SRI HM BITUMEN CO`;
             quantity: parseFloat(item.quantity || 1),
             unit: item.unit || 'Nos',
             rate: parseFloat(item.unitPrice || item.rate || 0),
+            deliveryRate: parseFloat(item.deliveryRate || 0),
             amount: amount,
             gstRate: gstRate,
             gstAmount: gstAmount,
@@ -3621,6 +3633,12 @@ M/S SRI HM BITUMEN CO`;
         <CardDescription>Multi-level approvals, competitive pricing, and quote management</CardDescription>
       </CardHeader>
       <CardContent>
+        {quotationsError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700">
+            Error loading quotations: {quotationsError?.message}
+          </div>
+        )}
+        {console.log("🔍 Quotations in render:", quotations?.length || 0, quotations)}
         {(quotations as any[]).length > 0 ? (
           <div>
             <div className="flex justify-between items-center mb-4">
@@ -3980,18 +3998,19 @@ M/S SRI HM BITUMEN CO`;
 
             <div className="border rounded-lg p-4">
               <h4 className="font-medium mb-3">Quotation Items</h4>
-              <div className="grid grid-cols-12 gap-2 text-xs font-medium mb-2">
-                <div className="col-span-3">Product/Service</div>
-                <div className="col-span-2">Quantity</div>
-                <div className="col-span-2">Unit</div>
-                <div className="col-span-2">Rate (₹)</div>
-                <div className="col-span-2">Amount (₹)</div>
-                <div className="col-span-1">Action</div>
+              <div className="grid gap-2 text-xs font-medium mb-2" style={{ gridTemplateColumns: "repeat(8, 1fr)" }}>
+                <div>Product/Service</div>
+                <div>Quantity</div>
+                <div>Unit</div>
+                <div>Rate (₹)</div>
+                <div>Delivery Rate (₹)</div>
+                <div>Amount (₹)</div>
+                <div></div>
               </div>
               
               {quotationItems.map((item, index) => (
-                <div key={index} className="grid grid-cols-12 gap-2 mb-2">
-                  <div className="col-span-3">
+                <div key={index} className="grid gap-2 mb-2" style={{ gridTemplateColumns: "repeat(8, 1fr)" }}>
+                  <div>
                     <Select 
                       value={item.productId} 
                       onValueChange={(value) => updateQuotationItem(index, 'productId', value)}
@@ -4014,7 +4033,7 @@ M/S SRI HM BITUMEN CO`;
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="col-span-2">
+                  <div>
                     <Input 
                       className="h-8" 
                       type="number"
@@ -4023,7 +4042,7 @@ M/S SRI HM BITUMEN CO`;
                       placeholder="0" 
                     />
                   </div>
-                  <div className="col-span-2">
+                  <div>
                     <Select 
                       value={item.unit} 
                       onValueChange={(value) => updateQuotationItem(index, 'unit', value)}
@@ -4040,7 +4059,7 @@ M/S SRI HM BITUMEN CO`;
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="col-span-2">
+                  <div>
                     <Input 
                       className="h-8" 
                       type="number"
@@ -4050,7 +4069,17 @@ M/S SRI HM BITUMEN CO`;
                       placeholder="0.00" 
                     />
                   </div>
-                  <div className="col-span-2">
+                  <div>
+                    <Input 
+                      className="h-8" 
+                      type="number"
+                      step="0.01"
+                      value={item.deliveryRate || ""} 
+                      onChange={(e) => updateQuotationItem(index, 'deliveryRate', e.target.value)}
+                      placeholder="0.00" 
+                    />
+                  </div>
+                  <div>
                     <Input 
                       className="h-8" 
                       value={parseFloat(String(item.amount || "0")).toFixed(2)} 
@@ -4058,7 +4087,7 @@ M/S SRI HM BITUMEN CO`;
                       placeholder="0.00"
                     />
                   </div>
-                  <div className="col-span-1">
+                  <div>
                     {quotationItems.length > 1 && (
                       <Button 
                         variant="outline" 
@@ -4559,7 +4588,7 @@ M/S SRI HM BITUMEN CO`;
 
   const handleDownloadSalesOrderPDF = async (salesOrder: any) => {
     try {
-      // Get related quotation for items
+      // Get related quotation for items and other details
       const quotation = (quotations as any[])?.find((q: any) => q.id === salesOrder.quotationId);
       
       // Get client details
@@ -4603,8 +4632,11 @@ M/S SRI HM BITUMEN CO`;
         // Items from quotation
         items: (quotation?.items || []).map((item: any) => {
           const qty = parseFloat(item.quantity || 1);
+          const deliveryRate = parseFloat(item.deliveryRate || 0);
           const rate = parseFloat(item.unitPrice || item.rate || 0);
-          const amount = qty * rate;
+          // Use delivery rate if provided, otherwise use regular rate
+          const effectiveRate = deliveryRate > 0 ? deliveryRate : rate;
+          const amount = qty * effectiveRate;
           // Check if this is a freight item
           const productDescription = item.description || item.productName || 'Product Item';
           const isFreightItem = productDescription.toLowerCase().includes('freight');
@@ -4616,8 +4648,9 @@ M/S SRI HM BITUMEN CO`;
             quantity: qty,
             unitOfMeasurement: item.unit || 'MT',
             unit: item.unit || 'MT',
-            ratePerUnit: rate,
-            rate: rate,
+            ratePerUnit: effectiveRate,
+            rate: effectiveRate,
+            deliveryRate: deliveryRate,
             grossAmount: amount,
             taxableAmount: amount,
             cgstRate: isFreightItem ? 0 : 9,
@@ -4637,8 +4670,10 @@ M/S SRI HM BITUMEN CO`;
           // Only include non-freight items in subtotal
           if (isFreightItem) return sum;
           const qty = parseFloat(item.quantity || 1);
+          const deliveryRate = parseFloat(item.deliveryRate || 0);
           const rate = parseFloat(item.unitPrice || item.rate || 0);
-          return sum + (qty * rate);
+          const effectiveRate = deliveryRate > 0 ? deliveryRate : rate;
+          return sum + (qty * effectiveRate);
         }, 0),
         cgstAmount: (quotation?.items || []).reduce((sum: number, item: any) => {
           const productDescription = item.description || item.productName || 'Product Item';
@@ -4646,8 +4681,10 @@ M/S SRI HM BITUMEN CO`;
           // Only apply GST to non-freight items
           if (isFreightItem) return sum;
           const qty = parseFloat(item.quantity || 1);
+          const deliveryRate = parseFloat(item.deliveryRate || 0);
           const rate = parseFloat(item.unitPrice || item.rate || 0);
-          return sum + ((qty * rate) * 0.09);
+          const effectiveRate = deliveryRate > 0 ? deliveryRate : rate;
+          return sum + ((qty * effectiveRate) * 0.09);
         }, 0),
         sgstAmount: (quotation?.items || []).reduce((sum: number, item: any) => {
           const productDescription = item.description || item.productName || 'Product Item';
@@ -4655,8 +4692,10 @@ M/S SRI HM BITUMEN CO`;
           // Only apply GST to non-freight items
           if (isFreightItem) return sum;
           const qty = parseFloat(item.quantity || 1);
+          const deliveryRate = parseFloat(item.deliveryRate || 0);
           const rate = parseFloat(item.unitPrice || item.rate || 0);
-          return sum + ((qty * rate) * 0.09);
+          const effectiveRate = deliveryRate > 0 ? deliveryRate : rate;
+          return sum + ((qty * effectiveRate) * 0.09);
         }, 0),
         totalInvoiceAmount: parseFloat(salesOrder.totalAmount || 0),
         freightCharges: parseFloat(quotation?.freightCharged || 0),
